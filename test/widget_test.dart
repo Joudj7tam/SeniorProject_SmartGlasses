@@ -5,7 +5,7 @@ import 'package:smartglasses_seniorproject/main.dart';
 void main() {
   testWidgets('ColorChanger widget smoke test', (WidgetTester tester) async {
     // Build the app
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const SmartGlassesApp());
 
     // Verify initial color container is blue
     final containerFinder = find.byType(Container).first;
