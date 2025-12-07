@@ -4,7 +4,13 @@ from database import db
 from datetime import datetime
 
 async def create_notification(notification: dict):
-    notification_dict = notification.dict()
+    
+    if hasattr(notification, "dict"):
+        notification_dict = notification.dict()
+    else:
+        notification_dict = notification
+    
+    # timestamps
     notification_dict["created_at"] = datetime.utcnow()
     notification_dict["updated_at"] = datetime.utcnow()
 
