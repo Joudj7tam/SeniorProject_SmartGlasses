@@ -8,5 +8,6 @@ class NotificationModel(BaseModel):
     message: str
     metric_name: str
     critical_value: float
+    isRead: bool = False
     created_at: Optional[datetime] = datetime.utcnow()
     updated_at: Optional[datetime] = datetime.utcnow()
