@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 
-const String backendBaseUrl = 'http://10.0.2.2:8000';
+const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 class NotificationItem {
   final String id;
@@ -34,7 +34,8 @@ class NotificationItem {
           ? null
           : (json['critical_value'] as num).toDouble(),
       isRead: json['isRead'] as bool? ?? false,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
     );
   }
@@ -78,10 +79,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
 
-        final items = data
-            .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
-            .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final items =
+            data
+                .map(
+                  (e) => NotificationItem.fromJson(e as Map<String, dynamic>),
+                )
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         setState(() {
           _notifications
@@ -109,8 +113,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // ------------------ API: DELETE (singlr delete) ------------------
   Future<void> _deleteNotification(NotificationItem item) async {
-    final uri =
-        Uri.parse('$backendBaseUrl/api/notifications/${item.id}');
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}');
 
     try {
       final response = await http.delete(uri);
@@ -123,17 +126,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text('Failed to delete (code: ${response.statusCode})'),
+            content: Text('Failed to delete (code: ${response.statusCode})'),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error while deleting: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error while deleting: $e')));
     }
   }
 
@@ -145,8 +145,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return;
     }
 
-    final uri = Uri.parse(
-        '$backendBaseUrl/api/notifications/${item.id}/read');
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}/read');
 
     try {
       final response = await http.patch(
@@ -163,16 +162,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Failed to mark as read (code: ${response.statusCode})'),
+              'Failed to mark as read (code: ${response.statusCode})',
+            ),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error while updating: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error while updating: $e')));
     }
   }
 
@@ -224,8 +222,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       for (final id in ids) {
-        final uri =
-            Uri.parse('$backendBaseUrl/api/notifications/$id');
+        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id');
         final response = await http.delete(uri);
         if (response.statusCode == 200) {
           _notifications.removeWhere((n) => n.id == id);
@@ -238,9 +235,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error while deleting selected: $e'),
-        ),
+        SnackBar(content: Text('Error while deleting selected: $e')),
       );
     } finally {
       if (mounted) {
@@ -263,16 +258,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       for (final id in ids) {
-        final uri =
-            Uri.parse('$backendBaseUrl/api/notifications/$id/read');
+        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id/read');
         final response = await http.patch(
           uri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'isRead': true}),
         );
         if (response.statusCode == 200) {
-          final item =
-              _notifications.firstWhere((n) => n.id == id, orElse: () => _notifications.first);
+          final item = _notifications.firstWhere(
+            (n) => n.id == id,
+            orElse: () => _notifications.first,
+          );
           item.isRead = true;
         }
       }
@@ -283,9 +279,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error while updating selected: $e'),
-        ),
+        SnackBar(content: Text('Error while updating selected: $e')),
       );
     } finally {
       if (mounted) {
@@ -329,10 +323,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         title: const Text(
           'Notifications',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
         ),
         centerTitle: true,
         elevation: 0,
@@ -400,19 +391,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 children: [
                   // Read (يسار)
                   TextButton.icon(
-                    onPressed:
-                        _selectedIds.isEmpty ? null : _markSelectedRead,
+                    onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
                     icon: const Icon(Icons.done_all),
                     label: const Text('Read'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _accent,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: _accent),
                   ),
                   const Spacer(),
                   // Delete (يمين)
                   TextButton.icon(
-                    onPressed:
-                        _selectedIds.isEmpty ? null : _deleteSelected,
+                    onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Delete'),
                     style: TextButton.styleFrom(
@@ -438,10 +425,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-              ),
+              child: Text(_errorMessage!, textAlign: TextAlign.center),
             ),
           ),
           const SizedBox(height: 16),
@@ -488,9 +472,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: item.isRead
-                  ? Colors.white
-                  : const Color(0xFFFFFDF8),
+              color: item.isRead ? Colors.white : const Color(0xFFFFFDF8),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -509,8 +491,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     selected
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked,
-                    color:
-                        selected ? _accent : Colors.black26,
+                    color: selected ? _accent : Colors.black26,
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -519,10 +500,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     leading: CircleAvatar(
                       radius: 22,
                       backgroundColor: const Color(0xFFCBF3F0),
-                      child: Icon(
-                        _metricIcon(item.metricName),
-                        color: _accent,
-                      ),
+                      child: Icon(_metricIcon(item.metricName), color: _accent),
                     ),
                     title: Text(
                       item.title,
@@ -531,9 +509,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         fontWeight: item.isRead
                             ? FontWeight.w400
                             : FontWeight.w600,
-                        color: item.isRead
-                            ? Colors.black54
-                            : Colors.black87,
+                        color: item.isRead ? Colors.black54 : Colors.black87,
                       ),
                     ),
                     subtitle: Column(
