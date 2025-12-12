@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'notifications_page.dart';
 import 'smart_bottom_nav.dart';
 
-void main() {
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+const String backendBaseUrl = 'http://10.0.2.2:8000';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // لازم نهيئ Firebase هنا
+  await Firebase.initializeApp();
+  // تقدروا لاحقًا تضيفون لوجيك زيادة (تخزين، log, ...الخ)
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const SmartGlassesApp());
 }
+
 
 class SmartGlassesApp extends StatelessWidget {
   const SmartGlassesApp({super.key});
@@ -36,6 +54,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // ✅ أضفنا initState هنا
+  @override
+  void initState() {
+    super.initState();
+    _initFirebaseMessaging(); // نستدعي التهيئة أول ما تفتح الصفحة
+  }
+
   int _selectedIndex = 2; // الافتراضي: progress في النص
 
   // قيم تجريبية فقط (لما تجي الداتا من الحساس نغرها)
@@ -48,11 +73,93 @@ class _HomePageState extends State<HomePage> {
   bool _wifiOn = true;
   bool _isDarkMode = false; // حالياً بس بنبدّل الأيقونة (بدون ثيم كامل)
 
+  // ✅ ترسل الإشعار اللي جا من FCM إلى الباكند عشان ينحفظ في MongoDB
+  Future<void> _sendNotificationToBackend(RemoteMessage message) async {
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/add');
+
+    final notification = message.notification;
+    final data = message.data;
+
+    // نقرأ قيم إضافية من data (لو حطيتيها في Firebase Console)
+    final metricName = data['metric_name'] ?? data['metricName'] ?? 'general';
+
+    final criticalValueStr =
+        (data['critical_value'] ?? data['criticalValue'])?.toString();
+    final criticalValue = double.tryParse(criticalValueStr ?? '') ?? 0.0;
+
+    // TODO: لاحقاً نربط userId بالمستخدم الحقيقي
+    final body = {
+      'userId': data['userId'] ?? 'sarah_001',
+      'title': notification?.title ?? data['title'] ?? 'Notification',
+      'message': notification?.body ?? data['message'] ?? '',
+      'metric_name': metricName,
+      'critical_value': criticalValue,
+      'isRead': false,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      debugPrint(
+          'Backend save response: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      debugPrint('Error sending notification to backend: $e');
+    }
+  }
+
+
+    // ✅ دالة تهيئة Firebase Messaging
+    Future<void> _initFirebaseMessaging() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    // طلب إذن الإشعارات
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // جلب FCM token وطباعة في الكونسول
+    String? token = await messaging.getToken();
+    debugPrint('FCM TOKEN: $token');
+
+    // ✅ التطبيق مفتوح (foreground)
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint('💌 رسالة جديدة في foreground: ${message.notification?.title}');
+      await _sendNotificationToBackend(message);
+    });
+
+    // ✅ المستخدم ضغط على الإشعار والتطبيق كان في الخلفية
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+      debugPrint('📬 User tapped notification: ${message.notification?.title}');
+      await _sendNotificationToBackend(message);
+      _openNotifications(); // نودّيه مباشرة لصفحة الإشعارات
+    });
+
+    // ✅ حالة: التطبيق كان مقفول وفتح مباشرة من الإشعار
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      debugPrint(
+          '🚀 App opened from terminated state by notification: ${initialMessage.notification?.title}');
+      await _sendNotificationToBackend(initialMessage);
+      // نستخدم Future.microtask عشان نضمن إن الـ context جاهز
+      Future.microtask(() {
+        _openNotifications();
+      });
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
+
 
   Color _iconColor(int index) {
     return _selectedIndex == index

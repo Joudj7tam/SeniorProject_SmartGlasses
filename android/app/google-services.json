@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "841984844090",
+    "project_id": "smartglasses-bf573",
+    "storage_bucket": "smartglasses-bf573.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:841984844090:android:a37c892369953483c2b003",
+        "android_client_info": {
+          "package_name": "com.example.smartglasses_seniorproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnqAOjFonk8kAibsnKRifAMCY-RgIUVUc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

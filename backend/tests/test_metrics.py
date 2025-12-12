@@ -1,7 +1,6 @@
 # ==========================================================
 # test_metrics.py
 # Unit tests for MetricsEngine
-# Each test corresponds to a test case in the report
 # ==========================================================
 
 import time

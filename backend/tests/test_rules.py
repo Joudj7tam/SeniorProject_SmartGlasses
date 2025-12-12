@@ -1,6 +1,6 @@
 # ==========================================================
-# test_rules.py  (UPDATED)
-# Unit tests for the Rules Engine with metric_name checking
+# test_rules.py
+# Unit tests for the Rules Engine
 # ==========================================================
 
 import pytest
