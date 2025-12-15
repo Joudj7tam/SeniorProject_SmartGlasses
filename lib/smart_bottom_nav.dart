@@ -1,6 +1,11 @@
 // smart_bottom_nav.dart
 import 'package:flutter/material.dart';
 
+/// Shared bottom navigation bar used across screens.
+///
+/// Maintainability note:
+/// - Keep UI-only.
+/// - Navigation decisions should remain in the parent widget via onItemTap.
 class SmartBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onItemTap;
@@ -35,7 +40,7 @@ class SmartBottomNav extends StatelessWidget {
         height: 68,
         child: Row(
           children: [
-            // اليسار: Home + Settings
+            // Home + Settings
             Expanded(
               flex: 2,
               child: Row(
@@ -66,8 +71,8 @@ class SmartBottomNav extends StatelessWidget {
                 ],
               ),
             ),
-
-            // الوسط: Progress تحت الدائرة
+            
+            //progress
             Expanded(
               flex: 1,
               child: Column(
@@ -83,7 +88,7 @@ class SmartBottomNav extends StatelessWidget {
               ),
             ),
 
-            // اليمين: Alerts + Tips
+            // Alerts + Tips
             Expanded(
               flex: 2,
               child: Row(

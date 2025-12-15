@@ -2,9 +2,19 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
-
+import 'dart:io';
+/// Base URL for the backend API.
+///
+/// Notes:
+/// - Android Emulator uses 10.0.2.2 to access host machine localhost.
+/// - Keep this in one place to avoid hard-coded URLs across the app.
+/// - Consider moving it to a config file (e.g., lib/config/app_config.dart).
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
+/// Local UI model for a notification row.
+///
+/// Maintainability note:
+/// - Keep it aligned with backend response fields.
 class NotificationItem {
   final String id;
   final String title;
@@ -65,7 +75,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _loadNotifications();
   }
 
+/// Maps low-level exceptions to user-friendly messages.
+/// Keeps UI text consistent and avoids leaking raw technical errors.
+  String _friendlyErrorMessage(Object e) {
+  
+    if (e is SocketException) {
+      return 'Cannot connect to the server. Please check your internet connection or make sure the backend is running.';
+    }
+
+    if (e is HttpException) {
+      return 'Server error occurred. Please try again later.';
+    }
+
+    return 'Something went wrong while loading notifications. Please try again.';
+}
+
+
   // ------------------ API: GET ------------------
+  /// Fetches notifications from backend and updates local state.
+  /// Flow:
+  /// 1) GET /api/notifications/
+  /// 2) decode JSON -> NotificationItem list
+  /// 3) sort by createdAt DESC
   Future<void> _loadNotifications() async {
     setState(() {
       _isLoading = true;
@@ -98,11 +129,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
               'Failed to load notifications (code: ${response.statusCode})';
         });
       }
+    
     } catch (e) {
+      debugPrint('Load notifications error: $e'); 
       setState(() {
-        _errorMessage = 'Error while loading notifications: $e';
+        _errorMessage = _friendlyErrorMessage(e);
       });
-    } finally {
+      } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -139,8 +172,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // ------------------ API: PATCH (single) ------------------
   Future<void> _markNotificationRead(NotificationItem item) async {
-    if (item.isRead) {
-      // لو مقروء بالفعل فقط حدّث الواجهة في حالة الـ selection
+    if (item.isRead) {      
       setState(() {});
       return;
     }
@@ -210,7 +242,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   bool _isSelected(NotificationItem item) => _selectedIds.contains(item.id);
 
-  // حذف جميع المحدد
+  // delete all selected item
   Future<void> _deleteSelected() async {
     if (_selectedIds.isEmpty) return;
 
@@ -246,7 +278,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  // Mark as read لكل المحدد
+  // Mark as read for all selected 
   Future<void> _markSelectedRead() async {
     if (_selectedIds.isEmpty) return;
 
@@ -372,7 +404,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: _buildBody(),
       ),
 
-      // 🔻 الشريط السفلي يظهر فقط في وضع الاختيار
+      // When press "Select" 
       bottomNavigationBar: _selectionMode
           ? Container(
               height: 56,
@@ -389,7 +421,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
               child: Row(
                 children: [
-                  // Read (يسار)
+                  // Read 
                   TextButton.icon(
                     onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
                     icon: const Icon(Icons.done_all),
@@ -397,7 +429,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     style: TextButton.styleFrom(foregroundColor: _accent),
                   ),
                   const Spacer(),
-                  // Delete (يمين)
+                  // Delete 
                   TextButton.icon(
                     onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
                     icon: const Icon(Icons.delete_outline),
@@ -542,12 +574,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         );
 
-        // في وضع الاختيار: بلا سوايب
+       
         if (_selectionMode) {
           return tile;
         }
-
-        // في الوضع العادي: سلايد مع Read/Delete لكل عنصر
+        
         return Slidable(
           key: ValueKey(item.id),
           endActionPane: ActionPane(

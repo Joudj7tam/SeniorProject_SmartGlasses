@@ -5,15 +5,22 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'notifications_page.dart';
 import 'smart_bottom_nav.dart';
 
+/// Background handler for FCM messages.
+///
+/// Notes:
+/// - Must call Firebase.initializeApp() here because this runs in a background isolate.
+/// - Keep logic lightweight; heavy work should be deferred or handled by backend.
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // لازم نهيئ Firebase هنا
   await Firebase.initializeApp();
-  // تقدروا لاحقًا تضيفون لوجيك زيادة (تخزين، log, ...الخ)
+    // Optional: persist/log message data for debugging or analytics.
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Firebase once at app startup.
   await Firebase.initializeApp();
+  
+  // Register background handler before runApp.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const SmartGlassesApp());
 }
@@ -39,7 +46,12 @@ class SmartGlassesApp extends StatelessWidget {
     );
   }
 }
-
+/// Home page which shows a quick overview and listens to notification events.
+///
+/// Maintainability note:
+/// - If this file grows, extract:
+///   1) Firebase messaging setup -> services/notification_service.dart
+///   2) Cards/widgets -> widgets/ folder
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -48,16 +60,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // ✅ أضفنا initState هنا
+  
   @override
   void initState() {
     super.initState();
-    _initFirebaseMessaging(); // نستدعي التهيئة أول ما تفتح الصفحة
+    _initFirebaseMessaging();
   }
 
-  int _selectedIndex = 2; // الافتراضي: progress في النص
-
-  // قيم تجريبية فقط (لما تجي الداتا من الحساس نغرها)
+  int _selectedIndex = 2; 
+  // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
   final double _demoBrightness = 0.65; // من 0 إلى 1
   final double _demoDryness = 0.35; // من 0 إلى 1
@@ -65,39 +76,46 @@ class _HomePageState extends State<HomePage> {
   // للحالة حق قائمة الأكشنات العلوية
   bool _showQuickActions = false;
   bool _wifiOn = true;
-  bool _isDarkMode = false; // حالياً بس بنبدّل الأيقونة (بدون ثيم كامل)
+  bool _isDarkMode = false; 
 
-  // ✅ دالة تهيئة Firebase Messaging
+  /// Initializes Firebase Cloud Messaging (permissions + token + event listeners).
+  ///
+  /// Maintainability note:
+  /// - Keep all FCM wiring here (or move to a dedicated service later).
+  /// - Ensure we handle all three app states:
+  ///   1) foreground (onMessage)
+  ///   2) background -> user taps (onMessageOpenedApp)
+  ///   3) terminated -> opened by notification (getInitialMessage)
   Future<void> _initFirebaseMessaging() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    // طلب إذن الإشعارات
+    // Request notification permissions (iOS + Android 13+ behavior).
     await messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    // جلب FCM token وطباعة في الكونسول
+    // Print token for backend registration/testing.
     String? token = await messaging.getToken();
     debugPrint('FCM TOKEN: $token');
 
-    // ✅ التطبيق مفتوح (foreground)
+    // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint(
-        '💌 رسالة جديدة في foreground: ${message.notification?.title}',
+        ' رسالة جديدة في foreground: ${message.notification?.title}',
       );
     });
 
-    // ✅ المستخدم ضغط على الإشعار والتطبيق كان في الخلفية
+    // App is in background and opened by user tapping notification.
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('📬 User tapped notification: ${message.notification?.title}');
       _openNotifications(); // نودّيه مباشرة لصفحة الإشعارات
     });
 
-    // ✅ حالة: التطبيق كان مقفول وفتح مباشرة من الإشعار
+    // App was terminated and opened via notification tap.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       debugPrint(
-        '🚀 App opened from terminated state by notification: ${initialMessage.notification?.title}',
+        ' App opened from terminated state by notification: ${initialMessage.notification?.title}',
       );
-      // نستخدم Future.microtask عشان نضمن إن الـ context جاهز
+      
       Future.microtask(() {
         _openNotifications();
       });
@@ -112,7 +130,7 @@ class _HomePageState extends State<HomePage> {
 
   Color _iconColor(int index) {
     return _selectedIndex == index
-        ? const Color(0xFF2EC4B6) // لون مميز للآيتم المختار
+        ? const Color(0xFF2EC4B6) // selected item
         : Colors.black45;
   }
 
@@ -151,17 +169,17 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+ /// UI-only mode toggle. If you later implement real theming,
+  /// connect it to MaterialApp.themeMode.
   void _toggleMode() {
     setState(() {
       _isDarkMode = !_isDarkMode;
-    });
-    // لاحقاً نقدر نربطها مع ThemeMode في الـ MaterialApp
+    });    
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // ================== الجسم (الهيدر + المحتوى) داخل Stack عشان الأوفرلاي ==================
+    return Scaffold(      
       body: Stack(
         children: [
           SafeArea(
@@ -170,23 +188,22 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ====== الهيدر ======
+                  // ====== header ======
                   Row(
                     children: [
                       const CircleAvatar(
                         radius: 24,
-                        backgroundColor: Color(0xFFCBF3F0), // #cbf3f0
+                        backgroundColor: Color(0xFFCBF3F0), 
                         child: Icon(
                           Icons.person,
                           size: 28,
-                          color: Color(0xFF2EC4B6), // #2ec4b6
+                          color: Color(0xFF2EC4B6), 
                         ),
                       ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // السطر الصغير: Good morning / Good evening
+                        children: [                          
                           Text(
                             _greeting(),
                             style: const TextStyle(
@@ -195,7 +212,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          // السطر الأكبر: الاسم
+                          
                           const Text(
                             'Sarah Ahmed',
                             style: TextStyle(
@@ -261,7 +278,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // ====== الأوفرلاي حق الثلاث دوائر (Edit / Wi-Fi / Mode) ======
+          // ====== (Edit / Wi-Fi / Mode) circles ======
           if (_showQuickActions) _buildQuickActionsOverlay(),
         ],
       ),
@@ -276,7 +293,7 @@ class _HomePageState extends State<HomePage> {
         child: Icon(Icons.show_chart, color: _iconColor(2)),
       ),
 
-      // ================== الـ Bottom Bar (مشترك) ==================
+      // ================== Bottom Bar ==================
       bottomNavigationBar: SmartBottomNav(
         selectedIndex: _selectedIndex,
         onItemTap: (index) {
@@ -291,17 +308,17 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================== الأوفرلاي ==================
+  /// Quick actions overlay (Edit / Wi-Fi / Mode).
+  /// Keep this UI separate from business logic; actions should call dedicated methods.  
   Widget _buildQuickActionsOverlay() {
     return Positioned.fill(
       child: Stack(
         children: [
-          // خلفية معتمة
           GestureDetector(
             onTap: _toggleQuickActions,
             child: Container(color: Colors.black.withOpacity(0.25)),
           ),
-          // زر الإغلاق
+          // close button
           Positioned(
             top: 20,
             right: 20,
@@ -323,26 +340,26 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Edit – مائلة شوي لليسار
+                  // Edit 
                   Transform.translate(
                     offset: const Offset(-8, 0),
                     child: _QuickActionBubble(
                       icon: Icons.edit,
                       label: 'Edit',
                       onTap: () {
-                        // حاليًا مافي فنكشن حقيقي
+                        // function
                       },
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Wi-Fi – في النص تقريبًا
+                  // Wi-Fi 
                   _QuickActionBubble(
                     icon: _wifiOn ? Icons.wifi : Icons.wifi_off,
                     label: 'Wi-Fi',
                     onTap: _toggleWifi,
                   ),
                   const SizedBox(height: 12),
-                  // Mode – مائلة شوي لليمين
+                  // Mode 
                   Transform.translate(
                     offset: const Offset(8, 0),
                     child: _QuickActionBubble(
@@ -360,9 +377,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================== Widgets للكروت الثلاثة ==================
+  // Cards (UI only). When real sensor data arrives, drive them via state management.
 
-  // 1) كرت المسافة
+  // 1) Distance Card
   Widget _buildDistanceCard() {
     return _SensorCard(
       title: 'Distance to Screen',
@@ -450,7 +467,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 2) كرت السطوع
+  // 2) Brightness Card
   Widget _buildBrightnessCard() {
     return _SensorCard(
       title: 'Screen Brightness',
@@ -525,7 +542,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 3) كرت جفاف العين
+  // 3) Dryness Card
   Widget _buildDrynessCard() {
     final drynessPercent = (_demoDryness * 100).round();
     String drynessLabel;
@@ -592,7 +609,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// كرت عام نستخدمه لكل الحساسات
+//// Shared UI card for sensor/indicator previews.
 class _SensorCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -644,7 +661,7 @@ class _SensorCard extends StatelessWidget {
   }
 }
 
-// دائرة الأكشن الصغيرة + النص
+/// Small circular button with icon + label used in quick actions overlay.
 class _QuickActionBubble extends StatelessWidget {
   final IconData icon;
   final String label;

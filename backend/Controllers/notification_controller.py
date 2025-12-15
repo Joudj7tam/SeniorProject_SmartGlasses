@@ -1,3 +1,7 @@
+"""
+Purpose:
+    CRUD operations for notifications + optional push delivery via FCM.
+"""
 from fastapi import HTTPException
 from Models.notification_model import NotificationModel
 from database import db
@@ -7,7 +11,15 @@ from firebase.firebase_client import send_push_notification, USER_FCM_TOKEN
 
 
 async def create_notification(notification):
+ """
+    Create a notification in MongoDB and (optionally) send an FCM push.
 
+    Args:
+        notification: NotificationModel or dict payload.
+
+    Returns:
+        API response with created notification data.
+    """
     if hasattr(notification, "dict"):
         notification_dict = notification.dict()
     else:
@@ -48,7 +60,16 @@ async def create_notification(notification):
     }
 
 async def update_notification_read_status(notification_id: str, is_read: bool):
-    """تحديث قيمة isRead لإشعار معيّن"""
+    """
+    Update isRead field for a notification.
+
+    Args:
+        notification_id: MongoDB document id as string.
+        is_read: New read state (True/False).
+
+    Returns:
+        API response with updated notification data.
+    """
 
     try:
         obj_id = ObjectId(notification_id)
@@ -67,7 +88,7 @@ async def update_notification_read_status(notification_id: str, is_read: bool):
     if not updated:
         raise HTTPException(status_code=404, detail="Notification not found")
 
-    # ✅ توحيد التنسيق مع باقي الدوال
+    # توحيد التنسيق مع باقي الدوال
     updated["id"] = str(updated["_id"])
     updated.pop("_id", None)
 
@@ -84,7 +105,9 @@ async def update_notification_read_status(notification_id: str, is_read: bool):
 
 
 async def get_all_notifications():
-    """إرجاع كل الإشعارات (ممكن لاحقًا نضيف فلترة بـ userId)."""
+    """
+    Return all notifications sorted by created_at descending.
+    """
     notifications = []
 
     cursor = db.notifications.find().sort("created_at", -1)
@@ -103,6 +126,9 @@ async def get_all_notifications():
 
 
 async def delete_notification(notification_id: str):
+    """
+    Delete a notification by id.
+    """
     try:
         oid = ObjectId(notification_id)
     except Exception:
