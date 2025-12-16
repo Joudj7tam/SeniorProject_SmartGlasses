@@ -12,7 +12,7 @@ from firebase_admin import credentials, messaging
 
 cred = credentials.Certificate("firebase/serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
-USER_FCM_TOKEN = "d2vLuPaARb2D9PHDPEr3Gh:APA91bFRS4BNmAtGpNah__EyrGEBcvz3K2atJblUm1uVjiSQ79Nb49bs9Kq8eKlchwOxG9UsZygwixVCWwE3sxj56CP_p5ROuSma07hE4OjxzJ27xWQx_Ec"
+USER_FCM_TOKEN = " d2vLuPaARb2D9PHDPEr3Gh:APA91bFRS4BNmAtGpNah__EyrGEBcvz3K2atJblUm1uVjiSQ79Nb49bs9Kq8eKlchwOxG9UsZygwixVCWwE3sxj56CP_p5ROuSma07hE4OjxzJ27xWQx_Ec"
 
 """
     Send a push notification via Firebase Cloud Messaging.

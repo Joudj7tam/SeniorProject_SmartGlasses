@@ -36,7 +36,7 @@ async def remove_notification(notification_id: str):
     return await delete_notification(notification_id)
 
 
-# --------- ✅ جديد: تحديث حالة isRead ---------
+# --------- تحديث حالة isRead ---------
 @router.patch("/{notification_id}/read")
 async def mark_notification_read(notification_id: str, payload: NotificationReadUpdate):
     """
