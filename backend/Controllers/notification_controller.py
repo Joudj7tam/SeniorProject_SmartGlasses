@@ -25,19 +25,20 @@ async def create_notification(notification):
     else:
         notification_dict = notification
 
+    # Timestamps
     now = datetime.utcnow()
     notification_dict["created_at"] = now
     notification_dict["updated_at"] = now
 
+    # Insert into DB
     result = await db.notifications.insert_one(notification_dict)
-
     if not result.inserted_id:
         raise HTTPException(status_code=500, detail="Error inserting notification")
 
     notification_dict["id"] = str(result.inserted_id)
     notification_dict.pop("_id", None)
-    
-    # === Send FCM Push Notification ===
+
+    # Send FCM push notification (best-effort)
     try:
         title = notification_dict.get("title", "Smart Glasses Alert")
         body = notification_dict.get("message", "")
@@ -47,8 +48,8 @@ async def create_notification(notification):
             body,
             {
                 "metric_name": notification_dict.get("metric_name", ""),
-                "critical_value": str(notification_dict.get("critical_value", ""))
-            }
+                "critical_value": str(notification_dict.get("critical_value", "")),
+            },
         )
         print("📨 Push sent to Firebase!")
     except Exception as e:
