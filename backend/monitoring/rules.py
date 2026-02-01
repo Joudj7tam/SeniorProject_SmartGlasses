@@ -15,7 +15,7 @@ from Controllers.notification_controller import create_notification
 USER_ID = "test_user_001"
 
 # --------------------------------------------------------
-# Threshold constants — easy to modify later
+# Threshold constants
 # --------------------------------------------------------
 THRESHOLDS = {
     "DRY_EYE_IBI": 3,        # IBI < 3 seconds → dry eye risk
@@ -160,7 +160,7 @@ async def evaluate_rules(metrics):
             record_cooldown("dry_eye")
 
     # ---------------------------------------------------------
-    # 2) Fatigue (IBI concentration)
+    # 2) Fatigue (IBI concentration) Alerts
     # ---------------------------------------------------------
     if ibi is not None and THRESHOLDS["HIGH_CONCENTRATION_IBI_MIN"] <= ibi <= THRESHOLDS["HIGH_CONCENTRATION_IBI_MAX"]:
         if not is_in_cooldown("fatigue"):
@@ -199,7 +199,7 @@ async def evaluate_rules(metrics):
             record_cooldown("light_high")
 
     # ---------------------------------------------------------
-    # 4) Blue-only (ONLY if no composite was triggered)
+    # 4) Blue-only Alerts
     # ---------------------------------------------------------
     if blue > THRESHOLDS["BLUE_RATIO_HIGH"]:
         if not is_in_cooldown("blue_only"):

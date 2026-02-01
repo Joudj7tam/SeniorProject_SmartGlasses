@@ -144,7 +144,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  // ------------------ API: DELETE (singlr delete) ------------------
+  // ------------------ API: DELETE (single delete) ------------------
   Future<void> _deleteNotification(NotificationItem item) async {
     final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}');
 

@@ -11,7 +11,7 @@ from firebase.firebase_client import send_push_notification, USER_FCM_TOKEN
 
 
 async def create_notification(notification):
- """
+    """
     Create a notification in MongoDB and (optionally) send an FCM push.
 
     Args:
