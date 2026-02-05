@@ -5,6 +5,13 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'notifications_page.dart';
 import 'smart_bottom_nav.dart';
 
+import 'register_page.dart';
+import 'health_form_page.dart';
+import 'login_page.dart';
+
+
+
+
 /// Background handler for FCM messages.
 ///
 /// Notes:
@@ -42,7 +49,16 @@ class SmartGlassesApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: const HomePage(), //############################
+      //home: const LoginPage(),
+
+
+      routes: {
+        '/home': (_) => const HomePage(),
+        '/login': (_) => const LoginPage(),
+        '/health-form': (_) => const HealthFormPage(),
+      },
+
     );
   }
 }
@@ -77,6 +93,12 @@ class _HomePageState extends State<HomePage> {
   bool _showQuickActions = false;
   bool _wifiOn = true;
   bool _isDarkMode = false; 
+
+  // ================= Sub-Accounts  =================
+  final List<String> _subAccounts = ['Sarah Ahmed']; // first = main (demo)
+  int _activeAccountIndex = 0; // 0 = main
+  String get _activeAccountName => _subAccounts[_activeAccountIndex];
+
 
   /// Initializes Firebase Cloud Messaging (permissions + token + event listeners).
   ///
@@ -176,6 +198,183 @@ class _HomePageState extends State<HomePage> {
       _isDarkMode = !_isDarkMode;
     });    
   }
+////////////##########
+void _openProfileMenu() {
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Profiles',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+
+            // List accounts
+            ...List.generate(_subAccounts.length, (i) {
+              final name = _subAccounts[i];
+              final isActive = i == _activeAccountIndex;
+
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFFCBF3F0),
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Color(0xFF2EC4B6)),
+                  ),
+                ),
+                title: Text(name),
+                subtitle: isActive ? const Text('Active') : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isActive)
+                      IconButton(
+                        icon: const Icon(Icons.swap_horiz),
+                        onPressed: () {
+                          setState(() => _activeAccountIndex = i);
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    if (i != 0) // prevent deleting main from here
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _confirmDeleteSubAccount(ctx, i),
+                      ),
+                  ],
+                ),
+                onTap: () {
+                  setState(() => _activeAccountIndex = i);
+                  Navigator.pop(ctx);
+                },
+              );
+            }),
+
+            const SizedBox(height: 6),
+
+            // Add sub-account
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add Sub-Account'),
+                onPressed: () => _createSubAccount(ctx),
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            // Delete main account (FR9) - UI only
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                label: const Text(
+                  'Delete Main Account',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onPressed: () => _confirmDeleteMainAccount(ctx),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
+
+  Navigator.pop(bottomSheetContext); 
+
+  // يفتح Health Form أول
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const HealthFormPage()),
+  );
+
+  // إذا رجع اسم من الفورم → ينشئ الحساب
+  if (result != null && result is String) {
+    setState(() {
+      _subAccounts.add(result);
+      _activeAccountIndex = _subAccounts.length - 1;
+    });
+  }
+}
+
+Future<void> _confirmDeleteSubAccount(BuildContext bottomSheetContext, int index) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Sub-Account'),
+      content: Text('Delete "${_subAccounts[index]}"?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  setState(() {
+    _subAccounts.removeAt(index);
+    if (_activeAccountIndex == index) _activeAccountIndex = 0;
+    if (_activeAccountIndex > _subAccounts.length - 1) _activeAccountIndex = 0;
+  });
+
+  Navigator.pop(bottomSheetContext); // close sheet after delete
+}
+
+Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Main Account'),
+      content: const Text(
+        'This will delete the main account and ALL sub-accounts (UI only). Continue?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete All'),
+        ),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  setState(() {
+    _subAccounts
+      ..clear()
+      ..add('Sarah Ahmed'); // reset demo main
+    _activeAccountIndex = 0;
+  });
+
+  Navigator.pop(bottomSheetContext);
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Main account deleted successfully')),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -201,28 +400,28 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [                          
-                          Text(
-                            _greeting(),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          
-                          const Text(
-                            'Sarah Ahmed',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
+                      InkWell(
+                        onTap: _openProfileMenu,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _greeting(),
+                              style: const TextStyle(fontSize: 13, color: Colors.black54),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _activeAccountName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
+
                       const Spacer(),
                       // جرس التنبيهات
                       IconButton(
@@ -347,8 +546,12 @@ class _HomePageState extends State<HomePage> {
                       icon: Icons.edit,
                       label: 'Edit',
                       onTap: () {
-                        // function
+                        _toggleQuickActions(); // يقفل القائمة
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const RegisterPage()),
+                        );
                       },
+
                     ),
                   ),
                   const SizedBox(height: 12),
