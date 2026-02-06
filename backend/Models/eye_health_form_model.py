@@ -36,7 +36,7 @@ class EyeHealthFormModel(BaseModel):
     screen_time_hours: int
     lighting_conditions: str
     sleep_hours: int
-    diet_description: Optional[str] = None
+    diet: Optional[str] = None # Healthy, Unhealthy, Avarage
 
     # Current eye symptoms
     current_eye_symptoms: List[str]  # dryness, redness, itching, tearing, eye strain, blurred vision
