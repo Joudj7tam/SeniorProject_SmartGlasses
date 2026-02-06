@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from Routes.notifications_router import router as notification_router
 from Routes.readings_router import router as readings_router
+from Routes.user_router import router as user_router
+from Routes.eye_health_form_router import router as eye_health_form_router
 from fastapi import FastAPI
 import asyncio
 from monitoring.monitor import watch_database
@@ -14,6 +16,8 @@ async def startup_event():
 
 app.include_router(notification_router, prefix="/api/notifications")
 app.include_router(readings_router, prefix="/api")
+app.include_router(user_router, prefix="/api/users")
+app.include_router(eye_health_form_router, prefix="/api/eye-health-form")
 
 @app.get("/")
 def home():
