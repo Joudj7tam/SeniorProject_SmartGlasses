@@ -8,6 +8,7 @@ from Models.user_model import UserModel
 from database import db
 from firebase_admin import auth
 from datetime import datetime
+from bson import ObjectId
 
 # --------------- Create main account ---------------
 async def create_main_account(user: UserModel):
@@ -48,6 +49,26 @@ async def login(id_token: str):
     user = await db.users.find_one({"firebase_uid": firebase_uid})
     if not user:
         raise HTTPException(status_code=404, detail="User not registered")
+    
+    
+    # when user logs in, make the main form active and all other forms inactive
+    main_form_id = user.get("main_form_id") 
+    if main_form_id:
+        now = datetime.utcnow()
+        # 1) make all forms inactive first
+        await db.eye_health_forms.update_many(
+            {"main_account_id": user["_id"]},
+            {"$set": {"is_active": False, "updated_at": now}}
+        )
+
+        # 2) activate the main form
+        res = await db.eye_health_forms.update_one(
+            {"_id": ObjectId(main_form_id), "main_account_id": user["_id"]},
+            {"$set": {"is_active": True, "updated_at": now}}
+        )
+        
+        if res.matched_count == 0:
+            raise HTTPException(status_code=500, detail="Main form not found to activate")
 
     user["id"] = str(user["_id"])
     user.pop("_id", None)
@@ -77,6 +98,15 @@ async def delete_main_account(firebase_uid: str):
     await db.users.delete_one({
         "_id": user_id
     })
+    
+    # 4️- delete user from firebase auth
+    try:
+        auth.delete_user(firebase_uid)
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="User deleted from DB but failed to delete from Firebase"
+        )
 
     return {"message": "User and all related sub-accounts deleted successfully"}
 

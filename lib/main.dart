@@ -9,8 +9,11 @@ import 'register_page.dart';
 import 'health_form_page.dart';
 import 'login_page.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 
-
+const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 /// Background handler for FCM messages.
 ///
@@ -19,14 +22,14 @@ import 'login_page.dart';
 /// - Keep logic lightweight; heavy work should be deferred or handled by backend.
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-    // Optional: persist/log message data for debugging or analytics.
+  // Optional: persist/log message data for debugging or analytics.
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialize Firebase once at app startup.
   await Firebase.initializeApp();
-  
+
   // Register background handler before runApp.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const SmartGlassesApp());
@@ -49,19 +52,14 @@ class SmartGlassesApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const HomePage(), //############################
-      //home: const LoginPage(),
-
-
-      routes: {
-        '/home': (_) => const HomePage(),
-        '/login': (_) => const LoginPage(),
-        '/health-form': (_) => const HealthFormPage(),
-      },
-
+      // home: const HomePage(), //############################
+      home: const LoginPage(), //############################
+      // home: const RegisterPage(), //############################
+      routes: {'/login': (_) => const LoginPage()},
     );
   }
 }
+
 /// Home page which shows a quick overview and listens to notification events.
 ///
 /// Maintainability note:
@@ -69,21 +67,77 @@ class SmartGlassesApp extends StatelessWidget {
 ///   1) Firebase messaging setup -> services/notification_service.dart
 ///   2) Cards/widgets -> widgets/ folder
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String mainAccountId;
+  final String firebaseUid;
+  const HomePage({
+    super.key,
+    required this.mainAccountId,
+    required this.firebaseUid,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  
+  String? _mainFormId;
+  bool _profilesLoadedOnce = false; // first-time loading indicator
+
   @override
   void initState() {
     super.initState();
     _initFirebaseMessaging();
+    _loadProfiles(); // load profiles from backend on home page init
   }
 
-  int _selectedIndex = 2; 
+  // Loads sub-accounts (profiles) from backend.
+  Future<void> _loadProfiles() async {
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/eye-health-form/list',
+      ).replace(queryParameters: {'main_account_id': widget.mainAccountId});
+
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to load profiles (code: ${res.statusCode})';
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = (decoded['data'] as List).cast<Map<String, dynamic>>();
+      final mainFormId = (decoded['main_form_id'] ?? '').toString();
+
+      if (!mounted) return;
+      setState(() {
+        _profiles = data;
+        _mainFormId = mainFormId;
+        // Sort: main form first
+        if (_mainFormId != null) {
+          _profiles.sort((a, b) {
+            final aIsMain = (a['id'] ?? '').toString() == _mainFormId;
+            final bIsMain = (b['id'] ?? '').toString() == _mainFormId;
+            if (aIsMain == bIsMain) return 0;
+            return aIsMain ? -1 : 1;
+          });
+        }
+        _profilesLoadedOnce = true;
+      });
+    } on SocketException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot connect to server. Is backend running?'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  int _selectedIndex = 2;
   // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
   final double _demoBrightness = 0.65; // من 0 إلى 1
@@ -92,13 +146,24 @@ class _HomePageState extends State<HomePage> {
   // للحالة حق قائمة الأكشنات العلوية
   bool _showQuickActions = false;
   bool _wifiOn = true;
-  bool _isDarkMode = false; 
+  bool _isDarkMode = false;
 
   // ================= Sub-Accounts  =================
-  final List<String> _subAccounts = ['Sarah Ahmed']; // first = main (demo)
-  int _activeAccountIndex = 0; // 0 = main
-  String get _activeAccountName => _subAccounts[_activeAccountIndex];
+  // Profiles = Forms from backend
+  List<Map<String, dynamic>> _profiles =
+      []; // each item has: id, full_name, is_active
 
+  String get _activeAccountName {
+    if (_profiles.isEmpty) return '...';
+
+    // find active profile (is_active == true)
+    final active = _profiles.firstWhere(
+      (p) => p['is_active'] == true,
+      orElse: () => _profiles[0],
+    );
+
+    return (active['full_name'] ?? '...').toString();
+  }
 
   /// Initializes Firebase Cloud Messaging (permissions + token + event listeners).
   ///
@@ -120,9 +185,7 @@ class _HomePageState extends State<HomePage> {
 
     // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      debugPrint(
-        ' رسالة جديدة في foreground: ${message.notification?.title}',
-      );
+      debugPrint(' رسالة جديدة في foreground: ${message.notification?.title}');
     });
 
     // App is in background and opened by user tapping notification.
@@ -137,7 +200,7 @@ class _HomePageState extends State<HomePage> {
       debugPrint(
         ' App opened from terminated state by notification: ${initialMessage.notification?.title}',
       );
-      
+
       Future.microtask(() {
         _openNotifications();
       });
@@ -191,194 +254,285 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
- /// UI-only mode toggle. If you later implement real theming,
+  /// UI-only mode toggle. If you later implement real theming,
   /// connect it to MaterialApp.themeMode.
   void _toggleMode() {
     setState(() {
       _isDarkMode = !_isDarkMode;
-    });    
-  }
-////////////##########
-void _openProfileMenu() {
-  showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Profiles',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-
-            // List accounts
-            ...List.generate(_subAccounts.length, (i) {
-              final name = _subAccounts[i];
-              final isActive = i == _activeAccountIndex;
-
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFCBF3F0),
-                  child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(color: Color(0xFF2EC4B6)),
-                  ),
-                ),
-                title: Text(name),
-                subtitle: isActive ? const Text('Active') : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!isActive)
-                      IconButton(
-                        icon: const Icon(Icons.swap_horiz),
-                        onPressed: () {
-                          setState(() => _activeAccountIndex = i);
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                    if (i != 0) // prevent deleting main from here
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _confirmDeleteSubAccount(ctx, i),
-                      ),
-                  ],
-                ),
-                onTap: () {
-                  setState(() => _activeAccountIndex = i);
-                  Navigator.pop(ctx);
-                },
-              );
-            }),
-
-            const SizedBox(height: 6),
-
-            // Add sub-account
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Add Sub-Account'),
-                onPressed: () => _createSubAccount(ctx),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            // Delete main account (FR9) - UI only
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
-                label: const Text(
-                  'Delete Main Account',
-                  style: TextStyle(color: Colors.red),
-                ),
-                onPressed: () => _confirmDeleteMainAccount(ctx),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
-
-  Navigator.pop(bottomSheetContext); 
-
-  // يفتح Health Form أول
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const HealthFormPage()),
-  );
-
-  // إذا رجع اسم من الفورم → ينشئ الحساب
-  if (result != null && result is String) {
-    setState(() {
-      _subAccounts.add(result);
-      _activeAccountIndex = _subAccounts.length - 1;
     });
   }
-}
 
-Future<void> _confirmDeleteSubAccount(BuildContext bottomSheetContext, int index) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Delete Sub-Account'),
-      content: Text('Delete "${_subAccounts[index]}"?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
+  ////////////##########
+  void _openProfileMenu() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Profiles',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+
+              // List accounts
+              ...List.generate(_profiles.length, (i) {
+                final name = (_profiles[i]['full_name'] ?? '').toString();
+                final isActive = _profiles[i]['is_active'] == true;
+                final formId = (_profiles[i]['id'] ?? '').toString();
+                final isMain = (_mainFormId != null && formId == _mainFormId);
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFCBF3F0),
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(color: Color(0xFF2EC4B6)),
+                    ),
+                  ),
+                  title: Text(name),
+                  subtitle: isActive ? const Text('Active') : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!isActive)
+                        IconButton(
+                          icon: const Icon(Icons.swap_horiz),
+                          onPressed: () async {
+                            try {
+                              final formId = (_profiles[i]['id'] ?? '')
+                                  .toString();
+
+                              final uri =
+                                  Uri.parse(
+                                    '$backendBaseUrl/api/eye-health-form/switch',
+                                  ).replace(
+                                    queryParameters: {
+                                      'main_account_id': widget.mainAccountId,
+                                      'form_id': formId,
+                                    },
+                                  );
+
+                              final res = await http.post(uri);
+
+                              if (res.statusCode != 200) {
+                                throw 'Switch failed (code: ${res.statusCode})';
+                              }
+
+                              await _loadProfiles(); // refresh to update is_active
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                            }
+                          },
+                        ),
+                      if (!isMain) // prevent deleting main from here
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _confirmDeleteSubAccount(ctx, i),
+                        ),
+                    ],
+                  ),
+                  onTap: () async {
+                    try {
+                      final formId = (_profiles[i]['id'] ?? '').toString();
+
+                      final uri =
+                          Uri.parse(
+                            '$backendBaseUrl/api/eye-health-form/switch',
+                          ).replace(
+                            queryParameters: {
+                              'main_account_id': widget.mainAccountId,
+                              'form_id': formId,
+                            },
+                          );
+
+                      final res = await http.post(uri);
+
+                      if (res.statusCode != 200) {
+                        throw 'Switch failed (code: ${res.statusCode})';
+                      }
+
+                      await _loadProfiles(); // refresh to update is_active
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                    }
+                  },
+                );
+              }),
+
+              const SizedBox(height: 6),
+
+              // Add sub-account
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Sub-Account'),
+                  onPressed: () => _createSubAccount(ctx),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Delete main account (FR9) - UI only
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: const Text(
+                    'Delete Main Account',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onPressed: () => _confirmDeleteMainAccount(ctx),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
+    Navigator.pop(bottomSheetContext);
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HealthFormPage(
+          mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          goHomeAfterSave: false,
         ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Delete'),
-        ),
-      ],
-    ),
-  );
-
-  if (ok != true) return;
-
-  setState(() {
-    _subAccounts.removeAt(index);
-    if (_activeAccountIndex == index) _activeAccountIndex = 0;
-    if (_activeAccountIndex > _subAccounts.length - 1) _activeAccountIndex = 0;
-  });
-
-  Navigator.pop(bottomSheetContext); // close sheet after delete
-}
-
-Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Delete Main Account'),
-      content: const Text(
-        'This will delete the main account and ALL sub-accounts (UI only). Continue?',
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
+    );
+
+    if (result != null) {
+      await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
+    }
+  }
+
+  Future<void> _confirmDeleteSubAccount(
+    BuildContext bottomSheetContext,
+    int index,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Sub-Account'),
+        content: Text(
+          'Delete "${(_profiles[index]['full_name'] ?? '').toString()}"?',
         ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Delete All'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    try {
+      final formId = (_profiles[index]['id'] ?? '').toString();
+
+      final uri = Uri.parse('$backendBaseUrl/api/eye-health-form/delete')
+          .replace(
+            queryParameters: {
+              'main_account_id': widget.mainAccountId,
+              'form_id': formId,
+            },
+          );
+
+      final res = await http.delete(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Delete failed (code: ${res.statusCode})';
+      }
+
+      await _loadProfiles(); // refresh
+      if (bottomSheetContext.mounted) Navigator.pop(bottomSheetContext);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _confirmDeleteMainAccount(
+    BuildContext bottomSheetContext,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Main Account'),
+        content: const Text(
+          'This will delete the main account and ALL sub-accounts. Continue?',
         ),
-      ],
-    ),
-  );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  setState(() {
-    _subAccounts
-      ..clear()
-      ..add('Sarah Ahmed'); // reset demo main
-    _activeAccountIndex = 0;
-  });
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/users/delete-main',
+      ).replace(queryParameters: {'main_uid': widget.firebaseUid});
 
-  Navigator.pop(bottomSheetContext);
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Main account deleted successfully')),
-  );
-}
+      final res = await http.delete(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Delete failed (code: ${res.statusCode})';
+      }
+
+      if (!mounted) return;
+
+      // go back to register page after deleting main account
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RegisterPage()),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(      
+    return Scaffold(
       body: Stack(
         children: [
           SafeArea(
@@ -392,11 +546,11 @@ Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
                     children: [
                       const CircleAvatar(
                         radius: 24,
-                        backgroundColor: Color(0xFFCBF3F0), 
+                        backgroundColor: Color(0xFFCBF3F0),
                         child: Icon(
                           Icons.person,
                           size: 28,
-                          color: Color(0xFF2EC4B6), 
+                          color: Color(0xFF2EC4B6),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -407,17 +561,20 @@ Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
                           children: [
                             Text(
                               _greeting(),
-                              style: const TextStyle(fontSize: 13, color: Colors.black54),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black54,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _activeAccountName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _activeAccountName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
                               ),
+                            ),
                           ],
                         ),
                       ),
@@ -508,7 +665,7 @@ Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
   }
 
   /// Quick actions overlay (Edit / Wi-Fi / Mode).
-  /// Keep this UI separate from business logic; actions should call dedicated methods.  
+  /// Keep this UI separate from business logic; actions should call dedicated methods.
   Widget _buildQuickActionsOverlay() {
     return Positioned.fill(
       child: Stack(
@@ -539,7 +696,7 @@ Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Edit 
+                  // Edit
                   Transform.translate(
                     offset: const Offset(-8, 0),
                     child: _QuickActionBubble(
@@ -548,21 +705,22 @@ Future<void> _confirmDeleteMainAccount(BuildContext bottomSheetContext) async {
                       onTap: () {
                         _toggleQuickActions(); // يقفل القائمة
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const RegisterPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterPage(),
+                          ),
                         );
                       },
-
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Wi-Fi 
+                  // Wi-Fi
                   _QuickActionBubble(
                     icon: _wifiOn ? Icons.wifi : Icons.wifi_off,
                     label: 'Wi-Fi',
                     onTap: _toggleWifi,
                   ),
                   const SizedBox(height: 12),
-                  // Mode 
+                  // Mode
                   Transform.translate(
                     offset: const Offset(8, 0),
                     child: _QuickActionBubble(

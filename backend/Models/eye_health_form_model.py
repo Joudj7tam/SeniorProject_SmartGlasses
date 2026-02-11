@@ -12,7 +12,7 @@ from typing import List, Optional
 
 class EyeHealthFormModel(BaseModel):
     main_account_id: str  # MongoDB Parent account id (relation with the main account from Users collection)
-    is_active: bool # To indicate if the form is active
+    is_active: Optional[bool] = None # To indicate if the form is active
 
     # Personal information
     full_name: str

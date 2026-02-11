@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'health_form_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+import 'login_page.dart';
 
+const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -46,12 +52,11 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   String? _validateConfirmPassword(String? value) {
-  final v = value ?? '';
-  if (v.isEmpty) return 'Confirm password is required';
-  if (v != _passwordController.text) return 'Passwords do not match';
-  return null;
-}
-
+    final v = value ?? '';
+    if (v.isEmpty) return 'Confirm password is required';
+    if (v != _passwordController.text) return 'Passwords do not match';
+    return null;
+  }
 
   String? _validateMobile(String? value) {
     final v = (value ?? '').trim();
@@ -67,11 +72,67 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!ok) return;
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() => _isSubmitting = false);
 
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/health-form');
+    try {
+      final email = _emailController.text.trim();
+      final pass = _passwordController.text;
+      final phone = _mobileController.text.trim();
+
+      // 1) Create Firebase user (main account)
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: pass,
+      );
+
+      final user = cred.user;
+      if (user == null) throw 'Signup failed';
+
+      // 2) Register main account in MongoDB
+      final uri = Uri.parse('$backendBaseUrl/api/users/register-main');
+
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'firebase_uid': user.uid,
+          'email': email,
+          'phone': phone,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        final decoded = jsonDecode(res.body);
+        final msg = (decoded is Map && decoded['detail'] != null)
+            ? decoded['detail'].toString()
+            : 'Register failed (code: ${res.statusCode})';
+        throw msg;
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final mainAccountId = (data['id'] ?? '').toString();
+
+      if (mainAccountId.isEmpty) throw 'Backend did not return mainAccountId';
+
+      if (!mounted) return;
+
+      // 3) open health forn after successful registration and send mainAccountId
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => HealthFormPage(mainAccountId: mainAccountId, firebaseUid: user.uid, goHomeAfterSave: true)),
+      );
+
+    } on SocketException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot connect to server. Make sure backend is running.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+
   }
 
   @override
@@ -121,7 +182,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: _validatePassword,
                 ),
                 const SizedBox(height: 12),
-                
+
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscurePassword,
@@ -136,15 +197,14 @@ class _RegisterPageState extends State<RegisterPage> {
                       }),
                       icon: Icon(
                         _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
                     ),
                   ),
                   validator: _validateConfirmPassword,
                 ),
                 const SizedBox(height: 12),
-
 
                 TextFormField(
                   controller: _mobileController,
@@ -173,6 +233,17 @@ class _RegisterPageState extends State<RegisterPage> {
                           )
                         : const Text('Create Account'),
                   ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                          );
+                        },
+                  child: const Text('Already have an account? Login'),
                 ),
               ],
             ),

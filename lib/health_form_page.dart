@@ -1,7 +1,28 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'main.dart';
+
+const String backendBaseUrl = 'http://10.0.2.2:8080';
+
+class ProfileResult {
+  final String formId;
+  final String fullName;
+  const ProfileResult({required this.formId, required this.fullName});
+}
+
 class HealthFormPage extends StatefulWidget {
-  const HealthFormPage({super.key});
+  final String mainAccountId;
+  final String? firebaseUid;
+  final bool goHomeAfterSave;
+  const HealthFormPage({
+    super.key,
+    required this.mainAccountId,
+    this.firebaseUid,
+    required this.goHomeAfterSave,
+  });
 
   @override
   State<HealthFormPage> createState() => _HealthFormPageState();
@@ -85,9 +106,9 @@ class _HealthFormPageState extends State<HealthFormPage> {
       return;
     }
     if (_gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gender is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gender is required')));
       return;
     }
     if (_visionAid == null) {
@@ -104,14 +125,115 @@ class _HealthFormPageState extends State<HealthFormPage> {
       return;
     }
 
-    setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    setState(() => _submitting = false);
+    if (_lighting == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lighting is required')));
+      return;
+    }
 
-    
-if (!mounted) return;
-    final name = _fullNameController.text.trim();
-    Navigator.pop(context, name);
+    if (_diet == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Diet is required')));
+      return;
+    }
+
+    setState(() => _submitting = true);
+
+    try {
+      final fullName = _fullNameController.text.trim();
+
+      // Build lists as backend expects List<String>
+      final prev = <String>[];
+      if (_myopia) prev.add('myopia');
+      if (_hyperopia) prev.add('hyperopia');
+      if (_astigmatism) prev.add('astigmatism');
+
+      final chronic = <String>[];
+      if (_diabetes) chronic.add('diabetes');
+      if (_hypertension) chronic.add('hypertension');
+
+      final symptoms = <String>[];
+      if (_symDryness) symptoms.add('dryness');
+      if (_symRedness) symptoms.add('redness');
+      if (_symItching) symptoms.add('itching');
+      if (_symTearing) symptoms.add('tearing');
+      if (_symEyeStrain) symptoms.add('eye_strain');
+      if (_symBlurredVision) symptoms.add('blurred_vision');
+
+      final uri = Uri.parse('$backendBaseUrl/api/eye-health-form/add');
+
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'main_account_id': widget.mainAccountId,
+          'full_name': fullName,
+          'date_of_birth': _dob!.toIso8601String(),
+          'gender': _gender!,
+          'previous_eye_conditions': prev,
+          'chronic_diseases': chronic,
+          'uses_glasses': _visionAid == 'Glasses',
+          'uses_contact_lenses': _visionAid == 'Contact Lenses',
+          'eye_surgery_history': _hadSurgery
+              ? _surgeryDetailsController.text.trim()
+              : null,
+          'screen_time_hours': _screenTimeHours.round(),
+          'lighting_conditions': _lighting!,
+          'sleep_hours': _sleepHours.round(),
+          'diet': _diet,
+          'current_eye_symptoms': symptoms,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        final decoded = jsonDecode(res.body);
+        final msg = (decoded is Map && decoded['detail'] != null)
+            ? decoded['detail'].toString()
+            : 'Submit failed (code: ${res.statusCode})';
+        throw msg;
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final formId = (data['id'] ?? '').toString();
+
+      if (formId.isEmpty) throw 'Backend did not return formId';
+
+      if (!mounted) return;
+
+      if (widget.goHomeAfterSave) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => HomePage(
+              mainAccountId: widget.mainAccountId,
+              firebaseUid: widget.firebaseUid!, // لازم تكون موجودة هنا
+            ),
+          ),
+        );
+      } else {
+        Navigator.pop(
+          context,
+          ProfileResult(formId: formId, fullName: fullName),
+        );
+      }
+      return;
+    } on SocketException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot connect to server. Make sure backend is running.',
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -167,7 +289,10 @@ if (!mounted) return;
                       isExpanded: true,
                       items: const [
                         DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(value: 'Female', child: Text('Female')),
+                        DropdownMenuItem(
+                          value: 'Female',
+                          child: Text('Female'),
+                        ),
                       ],
                       onChanged: (v) => setState(() => _gender = v),
                     ),
@@ -178,9 +303,21 @@ if (!mounted) return;
                 _sectionTitle('Previous Eye Conditions'),
                 _chipRow(
                   children: [
-                    _boolChip('Myopia', _myopia, (v) => setState(() => _myopia = v)),
-                    _boolChip('Hyperopia', _hyperopia, (v) => setState(() => _hyperopia = v)),
-                    _boolChip('Astigmatism', _astigmatism, (v) => setState(() => _astigmatism = v)),
+                    _boolChip(
+                      'Myopia',
+                      _myopia,
+                      (v) => setState(() => _myopia = v),
+                    ),
+                    _boolChip(
+                      'Hyperopia',
+                      _hyperopia,
+                      (v) => setState(() => _hyperopia = v),
+                    ),
+                    _boolChip(
+                      'Astigmatism',
+                      _astigmatism,
+                      (v) => setState(() => _astigmatism = v),
+                    ),
                   ],
                 ),
 
@@ -188,8 +325,16 @@ if (!mounted) return;
                 _sectionTitle('Chronic Diseases'),
                 _chipRow(
                   children: [
-                    _boolChip('Diabetes', _diabetes, (v) => setState(() => _diabetes = v)),
-                    _boolChip('Hypertension', _hypertension, (v) => setState(() => _hypertension = v)),
+                    _boolChip(
+                      'Diabetes',
+                      _diabetes,
+                      (v) => setState(() => _diabetes = v),
+                    ),
+                    _boolChip(
+                      'Hypertension',
+                      _hypertension,
+                      (v) => setState(() => _hypertension = v),
+                    ),
                   ],
                 ),
 
@@ -206,8 +351,14 @@ if (!mounted) return;
                       hint: const Text('Select one'),
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'Glasses', child: Text('Glasses')),
-                        DropdownMenuItem(value: 'Contact Lenses', child: Text('Contact Lenses')),
+                        DropdownMenuItem(
+                          value: 'Glasses',
+                          child: Text('Glasses'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Contact Lenses',
+                          child: Text('Contact Lenses'),
+                        ),
                         DropdownMenuItem(value: 'None', child: Text('None')),
                       ],
                       onChanged: (v) => setState(() => _visionAid = v),
@@ -256,8 +407,14 @@ if (!mounted) return;
                       hint: const Text('Select lighting'),
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'Bright', child: Text('Bright')),
-                        DropdownMenuItem(value: 'Normal', child: Text('Normal')),
+                        DropdownMenuItem(
+                          value: 'Bright',
+                          child: Text('Bright'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Normal',
+                          child: Text('Normal'),
+                        ),
                         DropdownMenuItem(value: 'Dim', child: Text('Dim')),
                       ],
                       onChanged: (v) => setState(() => _lighting = v),
@@ -285,9 +442,18 @@ if (!mounted) return;
                       hint: const Text('Select diet'),
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'Healthy', child: Text('Healthy')),
-                        DropdownMenuItem(value: 'Average', child: Text('Average')),
-                        DropdownMenuItem(value: 'Unhealthy', child: Text('Unhealthy')),
+                        DropdownMenuItem(
+                          value: 'Healthy',
+                          child: Text('Healthy'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Average',
+                          child: Text('Average'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Unhealthy',
+                          child: Text('Unhealthy'),
+                        ),
                       ],
                       onChanged: (v) => setState(() => _diet = v),
                     ),
@@ -298,12 +464,36 @@ if (!mounted) return;
                 _sectionTitle('Current Eye Symptoms'),
                 _chipRow(
                   children: [
-                    _boolChip('Dryness', _symDryness, (v) => setState(() => _symDryness = v)),
-                    _boolChip('Redness', _symRedness, (v) => setState(() => _symRedness = v)),
-                    _boolChip('Itching', _symItching, (v) => setState(() => _symItching = v)),
-                    _boolChip('Tearing', _symTearing, (v) => setState(() => _symTearing = v)),
-                    _boolChip('Eye strain', _symEyeStrain, (v) => setState(() => _symEyeStrain = v)),
-                    _boolChip('Blurred vision', _symBlurredVision, (v) => setState(() => _symBlurredVision = v)),
+                    _boolChip(
+                      'Dryness',
+                      _symDryness,
+                      (v) => setState(() => _symDryness = v),
+                    ),
+                    _boolChip(
+                      'Redness',
+                      _symRedness,
+                      (v) => setState(() => _symRedness = v),
+                    ),
+                    _boolChip(
+                      'Itching',
+                      _symItching,
+                      (v) => setState(() => _symItching = v),
+                    ),
+                    _boolChip(
+                      'Tearing',
+                      _symTearing,
+                      (v) => setState(() => _symTearing = v),
+                    ),
+                    _boolChip(
+                      'Eye strain',
+                      _symEyeStrain,
+                      (v) => setState(() => _symEyeStrain = v),
+                    ),
+                    _boolChip(
+                      'Blurred vision',
+                      _symBlurredVision,
+                      (v) => setState(() => _symBlurredVision = v),
+                    ),
                   ],
                 ),
 
@@ -334,20 +524,13 @@ if (!mounted) return;
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     );
   }
 
   Widget _chipRow({required List<Widget> children}) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: children,
-    );
+    return Wrap(spacing: 10, runSpacing: 10, children: children);
   }
 
   Widget _boolChip(String label, bool value, ValueChanged<bool> onChanged) {
@@ -385,7 +568,10 @@ if (!mounted) return;
           Row(
             children: [
               Expanded(child: Text(title)),
-              Text(valueLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                valueLabel,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ],
           ),
           Slider(

@@ -16,8 +16,8 @@ from typing import List, Optional
 
 class UserModel(BaseModel):
     firebase_uid: str
-    name: str
     email: EmailStr
     phone: Optional[str] = None
+    main_form_id: Optional[str] = None
     created_at: Optional[datetime] = datetime.utcnow()
     updated_at: Optional[datetime] = datetime.utcnow()

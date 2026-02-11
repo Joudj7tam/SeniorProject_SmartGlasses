@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+import 'main.dart';
+import 'register_page.dart';
+
+const String backendBaseUrl = 'http://10.0.2.2:8080';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -45,13 +54,73 @@ class _LoginPageState extends State<LoginPage> {
     if (!ok) return;
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() => _isSubmitting = false);
 
-    if (!mounted) return;
+    try {
+      final email = _emailController.text.trim();
+      final pass = _passwordController.text;
 
-    // UI-only: navigate to home after "login"
-    Navigator.pushReplacementNamed(context, '/home');
+      // 1) Firebase login (Main account only)
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: pass,
+      );
+
+      final user = cred.user;
+      if (user == null) throw 'Login failed';
+
+      // 2) Get Firebase ID token (THIS is what the backend verifies)
+      final idToken = await user.getIdToken();
+
+      // 3) Backend login
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/users/login',
+      ).replace(queryParameters: {'id_token': idToken});
+
+      final res = await http.post(uri);
+
+      if (res.statusCode != 200) {
+        final decoded = jsonDecode(res.body);
+        final msg = (decoded is Map && decoded['detail'] != null)
+            ? decoded['detail'].toString()
+            : 'Login failed (code: ${res.statusCode})';
+        throw msg;
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final userObj = decoded['user'] as Map<String, dynamic>;
+      final mainAccountId = (userObj['id'] ?? '').toString();
+      final firebaseUid = (userObj['firebase_uid'] ?? '').toString();
+
+      if (firebaseUid.isEmpty) {
+        throw 'Backend did not return firebase_uid';
+      }
+
+      if (mainAccountId.isEmpty) throw 'Backend did not return mainAccountId';
+
+      if (!mounted) return;
+
+      // 4) Go to Home wigh mainAccountId
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) =>
+              HomePage(mainAccountId: mainAccountId, firebaseUid: firebaseUid),
+        ),
+      );
+    } on SocketException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot connect to server. Make sure backend is running.',
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -114,6 +183,19 @@ class _LoginPageState extends State<LoginPage> {
                           )
                         : const Text('Login'),
                   ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterPage(),
+                            ),
+                          );
+                        },
+                  child: const Text('Don’t have an account? Create one'),
                 ),
               ],
             ),
