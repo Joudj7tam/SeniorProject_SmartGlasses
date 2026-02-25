@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'eye_health_profile_page.dart';
 
 import 'notifications_page.dart';
 import 'smart_bottom_nav.dart';
@@ -8,6 +9,7 @@ import 'smart_bottom_nav.dart';
 import 'register_page.dart';
 import 'health_form_page.dart';
 import 'login_page.dart';
+import 'settings_page.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -82,6 +84,26 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
+  
+  // ================= Glasses Link (UI FOR NOW) =================
+
+  bool _askedLinkOnEnter = false; // عشان ما يكرر السؤال بسبب reload
+
+  final ValueNotifier<Map<String, String?>> _glassesLink =
+    ValueNotifier({'id': null, 'name': null});
+
+  String? get _activeProfileId {
+    if (_profiles.isEmpty) return null;
+
+    final active = _profiles.firstWhere(
+      (p) => p['is_active'] == true,
+      orElse: () => _profiles[0],
+    );
+
+    return (active['id'] ?? '').toString();
+}
+
+  String get _activeProfileName => _activeAccountName;
 
   @override
   void initState() {
@@ -122,6 +144,13 @@ class _HomePageState extends State<HomePage> {
         }
         _profilesLoadedOnce = true;
       });
+      // ===== Ask to link glasses ONCE when profiles load the first time =====
+      if (!_askedLinkOnEnter) {
+        _askedLinkOnEnter = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await _showLinkGlassesDialog(force: true);
+        });
+      }
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,6 +166,51 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+Future<void> _showLinkGlassesDialog({required bool force}) async {
+  final profileId = _activeProfileId;
+  final profileName = _activeProfileName;
+
+  if (profileId == null) return;
+
+  if (!force && _glassesLink.value['id'] == profileId) return;
+
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Link Glasses',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Do you want to link the glasses to "$profileName"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Confirm',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (!mounted) return;
+
+  if (result == true) {
+  _glassesLink.value = {'id': profileId, 'name': profileName};
+  }
+}
+
   int _selectedIndex = 2;
   // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
@@ -147,6 +221,13 @@ class _HomePageState extends State<HomePage> {
   bool _showQuickActions = false;
   bool _wifiOn = true;
   bool _isDarkMode = false;
+
+// ================= Smart-Light =================
+  // Smart-Light values (still stored هنا عشان نعرضها هناك)
+  bool _smartLightEnabled = true;
+  double _smartLightIntensity = 0.95; // 0..1
+  Color _smartLightColor = const Color(0xFF06D6A0); // example green
+
 
   // ================= Sub-Accounts  =================
   // Profiles = Forms from backend
@@ -242,6 +323,28 @@ class _HomePageState extends State<HomePage> {
     ).push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
   }
 
+  void _openProfileInfoPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()),
+    );
+  }
+  void _openSettingsPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SettingsPage(
+          smartLightEnabled: _smartLightEnabled,
+          smartLightIntensity: _smartLightIntensity,
+          smartLightColor: _smartLightColor,
+          onSmartLightToggle: (v) => setState(() => _smartLightEnabled = v),
+
+          glassesLink: _glassesLink,
+
+          onRequestLink: () => _showLinkGlassesDialog(force: true),
+        ),
+      ),
+    );
+  }
+  
   void _toggleQuickActions() {
     setState(() {
       _showQuickActions = !_showQuickActions;
@@ -325,6 +428,11 @@ class _HomePageState extends State<HomePage> {
 
                               await _loadProfiles(); // refresh to update is_active
                               if (ctx.mounted) Navigator.pop(ctx);
+
+                              //after switching, ask if you want to link this profile to the glass
+                              if (mounted) {
+                                await _showLinkGlassesDialog(force: true);
+                              }
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(e.toString())),
@@ -361,6 +469,9 @@ class _HomePageState extends State<HomePage> {
 
                       await _loadProfiles(); // refresh to update is_active
                       if (ctx.mounted) Navigator.pop(ctx);
+                      if (mounted) {
+                      await _showLinkGlassesDialog(force: true);
+                      }
                     } catch (e) {
                       ScaffoldMessenger.of(
                         context,
@@ -544,15 +655,20 @@ class _HomePageState extends State<HomePage> {
                   // ====== header ======
                   Row(
                     children: [
-                      const CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Color(0xFFCBF3F0),
-                        child: Icon(
-                          Icons.person,
-                          size: 28,
-                          color: Color(0xFF2EC4B6),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: _openProfileInfoPage,
+                        child: const CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Color(0xFFCBF3F0),
+                          child: Icon(
+                            Icons.person,
+                            size: 28,
+                            color: Color(0xFF2EC4B6),
+                          ),
                         ),
                       ),
+                      
                       const SizedBox(width: 12),
                       InkWell(
                         onTap: _openProfileMenu,
@@ -623,8 +739,10 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 16),
                           _buildBrightnessCard(),
                           const SizedBox(height: 16),
-                          _buildDrynessCard(),
+                         _buildDrynessCard(),
                           const SizedBox(height: 16),
+                          _buildGenerateReportButton(),
+                          const SizedBox(height: 18),
                         ],
                       ),
                     ),
@@ -653,12 +771,17 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: SmartBottomNav(
         selectedIndex: _selectedIndex,
         onItemTap: (index) {
+          if (index == 1) {
+            // Settings
+            _openSettingsPage();
+            return;
+          }
           if (index == 3) {
             // Alerts → افتح صفحة الإشعارات
             _openNotifications();
-          } else {
+            return;
+          } 
             _onItemTapped(index);
-          }
         },
       ),
     );
@@ -965,6 +1088,114 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(fontSize: 11, color: Colors.black45),
           ),
         ],
+      ),
+    );
+  }
+
+  // ================== Generate Report  ==================
+  Widget _buildGenerateReportButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFF9F1C), // primary
+            Color(0xFF2EC4B6), // secondary
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () {
+            // UI only for now
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Generate Report (UI only for now)'),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Row(
+              children: [
+                // Icon bubble
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.20),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.30),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.auto_graph_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Generate a Report',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Create a summary based on your latest readings & profile.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Arrow
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.25),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
