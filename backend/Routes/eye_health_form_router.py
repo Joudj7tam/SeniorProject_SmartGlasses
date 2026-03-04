@@ -7,7 +7,9 @@ from Controllers.eye_health_form_controller import (
     get_active_eye_health_form,
     get_all_eye_health_forms,
     get_main_eye_health_form,
-    delete_eye_health_form
+    delete_eye_health_form,
+    toggle_smart_light,
+    get_smart_light_state
 )
 
 router = APIRouter()
@@ -52,3 +54,13 @@ async def main_form(main_account_id: str):
 @router.delete("/delete")
 async def delete_form(main_account_id: str, form_id: str):
     return await delete_eye_health_form(main_account_id, form_id)
+
+# --------- Toggle smart light setting ---------
+@router.post("/toggle-smart-light")
+async def toggle_smart_light_setting(form_id: str, enabled: bool):
+    return await toggle_smart_light(form_id, enabled)
+
+# --------- Get smart light setting ---------
+@router.get("/smart-light-state")
+async def smart_light_state(form_id: str, main_account_id: str | None = None):
+    return await get_smart_light_state(form_id=form_id, main_account_id=main_account_id)

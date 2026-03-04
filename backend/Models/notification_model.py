@@ -13,7 +13,9 @@ from datetime import datetime
 from typing import Optional
 
 class NotificationModel(BaseModel):
-    userId: str
+    user_id: Optional[str] = None # main account id
+    form_id: Optional[str] = None # eye health form id
+    deviceId: str
     title: str
     message: str
     metric_name: str

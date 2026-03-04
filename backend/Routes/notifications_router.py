@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from Controllers.notification_controller import (
     create_notification,
-    get_all_notifications,
+    get_user_notifications,
     delete_notification,
     update_notification_read_status,
 )
@@ -24,21 +24,21 @@ async def add_notification(notification: NotificationModel):
 
 # --------- جلب كل الإشعارات ---------
 @router.get("/")
-async def list_notifications():
-    """إرجاع كل الإشعارات."""
-    return await get_all_notifications()
+async def list_notifications(user_id: str, form_id: str):
+    """return all notifications for a user + form, sorted by created_at desc."""
+    return await get_user_notifications(user_id, form_id)
 
 
 # --------- حذف إشعار معيّن ---------
 @router.delete("/{notification_id}")
-async def remove_notification(notification_id: str):
+async def remove_notification(notification_id: str, user_id: str, form_id: str):
     """حذف إشعار معيّن."""
-    return await delete_notification(notification_id)
+    return await delete_notification(notification_id, user_id, form_id)
 
 
 # --------- تحديث حالة isRead ---------
 @router.patch("/{notification_id}/read")
-async def mark_notification_read(notification_id: str, payload: NotificationReadUpdate):
+async def mark_notification_read(notification_id: str, user_id: str, form_id: str, payload: NotificationReadUpdate):
     """
     تحديث حالة القراءة (isRead) لإشعار معيّن.
     body:
@@ -46,4 +46,4 @@ async def mark_notification_read(notification_id: str, payload: NotificationRead
       "isRead": true أو false
     }
     """
-    return await update_notification_read_status(notification_id, payload.isRead)
+    return await update_notification_read_status(notification_id, payload.isRead, user_id, form_id)

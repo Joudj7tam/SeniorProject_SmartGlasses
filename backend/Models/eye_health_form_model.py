@@ -40,6 +40,8 @@ class EyeHealthFormModel(BaseModel):
 
     # Current eye symptoms
     current_eye_symptoms: List[str]  # dryness, redness, itching, tearing, eye strain, blurred vision
+    
+    smart_light_enabled: Optional[bool] = False
 
     created_at: Optional[datetime] = datetime.utcnow()
     updated_at: Optional[datetime] = datetime.utcnow()

@@ -246,8 +246,51 @@ async def delete_eye_health_form(main_account_id: str, form_id: str):
                 {"_id": ObjectId(main_form_id), "main_account_id": ObjectId(main_account_id)},
                 {"$set": {"is_active": True, "updated_at": now}}
             )
-
+            
+    # 6) Unassign device if linked to this form
+    await db.devices.update_many(
+        {"user_id": main_account_id, "form_id": form_id},
+        {"$set": {
+                "form_id": None,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
 
     return {"success": True, "message": "Sub-account deleted successfully"}
 
+
+
+# --------------- Toggle smart light setting ---------------
+async def toggle_smart_light(form_id: str, enabled: bool):
+
+    await db.eye_health_forms.update_one(
+        {"_id": ObjectId(form_id)},
+        {"$set": {
+            "smart_light_enabled": enabled,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+
+    return {
+        "message": f"Smart light {'enabled' if enabled else 'disabled'}"
+    }
+
+
      
+# --------------- Get smart light setting (by form_id) ---------------
+async def get_smart_light_state(form_id: str, main_account_id: str | None = None):
+
+    query = {"_id": ObjectId(form_id)}
+    # insure the form belongs to the user
+    if main_account_id:
+        query["main_account_id"] = ObjectId(main_account_id)
+
+    form = await db.eye_health_forms.find_one(query)
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    enabled = bool(form.get("smart_light_enabled", False))
+
+    return {"success": True, "data": {"form_id": form_id, "enabled": enabled}}

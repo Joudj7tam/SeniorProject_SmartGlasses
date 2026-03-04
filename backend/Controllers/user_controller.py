@@ -94,12 +94,24 @@ async def delete_main_account(firebase_uid: str):
         "main_account_id": user_id
     })
     
-     # 3- delete user
+    # 3- Unassign all devices linked to this user
+    await db.devices.update_many(
+        {"user_id": str(user_id)},
+        {
+            "$set": {
+                "user_id": None,
+                "form_id": None,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    # 4- delete user
     await db.users.delete_one({
         "_id": user_id
     })
     
-    # 4️- delete user from firebase auth
+    # 5- delete user from firebase auth
     try:
         auth.delete_user(firebase_uid)
     except Exception:
@@ -125,3 +137,25 @@ async def get_user_by_firebase_uid(firebase_uid: str):
     user.pop("_id", None)
 
     return user
+
+
+async def update_fcm_token(user_id: str, fcm_token: str):
+    """
+    Update user's FCM token (single-token (single device) strategy).
+    """
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+
+    now = datetime.utcnow()
+
+    res = await db.users.update_one(
+        {"_id": oid},
+        {"$set": {"fcm_token": fcm_token, "updated_at": now}}
+    )
+
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"message": "FCM token updated successfully"}

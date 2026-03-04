@@ -4,7 +4,8 @@ from Controllers.user_controller import (
     create_main_account,
     login,
     delete_main_account,
-    get_user_by_firebase_uid
+    get_user_by_firebase_uid,
+    update_fcm_token
 )
 
 router = APIRouter()
@@ -31,3 +32,9 @@ async def delete_main_account_route(main_uid: str):
 @router.get("/{firebase_uid}")
 async def get_user(firebase_uid: str):
     return await get_user_by_firebase_uid(firebase_uid)
+
+
+# --------- تحديث FCM Token ---------
+@router.post("/update-fcm-token")
+async def update_fcm_token_route(user_id: str, fcm_token: str):
+    return await update_fcm_token(user_id, fcm_token)

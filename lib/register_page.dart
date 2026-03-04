@@ -4,6 +4,7 @@ import 'health_form_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:io';
 import 'login_page.dart';
 
@@ -68,6 +69,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+    final fcmToken = await FirebaseMessaging.instance.getToken();
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
@@ -97,6 +99,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'firebase_uid': user.uid,
           'email': email,
           'phone': phone,
+          'fcm_token': fcmToken,
         }),
       );
 
@@ -118,21 +121,29 @@ class _RegisterPageState extends State<RegisterPage> {
 
       // 3) open health forn after successful registration and send mainAccountId
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HealthFormPage(mainAccountId: mainAccountId, firebaseUid: user.uid, goHomeAfterSave: true)),
+        MaterialPageRoute(
+          builder: (_) => HealthFormPage(
+            mainAccountId: mainAccountId,
+            firebaseUid: user.uid,
+            goHomeAfterSave: true,
+          ),
+        ),
       );
-
     } on SocketException {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot connect to server. Make sure backend is running.')),
+        const SnackBar(
+          content: Text(
+            'Cannot connect to server. Make sure backend is running.',
+          ),
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-
   }
 
   @override
@@ -240,7 +251,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       ? null
                       : () {
                           Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
                           );
                         },
                   child: const Text('Already have an account? Login'),

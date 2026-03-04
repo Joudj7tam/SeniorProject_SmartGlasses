@@ -19,5 +19,6 @@ class UserModel(BaseModel):
     email: EmailStr
     phone: Optional[str] = None
     main_form_id: Optional[str] = None
+    fcm_token: Optional[str] = None
     created_at: Optional[datetime] = datetime.utcnow()
     updated_at: Optional[datetime] = datetime.utcnow()

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+
 /// Base URL for the backend API.
 ///
 /// Notes:
@@ -52,7 +53,14 @@ class NotificationItem {
 }
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({Key? key}) : super(key: key);
+  final String userId; // mainAccountId
+  final String formId; // active profile (eye health form id)
+
+  const NotificationsPage({
+    Key? key,
+    required this.userId,
+    required this.formId,
+  }) : super(key: key);
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -75,10 +83,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _loadNotifications();
   }
 
-/// Maps low-level exceptions to user-friendly messages.
-/// Keeps UI text consistent and avoids leaking raw technical errors.
+  /// Maps low-level exceptions to user-friendly messages.
+  /// Keeps UI text consistent and avoids leaking raw technical errors.
   String _friendlyErrorMessage(Object e) {
-  
     if (e is SocketException) {
       return 'Cannot connect to the server. Please check your internet connection or make sure the backend is running.';
     }
@@ -88,8 +95,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
 
     return 'Something went wrong while loading notifications. Please try again.';
-}
-
+  }
 
   // ------------------ API: GET ------------------
   /// Fetches notifications from backend and updates local state.
@@ -104,7 +110,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
 
     try {
-      final uri = Uri.parse('$backendBaseUrl/api/notifications/');
+      final uri = Uri.parse('$backendBaseUrl/api/notifications/').replace(
+        queryParameters: {'user_id': widget.userId, 'form_id': widget.formId},
+      );
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
@@ -129,13 +137,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
               'Failed to load notifications (code: ${response.statusCode})';
         });
       }
-    
     } catch (e) {
-      debugPrint('Load notifications error: $e'); 
+      debugPrint('Load notifications error: $e');
       setState(() {
         _errorMessage = _friendlyErrorMessage(e);
       });
-      } finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -146,7 +153,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // ------------------ API: DELETE (single delete) ------------------
   Future<void> _deleteNotification(NotificationItem item) async {
-    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}');
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}')
+        .replace(
+          queryParameters: {'user_id': widget.userId, 'form_id': widget.formId},
+        );
 
     try {
       final response = await http.delete(uri);
@@ -172,12 +182,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // ------------------ API: PATCH (single) ------------------
   Future<void> _markNotificationRead(NotificationItem item) async {
-    if (item.isRead) {      
+    if (item.isRead) {
       setState(() {});
       return;
     }
 
-    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}/read');
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/${item.id}/read')
+        .replace(
+          queryParameters: {'user_id': widget.userId, 'form_id': widget.formId},
+        );
 
     try {
       final response = await http.patch(
@@ -254,7 +267,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       for (final id in ids) {
-        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id');
+        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id').replace(
+          queryParameters: {'user_id': widget.userId, 'form_id': widget.formId},
+        );
         final response = await http.delete(uri);
         if (response.statusCode == 200) {
           _notifications.removeWhere((n) => n.id == id);
@@ -278,7 +293,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  // Mark as read for all selected 
+  // Mark as read for all selected
   Future<void> _markSelectedRead() async {
     if (_selectedIds.isEmpty) return;
 
@@ -290,7 +305,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       for (final id in ids) {
-        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id/read');
+        final uri = Uri.parse('$backendBaseUrl/api/notifications/$id/read')
+            .replace(
+              queryParameters: {
+                'user_id': widget.userId,
+                'form_id': widget.formId,
+              },
+            );
+
         final response = await http.patch(
           uri,
           headers: {'Content-Type': 'application/json'},
@@ -404,7 +426,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: _buildBody(),
       ),
 
-      // When press "Select" 
+      // When press "Select"
       bottomNavigationBar: _selectionMode
           ? Container(
               height: 56,
@@ -421,7 +443,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
               child: Row(
                 children: [
-                  // Read 
+                  // Read
                   TextButton.icon(
                     onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
                     icon: const Icon(Icons.done_all),
@@ -429,7 +451,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     style: TextButton.styleFrom(foregroundColor: _accent),
                   ),
                   const Spacer(),
-                  // Delete 
+                  // Delete
                   TextButton.icon(
                     onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
                     icon: const Icon(Icons.delete_outline),
@@ -574,11 +596,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         );
 
-       
         if (_selectionMode) {
           return tile;
         }
-        
+
         return Slidable(
           key: ValueKey(item.id),
           endActionPane: ActionPane(

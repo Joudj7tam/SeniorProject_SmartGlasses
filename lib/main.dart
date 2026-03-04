@@ -17,6 +17,9 @@ import 'dart:io';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
+// For demo/testing purposes, using fixed device ID.
+const String kDeviceId = 'SMART_GLASSES_001';
+
 /// Background handler for FCM messages.
 ///
 /// Notes:
@@ -84,13 +87,17 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
-  
-  // ================= Glasses Link (UI FOR NOW) =================
 
-  bool _askedLinkOnEnter = false; // عشان ما يكرر السؤال بسبب reload
+  // ================= Glasses Link =================
 
-  final ValueNotifier<Map<String, String?>> _glassesLink =
-    ValueNotifier({'id': null, 'name': null});
+  String? _askedLinkForFormId;
+
+  final ValueNotifier<Map<String, String?>> _glassesLink = ValueNotifier({
+    'user_id': null,
+    'form_id': null,
+    'name': null,
+    'deviceId': null,
+  });
 
   String? get _activeProfileId {
     if (_profiles.isEmpty) return null;
@@ -101,7 +108,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     return (active['id'] ?? '').toString();
-}
+  }
 
   String get _activeProfileName => _activeAccountName;
 
@@ -110,6 +117,103 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _initFirebaseMessaging();
     _loadProfiles(); // load profiles from backend on home page init
+  }
+
+  // Checks with backend if the active profile is linked to glasses and updates state accordingly.
+  Future<bool> _isActiveProfileLinkedFromBackend() async {
+    final formId = _activeProfileId;
+    if (formId == null) return false;
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
+        queryParameters: {
+          'user_id': widget.mainAccountId, // main account MongoDB id
+          'form_id': formId, // eye health form MongoDB id
+        },
+      );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+        final device = (decoded['device'] as Map?)?.cast<String, dynamic>();
+
+        final deviceId = (device?['deviceId'] ?? '').toString();
+        final name = _activeProfileName;
+
+        // حدّث state من الباك
+        _glassesLink.value = {
+          'deviceId': deviceId.isEmpty ? null : deviceId,
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+          'name': name,
+        };
+
+        return deviceId.isNotEmpty;
+      }
+
+      if (res.statusCode == 404) {
+        // not linked
+        return false;
+      }
+
+      debugPrint('Link check failed: ${res.statusCode} ${res.body}');
+      return false;
+    } catch (e) {
+      debugPrint('Link check error: $e');
+      return false;
+    }
+  }
+
+  Future<void> _refreshDeviceLinkByDeviceId() async {
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/devices/link-by-device',
+      ).replace(queryParameters: {'deviceId': kDeviceId});
+
+      final res = await http.get(uri);
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+
+        final userId = (decoded['user_id'] ?? '').toString();
+        final formId = (decoded['form_id'] ?? '').toString();
+
+        // جيبي اسم البروفايل من الليست باستخدام form_id
+        String? linkedName;
+        if (formId.isNotEmpty) {
+          final match = _profiles.firstWhere(
+            (p) => (p['id'] ?? '').toString() == formId,
+            orElse: () => {},
+          );
+          final n = (match['full_name'] ?? '').toString();
+          linkedName = n.isNotEmpty ? n : null;
+        }
+
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': userId.isNotEmpty ? userId : null,
+          'form_id': formId.isNotEmpty ? formId : null,
+          'name': linkedName,
+        };
+        return;
+      }
+
+      if (res.statusCode == 404) {
+        // الديفايس مو مربوط لأي حساب
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+        };
+        return;
+      }
+
+      debugPrint('by-device failed: ${res.statusCode} ${res.body}');
+    } catch (e) {
+      debugPrint('by-device error: $e');
+    }
   }
 
   // Loads sub-accounts (profiles) from backend.
@@ -144,13 +248,33 @@ class _HomePageState extends State<HomePage> {
         }
         _profilesLoadedOnce = true;
       });
-      // ===== Ask to link glasses ONCE when profiles load the first time =====
-      if (!_askedLinkOnEnter) {
-        _askedLinkOnEnter = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await _showLinkGlassesDialog(force: true);
-        });
+
+      await _refreshDeviceLinkByDeviceId();
+
+      if (_profiles.isEmpty) {
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+        };
+        return;
       }
+
+      final linked = await _isActiveProfileLinkedFromBackend();
+
+      final activeFormId = _activeProfileId; // بعد setState
+      if (activeFormId != null && _askedLinkForFormId != activeFormId) {
+        _askedLinkForFormId = activeFormId;
+
+        if (!linked) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            await _showLinkGlassesDialog();
+          });
+        }
+      }
+
+      // ===== Ask to link glasses ONCE when profiles load the first time =====
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -166,27 +290,29 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-Future<void> _showLinkGlassesDialog({required bool force}) async {
-  final profileId = _activeProfileId;
-  final profileName = _activeProfileName;
+  Future<void> _showLinkGlassesDialog() async {
+    final formId = _activeProfileId;
+    final formName = _activeProfileName;
 
-  if (profileId == null) return;
+    if (formId == null) return;
 
-  if (!force && _glassesLink.value['id'] == profileId) return;
+    // check from backend if the current active account is already linked
+    final linked = await _isActiveProfileLinkedFromBackend();
+    if (linked) return;
 
-  final result = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) {
-      return AlertDialog(
+    // avoiding asking to link if the currently active profile is already linked to the glasses
+    if (_glassesLink.value['form_id'] == formId) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Link Glasses',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: Text(
-          'Do you want to link the glasses to "$profileName"?',
-        ),
+        content: Text('Do you want to link the glasses to "$formName"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -200,16 +326,39 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
             ),
           ),
         ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (result != true) return;
+
+    // ✅ Confirm => assign في الباك
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/assign');
+      final body = jsonEncode({
+        'deviceId': kDeviceId,
+        'user_id': widget.mainAccountId, // main account mongo id
+        'form_id': formId, // active form id
+      });
+
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
       );
-    },
-  );
 
-  if (!mounted) return;
+      if (res.statusCode != 200) {
+        throw 'Assign failed (code: ${res.statusCode}): ${res.body}';
+      }
 
-  if (result == true) {
-  _glassesLink.value = {'id': profileId, 'name': profileName};
+      // ✅ بعد الـ assign، اعيدي قراءة الحالة من الباك لتثبيت UI
+      await _refreshDeviceLinkByDeviceId();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
-}
 
   int _selectedIndex = 2;
   // Demo values only. Replace later with live sensor stream/state.
@@ -222,12 +371,11 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   bool _wifiOn = true;
   bool _isDarkMode = false;
 
-// ================= Smart-Light =================
+  // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
   double _smartLightIntensity = 0.95; // 0..1
   Color _smartLightColor = const Color(0xFF06D6A0); // example green
-
 
   // ================= Sub-Accounts  =================
   // Profiles = Forms from backend
@@ -264,6 +412,17 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
     String? token = await messaging.getToken();
     debugPrint('FCM TOKEN: $token');
 
+    if (token != null && token.isNotEmpty) {
+      await _syncFcmTokenToBackend(token);
+    }
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      debugPrint('FCM token refreshed: $newToken');
+      if (newToken.isNotEmpty) {
+        await _syncFcmTokenToBackend(newToken);
+      }
+    });
+
     // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint(' رسالة جديدة في foreground: ${message.notification?.title}');
@@ -285,6 +444,25 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
       Future.microtask(() {
         _openNotifications();
       });
+    }
+  }
+
+  Future<void> _syncFcmTokenToBackend(String token) async {
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/users/update-fcm-token')
+          .replace(
+            queryParameters: {
+              'user_id': widget.mainAccountId,
+              'fcm_token': token,
+            },
+          );
+
+      final res = await http.post(uri);
+      if (res.statusCode != 200) {
+        debugPrint('sync token failed: ${res.statusCode} ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('sync token error: $e');
     }
   }
 
@@ -318,20 +496,28 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   }
 
   void _openNotifications() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+    final formId = _activeProfileId;
+    if (formId == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NotificationsPage(userId: widget.mainAccountId, formId: formId),
+      ),
+    );
   }
 
   void _openProfileInfoPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()));
   }
+
   void _openSettingsPage() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SettingsPage(
+          mainAccountId: widget.mainAccountId,
           smartLightEnabled: _smartLightEnabled,
           smartLightIntensity: _smartLightIntensity,
           smartLightColor: _smartLightColor,
@@ -339,12 +525,13 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
 
           glassesLink: _glassesLink,
 
-          onRequestLink: () => _showLinkGlassesDialog(force: true),
+          onRequestLink: () => _showLinkGlassesDialog(),
+          activeFormId: _activeProfileId,
         ),
       ),
     );
   }
-  
+
   void _toggleQuickActions() {
     setState(() {
       _showQuickActions = !_showQuickActions;
@@ -429,10 +616,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                               await _loadProfiles(); // refresh to update is_active
                               if (ctx.mounted) Navigator.pop(ctx);
 
-                              //after switching, ask if you want to link this profile to the glass
-                              if (mounted) {
-                                await _showLinkGlassesDialog(force: true);
-                              }
+                              if (!mounted) return;
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(e.toString())),
@@ -467,11 +651,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                         throw 'Switch failed (code: ${res.statusCode})';
                       }
 
-                      await _loadProfiles(); // refresh to update is_active
+                      await _loadProfiles(); // Refresh to update the active profile
                       if (ctx.mounted) Navigator.pop(ctx);
-                      if (mounted) {
-                      await _showLinkGlassesDialog(force: true);
-                      }
                     } catch (e) {
                       ScaffoldMessenger.of(
                         context,
@@ -530,9 +711,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
       ),
     );
 
-    if (result != null) {
-      await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
-    }
+    _askedLinkForFormId = null;
+    await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
   }
 
   Future<void> _confirmDeleteSubAccount(
@@ -578,7 +758,16 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
         throw 'Delete failed (code: ${res.statusCode})';
       }
 
-      await _loadProfiles(); // refresh
+      _glassesLink.value = {
+        'deviceId': kDeviceId,
+        'user_id': null,
+        'form_id': null,
+        'name': null,
+      };
+
+      // reload profiles
+      await _loadProfiles();
+
       if (bottomSheetContext.mounted) Navigator.pop(bottomSheetContext);
     } catch (e) {
       if (!mounted) return;
@@ -668,7 +857,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(width: 12),
                       InkWell(
                         onTap: _openProfileMenu,
@@ -739,7 +928,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                           const SizedBox(height: 16),
                           _buildBrightnessCard(),
                           const SizedBox(height: 16),
-                         _buildDrynessCard(),
+                          _buildDrynessCard(),
                           const SizedBox(height: 16),
                           _buildGenerateReportButton(),
                           const SizedBox(height: 18),
@@ -780,8 +969,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
             // Alerts → افتح صفحة الإشعارات
             _openNotifications();
             return;
-          } 
-            _onItemTapped(index);
+          }
+          _onItemTapped(index);
         },
       ),
     );
@@ -1137,9 +1326,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.20),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.30),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.30)),
                   ),
                   child: const Icon(
                     Icons.auto_graph_rounded,
@@ -1182,9 +1369,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.18),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.25),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
                   ),
                   child: const Icon(
                     Icons.arrow_forward_ios_rounded,
