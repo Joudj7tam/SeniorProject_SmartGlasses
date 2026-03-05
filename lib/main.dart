@@ -10,6 +10,7 @@ import 'register_page.dart';
 import 'health_form_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
+import 'progress_page.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -84,6 +85,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
+  final Set<ProgressChartType> _homeSelectedCharts = {
+    ProgressChartType.blinkTrend,
+};
   
   // ================= Glasses Link (UI FOR NOW) =================
 
@@ -211,7 +215,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   }
 }
 
-  int _selectedIndex = 2;
+  int _selectedIndex = 0;
   // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
   final double _demoBrightness = 0.65; // من 0 إلى 1
@@ -644,14 +648,37 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+     body: _selectedIndex == 2
+    ? ProgressPage(
+        selectedForHome: _homeSelectedCharts,
+        onToggleForHome: (chart) {
+          setState(() {
+            if (_homeSelectedCharts.contains(chart)) {
+              _homeSelectedCharts.remove(chart);
+            } else {
+              _homeSelectedCharts.add(chart);
+            }
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _homeSelectedCharts.contains(chart)
+                    ? 'Added to Home'
+                    : 'Removed from Home',
+              ),
+            ),
+          );
+        },
+      )
+     : Stack(
         children: [
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   // ====== header ======
                   Row(
                     children: [
@@ -740,6 +767,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                           _buildBrightnessCard(),
                           const SizedBox(height: 16),
                          _buildDrynessCard(),
+                         const SizedBox(height: 16),
+                         _buildSelectedChartsSection(),
                           const SizedBox(height: 16),
                           _buildGenerateReportButton(),
                           const SizedBox(height: 18),
@@ -762,7 +791,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
       floatingActionButton: FloatingActionButton(
         shape: const CircleBorder(),
         elevation: 4,
-        backgroundColor: const Color(0xFFFFBF69), // #ffbf69
+        backgroundColor: const Color(0xFFFFBF69),
         onPressed: () => _onItemTapped(2),
         child: Icon(Icons.show_chart, color: _iconColor(2)),
       ),
@@ -862,7 +891,62 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   }
 
   // Cards (UI only). When real sensor data arrives, drive them via state management.
+  
+  // Graphics card
+  Widget _buildSelectedChartsSection() {
+  if (_homeSelectedCharts.isEmpty) {
+    return _SensorCard(
+      title: 'Home Charts',
+      subtitle: 'No charts selected yet.',
+      child: const SizedBox(
+        height: 60,
+        child: Center(child: Text('Go to Progress and select charts to show here.')),
+      ),
+    );
+  }
 
+  return Column(
+    children: _homeSelectedCharts.map((type) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: _SensorCard(
+          title: _chartTitle(type),
+          subtitle: 'Selected from Progress page .',
+          child: SizedBox(
+            height: 260, // مهم: عشان الرسم يبان داخل الكارد
+            child: _chartWidget(type),
+          ),
+        ),
+      );
+    }).toList(),
+  );
+}
+
+String _chartTitle(ProgressChartType type) {
+  switch (type) {
+    case ProgressChartType.blinkTrend:
+      return 'Blink Trend';
+    case ProgressChartType.blinkByTime:
+      return 'Blink by Time';
+    case ProgressChartType.alerts:
+      return 'Alerts';
+    case ProgressChartType.blueLightScatter:
+      return 'Blue Light';
+  }
+}
+
+Widget _chartWidget(ProgressChartType type) {
+  switch (type) {
+    case ProgressChartType.blinkTrend:
+      return const BlinkTrendLineChart(range: TimeRange.daily); // أو weekly
+    case ProgressChartType.blinkByTime:
+      return BlinkByTimeBarChart();
+    case ProgressChartType.alerts:
+      return AlertsBarChart();
+    case ProgressChartType.blueLightScatter:
+      return const BlueLightScatterChart();
+  }
+}
   // 1) Distance Card
   Widget _buildDistanceCard() {
     return _SensorCard(
