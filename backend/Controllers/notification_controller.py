@@ -90,53 +90,56 @@ async def create_notification(notification):
         "message": "Notification created successfully",
         "data": notification_dict,
     }
-
 async def update_notification_read_status(notification_id: str, is_read: bool, user_id: str, form_id: str):
     """
-    Update isRead field for a notification.
+    Update isRead field for a notification and unlock device if needed.
 
     Args:
         notification_id: MongoDB document id as string.
         is_read: New read state (True/False).
         user_id: ID of the user to verify ownership.
         form_id: ID of the form to verify ownership.
-    Returns:
-        API response with updated notification data.
     """
-
     try:
         obj_id = ObjectId(notification_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid notification id")
 
-    result = await db.notifications.update_one(
-        {"_id": obj_id, "user_id": user_id, "form_id": form_id},
-        {"$set": {"isRead": is_read, "updated_at": datetime.utcnow()}}
+    # جلب الإشعار من الداتابيس والتحقق من ملكيته
+    notification = await db["notifications"].find_one(
+        {"_id": obj_id, "user_id": user_id, "form_id": form_id}
     )
-    
-    if result.matched_count == 0:
-            # Either not found, or not owned by this user/form
-            raise HTTPException(status_code=404, detail="Notification not found")
-
-    updated = await db.notifications.find_one({"_id": obj_id, "user_id": user_id, "form_id": form_id})
-    if not updated:
+    if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
 
+    # تحديث حالة القراءة
+    await db["notifications"].update_one(
+        {"_id": obj_id},
+        {"$set": {"isRead": is_read, "updated_at": datetime.utcnow()}}
+    )
 
-    updated["id"] = str(updated["_id"])
-    updated.pop("_id", None)
+    # فك القفل عن الجهاز فقط إذا:
+    # 1️⃣ الإشعار من نوع sensor_error
+    # 2️⃣ المستخدم علّمه كمقروء
+    if is_read and notification.get("type") == "sensor_error":
+        await db["devices"].update_one(
+            {"deviceId": notification["deviceId"]},
+            {"$set": {
+                "errorLock": False,
+                "updated_at": datetime.utcnow()
+            }}
+        )
 
-    if isinstance(updated.get("created_at"), datetime):
-        updated["created_at"] = updated["created_at"].isoformat()
-
-    if isinstance(updated.get("updated_at"), datetime):
-        updated["updated_at"] = updated["updated_at"].isoformat()
+    # تجهيز البيانات للرد
+    notification["isRead"] = is_read
+    notification["updated_at"] = datetime.utcnow().isoformat()
+    notification["id"] = str(notification["_id"])
+    notification.pop("_id", None)
 
     return {
         "message": "Notification updated successfully",
-        "data": updated,
+        "data": notification
     }
-
 
 async def get_user_notifications(user_id: str, form_id: str):
     """

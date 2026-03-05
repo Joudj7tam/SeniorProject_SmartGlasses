@@ -11,9 +11,9 @@ from monitoring.monitor import watch_database
 app = FastAPI()
 
 # Start the database watcher in the background
-# @app.on_event("startup")
-# async def startup_event():
-#     asyncio.create_task(watch_database())
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(watch_database())
 
 app.include_router(notification_router, prefix="/api/notifications")
 app.include_router(readings_router, prefix="/api")

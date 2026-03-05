@@ -14,6 +14,7 @@ import 'settings_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'dart:async';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -86,7 +87,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
+  String? deviceId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
+  bool _powerOn = false;
+  Timer? _deviceStateTimer;
 
   // ================= Glasses Link =================
 
@@ -117,8 +121,17 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _initFirebaseMessaging();
     _loadProfiles(); // load profiles from backend on home page init
-  }
 
+    _deviceStateTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadDeviceStateFromDb(),
+    );
+  }
+  @override
+  void dispose() {
+    _deviceStateTimer?.cancel();
+    super.dispose();
+  }
   // Checks with backend if the active profile is linked to glasses and updates state accordingly.
   Future<bool> _isActiveProfileLinkedFromBackend() async {
     final formId = _activeProfileId;
@@ -250,6 +263,7 @@ class _HomePageState extends State<HomePage> {
       });
 
       await _refreshDeviceLinkByDeviceId();
+      await _loadDeviceStateFromDb();
 
       if (_profiles.isEmpty) {
         _glassesLink.value = {
@@ -359,6 +373,72 @@ class _HomePageState extends State<HomePage> {
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
+
+// ================= load Device State ================= 
+Future<void> _loadDeviceStateFromDb() async { 
+  final formId = _activeProfileId; 
+  if (formId == null) return; 
+
+  try { 
+    final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form') .replace(
+      queryParameters: { 
+        'user_id': widget.mainAccountId, 
+        'form_id': formId, 
+        }); 
+        
+        final res = await http.get(uri); 
+        if (res.statusCode == 200) { 
+          final data = jsonDecode(res.body); 
+          final device = data['device'];
+          deviceId= device['deviceId']?.toString();
+
+          
+          if (!mounted) return; 
+          setState(() { 
+            _powerOn = device['power'] == true; 
+          });
+        } else { 
+          debugPrint('Device not found'); 
+        } 
+      } catch (e) { 
+        debugPrint('Load power error: $e'); 
+        } 
+  }
+
+
+Future<void> _togglePower(bool value) async {
+  final formId = _activeProfileId; 
+  if (formId == null) return; 
+  final previousState = _powerOn;
+
+  setState(() {
+    _powerOn = value;
+  });
+  try{
+    final uri = Uri.parse('$backendBaseUrl/api/devices/power');
+    final res = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': widget.mainAccountId, 
+        'form_id': formId, 
+        'deviceId': deviceId,
+        'power': value,
+        }),
+    );
+
+    debugPrint('Response: ${res.statusCode} - ${res.body}');
+    if (res.statusCode != 200) {
+      throw 'Failed (${res.statusCode}) ${res.body}';
+    }
+  } catch (e) {
+    setState(() => _powerOn = previousState);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to change device power: $e')),
+    );
+  }
+}
 
   int _selectedIndex = 2;
   // Demo values only. Replace later with live sensor stream/state.
@@ -924,6 +1004,8 @@ class _HomePageState extends State<HomePage> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
+                          _buildPowerCard(),
+                          const SizedBox(height: 16),
                           _buildDistanceCard(),
                           const SizedBox(height: 16),
                           _buildBrightnessCard(),
@@ -1052,7 +1134,61 @@ class _HomePageState extends State<HomePage> {
 
   // Cards (UI only). When real sensor data arrives, drive them via state management.
 
-  // 1) Distance Card
+  // 1) Power Card
+Widget _buildPowerCard() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // ===== العناوين =====
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'Smart Glasses Power',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Turn your smart glasses on or off.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black45,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        Switch(
+          value: _powerOn,
+          activeColor: const Color(0xFF341c8c),
+          onChanged: _togglePower,
+        ),
+      ],
+    ),
+  );
+}
+
+  // 2) Distance Card
   Widget _buildDistanceCard() {
     return _SensorCard(
       title: 'Distance to Screen',
@@ -1140,7 +1276,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 2) Brightness Card
+  // 3) Brightness Card
   Widget _buildBrightnessCard() {
     return _SensorCard(
       title: 'Screen Brightness',
@@ -1215,7 +1351,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 3) Dryness Card
+  // 4) Dryness Card
   Widget _buildDrynessCard() {
     final drynessPercent = (_demoDryness * 100).round();
     String drynessLabel;
