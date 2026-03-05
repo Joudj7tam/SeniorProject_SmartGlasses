@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'main.dart';
 import 'register_page.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -99,7 +100,29 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      // 4) Go to Home wigh mainAccountId
+      // 4) Update FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        final updateUri =
+            Uri.parse('$backendBaseUrl/api/users/update-fcm-token').replace(
+              queryParameters: {
+                'user_id': mainAccountId,
+                'fcm_token': fcmToken,
+              },
+            );
+
+        final updateRes = await http.post(updateUri);
+
+        // don't stop login even if FCM token update fails — best effort
+        if (updateRes.statusCode != 200) {
+          debugPrint(
+            'Failed to update FCM token: ${updateRes.statusCode} ${updateRes.body}',
+          );
+        }
+      }
+
+      // 5) Go to Home wigh mainAccountId
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) =>

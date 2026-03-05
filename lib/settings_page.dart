@@ -2,14 +2,19 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 class SettingsPage extends StatefulWidget {
   final bool smartLightEnabled;
   final double smartLightIntensity; // 0..1
   final Color smartLightColor;
-
+  final String? activeFormId;
   final ValueNotifier<Map<String, String?>> glassesLink;
   final VoidCallback onRequestLink;
+  final String mainAccountId;
 
   /// يرجّع قيمة السويتش للهوم (عشان  الربط بعدين بالباك/الـESP)
   final ValueChanged<bool>? onSmartLightToggle;
@@ -22,6 +27,8 @@ class SettingsPage extends StatefulWidget {
     this.onSmartLightToggle,
     required this.glassesLink,
     required this.onRequestLink,
+    required this.activeFormId,
+    required this.mainAccountId,
   });
 
   @override
@@ -35,183 +42,287 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _smartLightEnabled = widget.smartLightEnabled;
+    _loadSmartLightState();
   }
 
   Future<void> _logout() async {
-  try {
-    await FirebaseAuth.instance.signOut();
+    try {
+      await FirebaseAuth.instance.signOut();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    //go back to login page and delete the stack
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-      (_) => false,
-    );
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logout failed: $e')),
+      //go back to login page and delete the stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+    }
+  }
+
+  Future<void> _loadSmartLightState() async {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return;
+
+    try {
+      final uri =
+          Uri.parse(
+            '$backendBaseUrl/api/eye-health-form/smart-light-state',
+          ).replace(
+            queryParameters: {
+              'form_id': formId,
+              'main_account_id': widget.mainAccountId,
+            },
+          );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to fetch smart light state (code: ${res.statusCode}): ${res.body}';
+      }
+
+      final body = jsonDecode(res.body);
+      final bool enabled = (body['data']?['enabled'] == true);
+
+      if (!mounted) return;
+      setState(() => _smartLightEnabled = enabled);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading smart light state: $e')),
+      );
+    }
+  }
+
+  Future<void> _unlinkGlasses() async {
+    final deviceId = widget.glassesLink.value['deviceId'];
+    final formId = widget.activeFormId;
+
+    if (deviceId == null ||
+        deviceId.isEmpty ||
+        formId == null ||
+        formId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot unlink: missing device/form info'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/unlink').replace(
+        queryParameters: {
+          'deviceId': deviceId,
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+        },
+      );
+
+      final res = await http.post(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Unlink failed (code: ${res.statusCode}): ${res.body}';
+      }
+
+      // update local state to reflect unlinking
+      widget.glassesLink.value = {
+        'deviceId': deviceId,
+        'user_id': null,
+        'form_id': null,
+        'name': null,
+      };
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Glasses unlinked successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Widget _buildGlassesLinkSection() {
+    return ValueListenableBuilder<Map<String, String?>>(
+      valueListenable: widget.glassesLink,
+      builder: (context, link, _) {
+        final linkedFormId = link['form_id'];
+        final linkedUserId = link['user_id'];
+        final linkedName = link['name'];
+
+        final isDeviceLinked =
+            (linkedUserId != null && linkedUserId.isNotEmpty) &&
+            (linkedFormId != null && linkedFormId.isNotEmpty);
+
+        // is the currently active profile linked to this device?
+        final isCurrentProfileLinked =
+            isDeviceLinked && (linkedFormId == widget.activeFormId);
+
+        // text to show under "Glasses Link" title
+        final subtitleText = isDeviceLinked
+            ? 'Linked to: ${linkedName ?? 'another account'}'
+            : 'Not linked to any account.';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE7F0FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.link, color: Color(0xFF4D96FF)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Glasses Link',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitleText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // if linked: Unlink
+              if (isDeviceLinked) ...[
+                if (isCurrentProfileLinked)
+                  TextButton(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          title: const Text('Unlink Glasses'),
+                          content: const Text(
+                            'Are you sure you want to unlink the glasses?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Unlink'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (ok == true) {
+                        await _unlinkGlasses();
+                      }
+                    },
+                    child: const Text(
+                      'Unlink',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: widget.onRequestLink,
+                    child: const Text(
+                      'Link',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ] else ...[
+                TextButton(
+                  onPressed: widget.onRequestLink,
+                  child: const Text(
+                    'Link',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
-}
-
-Widget _buildGlassesLinkSection() {
-  return ValueListenableBuilder<Map<String, String?>>(
-    valueListenable: widget.glassesLink,
-    builder: (context, link, _) {
-      final linkedId = link['id'];
-      final linkedName = link['name'];
-      final isLinked = linkedId != null;
-
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7F0FF),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.link, color: Color(0xFF4D96FF)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Glasses Link',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isLinked
-                        ? 'Linked to: ${linkedName ?? '-'}'
-                        : 'Not linked to any account.',
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-
-            // if linked: Unlink
-            if (isLinked)
-              TextButton(
-                onPressed: () async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      title: const Text('Unlink Glasses'),
-                      content: const Text(
-                        'Are you sure you want to unlink the glasses from this account?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text(
-                            'Unlink',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (ok == true) {
-                    widget.glassesLink.value = {'id': null, 'name': null};
-                  }
-                },
-                child: const Text(
-                  'Unlink',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
-                ),
-              )
-            else
-              // if not linked: Link
-              TextButton(
-                onPressed: widget.onRequestLink,
-                child: const Text(
-                  'Link',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-          ],
-        ),
-      );
-    },
-  );
-}
 
   void _showLogoutDialog() {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Confirm Logout',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: const Text(
-          'Are you sure you want to log out?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context); // Close dialog
-              await _logout();
-            },
-            child: const Text(
-              'Log Out',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.w700,
+          title: const Text(
+            'Confirm Logout',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                await _logout();
+              },
+              child: const Text(
+                'Log Out',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-        ],
-      );
-    },
-  );
-}
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,10 +334,7 @@ Widget _buildGlassesLinkSection() {
         centerTitle: false,
         title: const Text(
           'Settings',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
         ),
       ),
       body: SafeArea(
@@ -316,7 +424,10 @@ Widget _buildGlassesLinkSection() {
                   children: [
                     Text(
                       'Smart-Light',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     SizedBox(height: 2),
                     Text(
@@ -328,11 +439,31 @@ Widget _buildGlassesLinkSection() {
               ),
               Switch(
                 value: _smartLightEnabled,
-                onChanged: (v) {
+                onChanged: (v) async {
                   setState(() => _smartLightEnabled = v);
 
                   // رجّع القيمة للهوم (عشان تنربط بعدين بالباك)
                   widget.onSmartLightToggle?.call(v);
+                  if (widget.activeFormId != null) {
+                    try {
+                      final response = await http.post(
+                        Uri.parse(
+                          '$backendBaseUrl/api/eye-health-form/toggle-smart-light'
+                          '?form_id=${widget.activeFormId}&enabled=$v',
+                        ),
+                      );
+
+                      if (response.statusCode != 200) {
+                        throw Exception('Failed to update smart light');
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating smart light: $e'),
+                        ),
+                      );
+                    }
+                  }
                 },
               ),
             ],
@@ -400,12 +531,18 @@ Widget _buildGlassesLinkSection() {
                   children: [
                     const Text(
                       'Light Controls',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Intensity: $intensityPercent%',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
                     ),
                   ],
                 ),
@@ -446,11 +583,7 @@ Widget _buildGlassesLinkSection() {
           ),
           const SizedBox(height: 10),
 
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _buildReadOnlyPalette(),
-          ),
+          Wrap(spacing: 10, runSpacing: 10, children: _buildReadOnlyPalette()),
         ],
       ),
     );

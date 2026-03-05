@@ -15,8 +15,12 @@ import 'progress_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'dart:async';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
+
+// For demo/testing purposes, using fixed device ID.
+const String kDeviceId = 'SMART_GLASSES_001';
 
 /// Background handler for FCM messages.
 ///
@@ -84,17 +88,26 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
+  String? deviceId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
+
   final Set<ProgressChartType> _homeSelectedCharts = {
     ProgressChartType.blinkTrend,
-};
-  
-  // ================= Glasses Link (UI FOR NOW) =================
+  };
 
-  bool _askedLinkOnEnter = false; // عشان ما يكرر السؤال بسبب reload
+  bool _powerOn = false;
+  Timer? _deviceStateTimer;
 
-  final ValueNotifier<Map<String, String?>> _glassesLink =
-    ValueNotifier({'id': null, 'name': null});
+  // ================= Glasses Link =================
+
+  String? _askedLinkForFormId;
+
+  final ValueNotifier<Map<String, String?>> _glassesLink = ValueNotifier({
+    'user_id': null,
+    'form_id': null,
+    'name': null,
+    'deviceId': null,
+  });
 
   String? get _activeProfileId {
     if (_profiles.isEmpty) return null;
@@ -105,7 +118,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     return (active['id'] ?? '').toString();
-}
+  }
 
   String get _activeProfileName => _activeAccountName;
 
@@ -114,6 +127,114 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _initFirebaseMessaging();
     _loadProfiles(); // load profiles from backend on home page init
+
+    _deviceStateTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadDeviceStateFromDb(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _deviceStateTimer?.cancel();
+    super.dispose();
+  }
+
+  // Checks with backend if the active profile is linked to glasses and updates state accordingly.
+  Future<bool> _isActiveProfileLinkedFromBackend() async {
+    final formId = _activeProfileId;
+    if (formId == null) return false;
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
+        queryParameters: {
+          'user_id': widget.mainAccountId, // main account MongoDB id
+          'form_id': formId, // eye health form MongoDB id
+        },
+      );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+        final device = (decoded['device'] as Map?)?.cast<String, dynamic>();
+
+        final deviceId = (device?['deviceId'] ?? '').toString();
+        final name = _activeProfileName;
+
+        // حدّث state من الباك
+        _glassesLink.value = {
+          'deviceId': deviceId.isEmpty ? null : deviceId,
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+          'name': name,
+        };
+
+        return deviceId.isNotEmpty;
+      }
+
+      if (res.statusCode == 404) {
+        // not linked
+        return false;
+      }
+
+      debugPrint('Link check failed: ${res.statusCode} ${res.body}');
+      return false;
+    } catch (e) {
+      debugPrint('Link check error: $e');
+      return false;
+    }
+  }
+
+  Future<void> _refreshDeviceLinkByDeviceId() async {
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/devices/link-by-device',
+      ).replace(queryParameters: {'deviceId': kDeviceId});
+
+      final res = await http.get(uri);
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+
+        final userId = (decoded['user_id'] ?? '').toString();
+        final formId = (decoded['form_id'] ?? '').toString();
+
+        // جيبي اسم البروفايل من الليست باستخدام form_id
+        String? linkedName;
+        if (formId.isNotEmpty) {
+          final match = _profiles.firstWhere(
+            (p) => (p['id'] ?? '').toString() == formId,
+            orElse: () => {},
+          );
+          final n = (match['full_name'] ?? '').toString();
+          linkedName = n.isNotEmpty ? n : null;
+        }
+
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': userId.isNotEmpty ? userId : null,
+          'form_id': formId.isNotEmpty ? formId : null,
+          'name': linkedName,
+        };
+        return;
+      }
+
+      if (res.statusCode == 404) {
+        // الديفايس مو مربوط لأي حساب
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+        };
+        return;
+      }
+
+      debugPrint('by-device failed: ${res.statusCode} ${res.body}');
+    } catch (e) {
+      debugPrint('by-device error: $e');
+    }
   }
 
   // Loads sub-accounts (profiles) from backend.
@@ -148,13 +269,34 @@ class _HomePageState extends State<HomePage> {
         }
         _profilesLoadedOnce = true;
       });
-      // ===== Ask to link glasses ONCE when profiles load the first time =====
-      if (!_askedLinkOnEnter) {
-        _askedLinkOnEnter = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await _showLinkGlassesDialog(force: true);
-        });
+
+      await _refreshDeviceLinkByDeviceId();
+      await _loadDeviceStateFromDb();
+
+      if (_profiles.isEmpty) {
+        _glassesLink.value = {
+          'deviceId': kDeviceId,
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+        };
+        return;
       }
+
+      final linked = await _isActiveProfileLinkedFromBackend();
+
+      final activeFormId = _activeProfileId; // بعد setState
+      if (activeFormId != null && _askedLinkForFormId != activeFormId) {
+        _askedLinkForFormId = activeFormId;
+
+        if (!linked) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            await _showLinkGlassesDialog();
+          });
+        }
+      }
+
+      // ===== Ask to link glasses ONCE when profiles load the first time =====
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,27 +312,29 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-Future<void> _showLinkGlassesDialog({required bool force}) async {
-  final profileId = _activeProfileId;
-  final profileName = _activeProfileName;
+  Future<void> _showLinkGlassesDialog() async {
+    final formId = _activeProfileId;
+    final formName = _activeProfileName;
 
-  if (profileId == null) return;
+    if (formId == null) return;
 
-  if (!force && _glassesLink.value['id'] == profileId) return;
+    // check from backend if the current active account is already linked
+    final linked = await _isActiveProfileLinkedFromBackend();
+    if (linked) return;
 
-  final result = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) {
-      return AlertDialog(
+    // avoiding asking to link if the currently active profile is already linked to the glasses
+    if (_glassesLink.value['form_id'] == formId) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Link Glasses',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: Text(
-          'Do you want to link the glasses to "$profileName"?',
-        ),
+        content: Text('Do you want to link the glasses to "$formName"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -204,16 +348,101 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
             ),
           ),
         ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (result != true) return;
+
+    // ✅ Confirm => assign في الباك
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/assign');
+      final body = jsonEncode({
+        'deviceId': kDeviceId,
+        'user_id': widget.mainAccountId, // main account mongo id
+        'form_id': formId, // active form id
+      });
+
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
       );
-    },
-  );
 
-  if (!mounted) return;
+      if (res.statusCode != 200) {
+        throw 'Assign failed (code: ${res.statusCode}): ${res.body}';
+      }
 
-  if (result == true) {
-  _glassesLink.value = {'id': profileId, 'name': profileName};
+      // ✅ بعد الـ assign، اعيدي قراءة الحالة من الباك لتثبيت UI
+      await _refreshDeviceLinkByDeviceId();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
-}
+
+  // ================= load Device State =================
+  Future<void> _loadDeviceStateFromDb() async {
+    final formId = _activeProfileId;
+    if (formId == null) return;
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
+        queryParameters: {'user_id': widget.mainAccountId, 'form_id': formId},
+      );
+
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final device = data['device'];
+        deviceId = device['deviceId']?.toString();
+
+        if (!mounted) return;
+        setState(() {
+          _powerOn = device['power'] == true;
+        });
+      } else {
+        debugPrint('Device not found');
+      }
+    } catch (e) {
+      debugPrint('Load power error: $e');
+    }
+  }
+
+  Future<void> _togglePower(bool value) async {
+    final formId = _activeProfileId;
+    if (formId == null) return;
+    final previousState = _powerOn;
+
+    setState(() {
+      _powerOn = value;
+    });
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/power');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+          'deviceId': deviceId,
+          'power': value,
+        }),
+      );
+
+      debugPrint('Response: ${res.statusCode} - ${res.body}');
+      if (res.statusCode != 200) {
+        throw 'Failed (${res.statusCode}) ${res.body}';
+      }
+    } catch (e) {
+      setState(() => _powerOn = previousState);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to change device power: $e')),
+      );
+    }
+  }
 
   int _selectedIndex = 0;
   // Demo values only. Replace later with live sensor stream/state.
@@ -226,12 +455,11 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   bool _wifiOn = true;
   bool _isDarkMode = false;
 
-// ================= Smart-Light =================
+  // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
   double _smartLightIntensity = 0.95; // 0..1
   Color _smartLightColor = const Color(0xFF06D6A0); // example green
-
 
   // ================= Sub-Accounts  =================
   // Profiles = Forms from backend
@@ -268,6 +496,17 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
     String? token = await messaging.getToken();
     debugPrint('FCM TOKEN: $token');
 
+    if (token != null && token.isNotEmpty) {
+      await _syncFcmTokenToBackend(token);
+    }
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      debugPrint('FCM token refreshed: $newToken');
+      if (newToken.isNotEmpty) {
+        await _syncFcmTokenToBackend(newToken);
+      }
+    });
+
     // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint(' رسالة جديدة في foreground: ${message.notification?.title}');
@@ -289,6 +528,25 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
       Future.microtask(() {
         _openNotifications();
       });
+    }
+  }
+
+  Future<void> _syncFcmTokenToBackend(String token) async {
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/users/update-fcm-token')
+          .replace(
+            queryParameters: {
+              'user_id': widget.mainAccountId,
+              'fcm_token': token,
+            },
+          );
+
+      final res = await http.post(uri);
+      if (res.statusCode != 200) {
+        debugPrint('sync token failed: ${res.statusCode} ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('sync token error: $e');
     }
   }
 
@@ -322,20 +580,28 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   }
 
   void _openNotifications() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+    final formId = _activeProfileId;
+    if (formId == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NotificationsPage(userId: widget.mainAccountId, formId: formId),
+      ),
+    );
   }
 
   void _openProfileInfoPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()));
   }
+
   void _openSettingsPage() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SettingsPage(
+          mainAccountId: widget.mainAccountId,
           smartLightEnabled: _smartLightEnabled,
           smartLightIntensity: _smartLightIntensity,
           smartLightColor: _smartLightColor,
@@ -343,12 +609,13 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
 
           glassesLink: _glassesLink,
 
-          onRequestLink: () => _showLinkGlassesDialog(force: true),
+          onRequestLink: () => _showLinkGlassesDialog(),
+          activeFormId: _activeProfileId,
         ),
       ),
     );
   }
-  
+
   void _toggleQuickActions() {
     setState(() {
       _showQuickActions = !_showQuickActions;
@@ -433,10 +700,7 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                               await _loadProfiles(); // refresh to update is_active
                               if (ctx.mounted) Navigator.pop(ctx);
 
-                              //after switching, ask if you want to link this profile to the glass
-                              if (mounted) {
-                                await _showLinkGlassesDialog(force: true);
-                              }
+                              if (!mounted) return;
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(e.toString())),
@@ -471,11 +735,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
                         throw 'Switch failed (code: ${res.statusCode})';
                       }
 
-                      await _loadProfiles(); // refresh to update is_active
+                      await _loadProfiles(); // Refresh to update the active profile
                       if (ctx.mounted) Navigator.pop(ctx);
-                      if (mounted) {
-                      await _showLinkGlassesDialog(force: true);
-                      }
                     } catch (e) {
                       ScaffoldMessenger.of(
                         context,
@@ -534,9 +795,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
       ),
     );
 
-    if (result != null) {
-      await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
-    }
+    _askedLinkForFormId = null;
+    await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
   }
 
   Future<void> _confirmDeleteSubAccount(
@@ -582,7 +842,16 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
         throw 'Delete failed (code: ${res.statusCode})';
       }
 
-      await _loadProfiles(); // refresh
+      _glassesLink.value = {
+        'deviceId': kDeviceId,
+        'user_id': null,
+        'form_id': null,
+        'name': null,
+      };
+
+      // reload profiles
+      await _loadProfiles();
+
       if (bottomSheetContext.mounted) Navigator.pop(bottomSheetContext);
     } catch (e) {
       if (!mounted) return;
@@ -648,143 +917,149 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     body: _selectedIndex == 2
-    ? ProgressPage(
-        selectedForHome: _homeSelectedCharts,
-        onToggleForHome: (chart) {
-          setState(() {
-            if (_homeSelectedCharts.contains(chart)) {
-              _homeSelectedCharts.remove(chart);
-            } else {
-              _homeSelectedCharts.add(chart);
-            }
-          });
+      body: _selectedIndex == 2
+          ? ProgressPage(
+              selectedForHome: _homeSelectedCharts,
+              onToggleForHome: (chart) {
+                setState(() {
+                  if (_homeSelectedCharts.contains(chart)) {
+                    _homeSelectedCharts.remove(chart);
+                  } else {
+                    _homeSelectedCharts.add(chart);
+                  }
+                });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _homeSelectedCharts.contains(chart)
-                    ? 'Added to Home'
-                    : 'Removed from Home',
-              ),
-            ),
-          );
-        },
-      )
-     : Stack(
-        children: [
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  // ====== header ======
-                  Row(
-                    children: [
-                      InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: _openProfileInfoPage,
-                        child: const CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Color(0xFFCBF3F0),
-                          child: Icon(
-                            Icons.person,
-                            size: 28,
-                            color: Color(0xFF2EC4B6),
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      InkWell(
-                        onTap: _openProfileMenu,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _homeSelectedCharts.contains(chart)
+                          ? 'Added to Home'
+                          : 'Removed from Home',
+                    ),
+                  ),
+                );
+              },
+            )
+          : Stack(
+              children: [
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ====== header ======
+                        Row(
                           children: [
-                            Text(
-                              _greeting(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black54,
+                            InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: _openProfileInfoPage,
+                              child: const CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFFCBF3F0),
+                                child: Icon(
+                                  Icons.person,
+                                  size: 28,
+                                  color: Color(0xFF2EC4B6),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _activeAccountName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+
+                            const SizedBox(width: 12),
+                            InkWell(
+                              onTap: _openProfileMenu,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _greeting(),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _activeAccountName,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+
+                            const Spacer(),
+                            // جرس التنبيهات
+                            IconButton(
+                              onPressed: _openNotifications,
+                              icon: const Icon(
+                                Icons.notifications_none_rounded,
+                              ),
+                              color: const Color(0xFF2EC4B6),
+                              iconSize: 26,
+                            ),
+                            // زر الزائد لفتح الكويك أكشنز
+                            IconButton(
+                              onPressed: _toggleQuickActions,
+                              icon: const Icon(Icons.add_circle_outline),
+                              color: const Color(0xFF2EC4B6),
+                              iconSize: 28,
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 24),
 
-                      const Spacer(),
-                      // جرس التنبيهات
-                      IconButton(
-                        onPressed: _openNotifications,
-                        icon: const Icon(Icons.notifications_none_rounded),
-                        color: const Color(0xFF2EC4B6),
-                        iconSize: 26,
-                      ),
-                      // زر الزائد لفتح الكويك أكشنز
-                      IconButton(
-                        onPressed: _toggleQuickActions,
-                        icon: const Icon(Icons.add_circle_outline),
-                        color: const Color(0xFF2EC4B6),
-                        iconSize: 28,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                        // ====== عنوان بسيط للهوم ======
+                        const Text(
+                          'Today\'s Eye Health Overview',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Visual preview of your current setup (distance, brightness & eye dryness).',
+                          style: TextStyle(fontSize: 13, color: Colors.black54),
+                        ),
+                        const SizedBox(height: 16),
 
-                  // ====== عنوان بسيط للهوم ======
-                  const Text(
-                    'Today\'s Eye Health Overview',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                        // ====== باقي المحتوى في Scroll ======
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                _buildPowerCard(),
+                                const SizedBox(height: 16),
+                                _buildDistanceCard(),
+                                const SizedBox(height: 16),
+                                _buildBrightnessCard(),
+                                const SizedBox(height: 16),
+
+                                _buildDrynessCard(),
+                                const SizedBox(height: 16),
+                                _buildSelectedChartsSection(),
+
+                                const SizedBox(height: 16),
+                                _buildGenerateReportButton(),
+                                const SizedBox(height: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Visual preview of your current setup (distance, brightness & eye dryness).',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 16),
+                ),
 
-                  // ====== باقي المحتوى في Scroll ======
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _buildDistanceCard(),
-                          const SizedBox(height: 16),
-                          _buildBrightnessCard(),
-                          const SizedBox(height: 16),
-                         _buildDrynessCard(),
-                         const SizedBox(height: 16),
-                         _buildSelectedChartsSection(),
-                          const SizedBox(height: 16),
-                          _buildGenerateReportButton(),
-                          const SizedBox(height: 18),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                // ====== (Edit / Wi-Fi / Mode) circles ======
+                if (_showQuickActions) _buildQuickActionsOverlay(),
+              ],
             ),
-          ),
-
-          // ====== (Edit / Wi-Fi / Mode) circles ======
-          if (_showQuickActions) _buildQuickActionsOverlay(),
-        ],
-      ),
 
       // ================== الأيقونة الدائرية (Progress) ==================
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -809,8 +1084,8 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
             // Alerts → افتح صفحة الإشعارات
             _openNotifications();
             return;
-          } 
-            _onItemTapped(index);
+          }
+          _onItemTapped(index);
         },
       ),
     );
@@ -891,63 +1166,119 @@ Future<void> _showLinkGlassesDialog({required bool force}) async {
   }
 
   // Cards (UI only). When real sensor data arrives, drive them via state management.
-  
+
   // Graphics card
   Widget _buildSelectedChartsSection() {
-  if (_homeSelectedCharts.isEmpty) {
-    return _SensorCard(
-      title: 'Home Charts',
-      subtitle: 'No charts selected yet.',
-      child: const SizedBox(
-        height: 60,
-        child: Center(child: Text('Go to Progress and select charts to show here.')),
+    if (_homeSelectedCharts.isEmpty) {
+      return _SensorCard(
+        title: 'Home Charts',
+        subtitle: 'No charts selected yet.',
+        child: const SizedBox(
+          height: 60,
+          child: Center(
+            child: Text('Go to Progress and select charts to show here.'),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: _homeSelectedCharts.map((type) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _SensorCard(
+            title: _chartTitle(type),
+            subtitle: 'Selected from Progress page .',
+            child: SizedBox(
+              height: 260, // مهم: عشان الرسم يبان داخل الكارد
+              child: _chartWidget(type),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _chartTitle(ProgressChartType type) {
+    switch (type) {
+      case ProgressChartType.blinkTrend:
+        return 'Blink Trend';
+      case ProgressChartType.blinkByTime:
+        return 'Blink by Time';
+      case ProgressChartType.alerts:
+        return 'Alerts';
+      case ProgressChartType.blueLightScatter:
+        return 'Blue Light';
+    }
+  }
+
+  Widget _chartWidget(ProgressChartType type) {
+    switch (type) {
+      case ProgressChartType.blinkTrend:
+        return const BlinkTrendLineChart(range: TimeRange.daily); // أو weekly
+      case ProgressChartType.blinkByTime:
+        return BlinkByTimeBarChart();
+      case ProgressChartType.alerts:
+        return AlertsBarChart();
+      case ProgressChartType.blueLightScatter:
+        return const BlueLightScatterChart();
+    }
+  }
+  // 1) Distance Card
+
+  // 1) Power Card
+  Widget _buildPowerCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ===== العناوين =====
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Smart Glasses Power',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Turn your smart glasses on or off.',
+                  style: TextStyle(fontSize: 12, color: Colors.black45),
+                ),
+              ],
+            ),
+          ),
+
+          Switch(
+            value: _powerOn,
+            activeColor: const Color(0xFF341c8c),
+            onChanged: _togglePower,
+          ),
+        ],
       ),
     );
   }
 
-  return Column(
-    children: _homeSelectedCharts.map((type) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: _SensorCard(
-          title: _chartTitle(type),
-          subtitle: 'Selected from Progress page .',
-          child: SizedBox(
-            height: 260, // مهم: عشان الرسم يبان داخل الكارد
-            child: _chartWidget(type),
-          ),
-        ),
-      );
-    }).toList(),
-  );
-}
+  // 2) Distance Card
 
-String _chartTitle(ProgressChartType type) {
-  switch (type) {
-    case ProgressChartType.blinkTrend:
-      return 'Blink Trend';
-    case ProgressChartType.blinkByTime:
-      return 'Blink by Time';
-    case ProgressChartType.alerts:
-      return 'Alerts';
-    case ProgressChartType.blueLightScatter:
-      return 'Blue Light';
-  }
-}
-
-Widget _chartWidget(ProgressChartType type) {
-  switch (type) {
-    case ProgressChartType.blinkTrend:
-      return const BlinkTrendLineChart(range: TimeRange.daily); // أو weekly
-    case ProgressChartType.blinkByTime:
-      return BlinkByTimeBarChart();
-    case ProgressChartType.alerts:
-      return AlertsBarChart();
-    case ProgressChartType.blueLightScatter:
-      return const BlueLightScatterChart();
-  }
-}
-  // 1) Distance Card
   Widget _buildDistanceCard() {
     return _SensorCard(
       title: 'Distance to Screen',
@@ -1035,7 +1366,7 @@ Widget _chartWidget(ProgressChartType type) {
     );
   }
 
-  // 2) Brightness Card
+  // 3) Brightness Card
   Widget _buildBrightnessCard() {
     return _SensorCard(
       title: 'Screen Brightness',
@@ -1110,7 +1441,7 @@ Widget _chartWidget(ProgressChartType type) {
     );
   }
 
-  // 3) Dryness Card
+  // 4) Dryness Card
   Widget _buildDrynessCard() {
     final drynessPercent = (_demoDryness * 100).round();
     String drynessLabel;
@@ -1221,9 +1552,7 @@ Widget _chartWidget(ProgressChartType type) {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.20),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.30),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.30)),
                   ),
                   child: const Icon(
                     Icons.auto_graph_rounded,
@@ -1266,9 +1595,7 @@ Widget _chartWidget(ProgressChartType type) {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.18),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.25),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
                   ),
                   child: const Icon(
                     Icons.arrow_forward_ios_rounded,
