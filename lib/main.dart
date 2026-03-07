@@ -126,7 +126,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _initFirebaseMessaging();
-    _loadProfiles(); // load profiles from backend on home page init
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadProfiles();
+    });
 
     _deviceStateTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -289,10 +292,8 @@ class _HomePageState extends State<HomePage> {
       if (activeFormId != null && _askedLinkForFormId != activeFormId) {
         _askedLinkForFormId = activeFormId;
 
-        if (!linked) {
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            await _showLinkGlassesDialog();
-          });
+        if (!linked && mounted) {
+          await _showLinkGlassesDialog();
         }
       }
 
