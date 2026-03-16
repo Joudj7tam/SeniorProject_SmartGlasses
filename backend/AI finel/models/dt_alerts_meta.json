@@ -1,0 +1,26 @@
+{
+  "feature_columns": [
+    "blink_rate_bpm",
+    "blue_lux",
+    "focus_minutes",
+    "ambient_lux",
+    "humidity",
+    "temperature",
+    "min_safe_blink_bpm",
+    "max_safe_blue",
+    "max_safe_focus_min",
+    "has_eye_surgery",
+    "has_dry_eye_condition",
+    "wears_protective_glasses",
+    "blink_deficit",
+    "blue_excess",
+    "focus_excess"
+  ],
+  "label_columns": [
+    "blink_low",
+    "blue_high",
+    "focus_too_long"
+  ],
+  "trained_at": "2026-03-08T17:41:26.669505+00:00",
+  "model_type": "DecisionTree(MultiOutput)"
+}
