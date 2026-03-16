@@ -5,7 +5,7 @@ Purpose:
     Pydantic model for post-registration eye health information form.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import List, Optional
 
@@ -42,6 +42,9 @@ class EyeHealthFormModel(BaseModel):
     current_eye_symptoms: List[str]  # dryness, redness, itching, tearing, eye strain, blurred vision
     
     smart_light_enabled: Optional[bool] = False
+    
+    # Home page selected charts
+    home_selected_charts: List[str] = Field(default_factory=list)
 
     created_at: Optional[datetime] = datetime.utcnow()
     updated_at: Optional[datetime] = datetime.utcnow()

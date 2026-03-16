@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from Models.eye_health_form_model import EyeHealthFormModel
+from fastapi import Body
 from Controllers.eye_health_form_controller import (
     create_eye_health_form,
     get_eye_health_form_by_id,
@@ -9,7 +10,9 @@ from Controllers.eye_health_form_controller import (
     get_main_eye_health_form,
     delete_eye_health_form,
     toggle_smart_light,
-    get_smart_light_state
+    get_smart_light_state,
+    get_home_selected_charts,
+    update_home_selected_charts
 )
 
 router = APIRouter()
@@ -64,3 +67,22 @@ async def toggle_smart_light_setting(form_id: str, enabled: bool):
 @router.get("/smart-light-state")
 async def smart_light_state(form_id: str, main_account_id: str | None = None):
     return await get_smart_light_state(form_id=form_id, main_account_id=main_account_id)
+
+# --------- Get selected home charts ---------
+@router.get("/get-home-selected-charts")
+async def get_selected_home_charts(form_id: str, main_account_id: str):
+    return await get_home_selected_charts(form_id, main_account_id)
+
+
+# --------- Update selected home charts ---------
+@router.put("/update-home-selected-charts/{form_id}")
+async def update_selected_home_charts(
+    form_id: str,
+    main_account_id: str,
+    home_selected_charts: list[str] = Body(...)
+):
+    return await update_home_selected_charts(
+        form_id=form_id,
+        main_account_id=main_account_id,
+        charts=home_selected_charts
+    )

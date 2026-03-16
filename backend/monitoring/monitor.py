@@ -11,12 +11,14 @@ import asyncio
 from database import db
 from monitoring.metrics import MetricsEngine
 from monitoring.rules import evaluate_rules
+from Controllers.chart_metrics_controller import create_chart_metric
 from datetime import datetime
 
 async def watch_database():
     print("👀 Watching MongoDB for new sensor data...")
 
     metrics_engine = MetricsEngine()
+    last_chart_save_time = datetime.utcnow()
     pipeline = [{"$match": {"operationType": "insert"}}]
 
     async with db.raw_readings.watch(pipeline) as stream:
@@ -43,7 +45,7 @@ async def watch_database():
             # ------------------------------
             # Metrics calculation
             # ------------------------------
-            blink_raw = data.get("blink", {}).get("rawValue", 0)
+            blink_raw = data.get("ir", {}).get("rawValue", 0)
             metrics_engine.update_blink(blink_raw == 1)
 
             rgb = data.get("rgb", {})
@@ -127,6 +129,30 @@ async def watch_database():
             # Normal behavior (rules)
             # ------------------------------
             await evaluate_rules(metrics)
+            
+            # ------------------------------
+            # Save chart metrics every 5 minutes
+            # ------------------------------
+            now = datetime.utcnow()
+            minutes_passed = (now - last_chart_save_time).total_seconds() / 60
+
+            if minutes_passed >= 5:
+                await create_chart_metric({
+                    "deviceId": device_id,
+                    "user_id": device.get("user_id") if device else None,
+                    "form_id": device.get("form_id") if device else None,
+                    "timestamp": now,
+                    "blink_count": metrics_engine.blink_count,
+                    "blink_rate": metrics["blink_rate"],
+                    "latest_ibi": metrics["ibi"],
+                    "avg_ibi": None,
+                    "lux": metrics["lux"],
+                    "blue_ratio": metrics["blue_ratio"],
+                    "bucket_minutes": 5,
+                })
+
+                print("📊 Chart metrics snapshot saved")
+                last_chart_save_time = now
 
 
 async def auto_shutdown(notification_id, device_id):

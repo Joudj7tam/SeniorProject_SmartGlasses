@@ -1,18 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-enum ProgressChartType { blinkTrend, blinkByTime, alerts, blueLightScatter }
+const String backendBaseUrl = 'http://10.0.2.2:8080';
+
+enum ProgressChartType { blinkByTime, alerts, blueLightScatter }
 
 enum TimeRange { daily, weekly, monthly, yearly }
+
+class ChartPoint {
+  final String label;
+  final double value;
+
+  ChartPoint({required this.label, required this.value});
+
+  factory ChartPoint.fromJson(Map<String, dynamic> json) {
+    return ChartPoint(
+      label: (json['label'] ?? '').toString(),
+      value: (json['value'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class ScatterChartPoint {
+  final double x;
+  final double y;
+  final String label;
+
+  ScatterChartPoint({required this.x, required this.y, required this.label});
+
+  factory ScatterChartPoint.fromJson(Map<String, dynamic> json) {
+    return ScatterChartPoint(
+      x: (json['x'] as num?)?.toDouble() ?? 0.0,
+      y: (json['y'] as num?)?.toDouble() ?? 0.0,
+      label: (json['label'] ?? '').toString(),
+    );
+  }
+}
 
 class ProgressPage extends StatefulWidget {
   final Set<ProgressChartType> selectedForHome;
   final ValueChanged<ProgressChartType> onToggleForHome;
+  final String userId;
+  final String formId;
 
   const ProgressPage({
     super.key,
     required this.selectedForHome,
     required this.onToggleForHome,
+    required this.userId,
+    required this.formId,
   });
 
   @override
@@ -21,7 +59,109 @@ class ProgressPage extends StatefulWidget {
 
 class _ProgressPageState extends State<ProgressPage> {
   TimeRange _range = TimeRange.daily;
-  ProgressChartType _active = ProgressChartType.blinkTrend;
+  ProgressChartType _active = ProgressChartType.blinkByTime;
+  DateTime _selectedDate = DateTime.now();
+
+  Future<void> _pickFilterDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(DateTime.now().year + 2),
+      initialDatePickerMode: _range == TimeRange.yearly
+          ? DatePickerMode.year
+          : DatePickerMode.day,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  String _selectedDateToApi() {
+    final y = _selectedDate.year.toString().padLeft(4, '0');
+    final m = _selectedDate.month.toString().padLeft(2, '0');
+    final d = _selectedDate.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[month - 1];
+  }
+
+  String _selectedDateLabel() {
+    if (_active == ProgressChartType.blinkByTime) {
+      return _formatDate(_selectedDate);
+    }
+
+    switch (_range) {
+      case TimeRange.daily:
+        return _formatDate(_selectedDate);
+      case TimeRange.weekly:
+        return 'Week of ${_formatDate(_selectedDate)}';
+      case TimeRange.monthly:
+        return '${_monthName(_selectedDate.month)} ${_selectedDate.year}';
+      case TimeRange.yearly:
+        return '${_selectedDate.year}';
+    }
+  }
+
+  String _rangeTypeToApi(TimeRange range) {
+    switch (range) {
+      case TimeRange.daily:
+        return 'day';
+      case TimeRange.weekly:
+        return 'week';
+      case TimeRange.monthly:
+        return 'month';
+      case TimeRange.yearly:
+        return 'year';
+    }
+  }
+
+  Future<List<ChartPoint>> _fetchAlertCount() async {
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/alert-count')
+        .replace(
+          queryParameters: {
+            'user_id': widget.userId,
+            'form_id': widget.formId,
+            'range_type': _rangeTypeToApi(_range),
+          },
+        );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load alert count: ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = (decoded['data'] as List? ?? [])
+        .map((e) => ChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    return data;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +189,6 @@ class _ProgressPageState extends State<ProgressPage> {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _chip('Blink Trend', ProgressChartType.blinkTrend),
                 _chip('Blink by Time', ProgressChartType.blinkByTime),
                 _chip('Alerts', ProgressChartType.alerts),
                 _chip('Blue Light', ProgressChartType.blueLightScatter),
@@ -58,8 +197,78 @@ class _ProgressPageState extends State<ProgressPage> {
 
             const SizedBox(height: 14),
 
-            // Time filter only for the line chart
-            if (_active == ProgressChartType.blinkTrend)
+            InkWell(
+              onTap: _pickFilterDate,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month, color: Color(0xFF2EC4B6)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Date Filter',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedDateLabel(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _active == ProgressChartType.blinkByTime
+                                ? 'Selected day'
+                                : _range == TimeRange.daily
+                                ? 'Selected day'
+                                : _range == TimeRange.weekly
+                                ? 'Selected week anchor date'
+                                : _range == TimeRange.monthly
+                                ? 'Selected month'
+                                : 'Selected year',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.black45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down_rounded),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_active != ProgressChartType.blinkByTime) ...[
+              const SizedBox(height: 12),
+
               Row(
                 children: [
                   const Text(
@@ -91,10 +300,10 @@ class _ProgressPageState extends State<ProgressPage> {
                   ),
                 ],
               ),
+            ],
 
             const SizedBox(height: 10),
 
-            // Chart card
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -164,135 +373,27 @@ class _ProgressPageState extends State<ProgressPage> {
 
   Widget _buildActiveChart() {
     switch (_active) {
-      case ProgressChartType.blinkTrend:
-        return BlinkTrendLineChart(range: _range);
       case ProgressChartType.blinkByTime:
-        return BlinkByTimeBarChart();
+        return BlinkByTimeBarChart(
+          userId: widget.userId,
+          formId: widget.formId,
+          selectedDate: _selectedDateToApi(),
+        );
       case ProgressChartType.alerts:
-        return AlertsBarChart();
+        return AlertsBarChart(
+          range: _range,
+          userId: widget.userId,
+          formId: widget.formId,
+          selectedDate: _selectedDateToApi(),
+        );
       case ProgressChartType.blueLightScatter:
-        return const BlueLightScatterChart();
+        return BlueLightScatterChart(
+          range: _range,
+          userId: widget.userId,
+          formId: widget.formId,
+          selectedDate: _selectedDateToApi(),
+        );
     }
-  }
-}
-
-/* =========================
-   Chart 1: Line chart
-   Blink rate vs time (3 levels)
-   ========================= */
-
-class BlinkTrendLineChart extends StatelessWidget {
-  final TimeRange range;
-  const BlinkTrendLineChart({super.key, required this.range});
-
-  @override
-  Widget build(BuildContext context) {
-    // Dummy points by time range
-    final labels = _xLabels(range);
-    final normal = _spots([18, 17, 19, 20, 18, 17, 18]);
-    final moderate = _spots([12, 11, 12, 13, 12, 11, 12]);
-    final danger = _spots([7, 6, 7, 8, 7, 6, 5]);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Blink Rate (blink/min)',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Tracks your blinking trend over time to spot dryness risk early.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        const SizedBox(height: 10),
-
-        Expanded(
-          child: LineChart(
-            LineChartData(
-              minX: 0,
-              maxX: (labels.length - 1).toDouble(),
-              minY: 0,
-              maxY: 25,
-              gridData: const FlGridData(show: true),
-              borderData: FlBorderData(show: true),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: true, reservedSize: 36),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 28,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= labels.length) return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          labels[i],
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineBarsData: [
-                _line(normal, const Color(0xFF2EC4B6), 'Normal'),
-                _line(moderate, const Color(0xFFFF9F1C), 'Moderate'),
-                _line(danger, const Color(0xFFE63946), 'Danger'),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 12,
-          children: const [
-            _LegendDot(color: Color(0xFF2EC4B6), text: 'Normal'),
-            _LegendDot(color: Color(0xFFFF9F1C), text: 'Moderate'),
-            _LegendDot(color: Color(0xFFE63946), text: 'Danger'),
-          ],
-        ),
-      ],
-    );
-  }
-
-  List<String> _xLabels(TimeRange r) {
-    switch (r) {
-      case TimeRange.daily:
-        return const ['1', '2', '3', '4', '5', '6', '7'];
-      case TimeRange.weekly:
-        return const ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'];
-      case TimeRange.monthly:
-        return const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-      case TimeRange.yearly:
-        return const ['2019', '20', '21', '22', '23', '24', '25'];
-    }
-  }
-
-  List<FlSpot> _spots(List<double> ys) {
-    return List.generate(ys.length, (i) => FlSpot(i.toDouble(), ys[i]));
-  }
-
-  LineChartBarData _line(List<FlSpot> spots, Color c, String name) {
-    return LineChartBarData(
-      spots: spots,
-      isCurved: true,
-      color: c,
-      barWidth: 3,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: false),
-    );
   }
 }
 
@@ -319,206 +420,408 @@ class _LegendDot extends StatelessWidget {
 }
 
 /* =========================
-   Chart 2: Bar chart
+   Chart 1: Bar chart
    Blink rate per 4 hours (colored by status)
    ========================= */
 
-class BlinkByTimeBarChart extends StatelessWidget {
-  BlinkByTimeBarChart({super.key});
+class BlinkByTimeBarChart extends StatefulWidget {
+  final String userId;
+  final String formId;
+  final String selectedDate;
 
-  final List<_BlinkBucket> buckets = [
-    _BlinkBucket('12-4', 6),
-    _BlinkBucket('4-8', 10),
-    _BlinkBucket('8-12', 16),
-    _BlinkBucket('12-4p', 18),
-    _BlinkBucket('4-8p', 12),
-    _BlinkBucket('8-12p', 7),
-  ];
+  const BlinkByTimeBarChart({
+    super.key,
+    required this.userId,
+    required this.formId,
+    required this.selectedDate,
+  });
+
+  @override
+  State<BlinkByTimeBarChart> createState() => _BlinkByTimeBarChartState();
+}
+
+class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
+  late Future<List<ChartPoint>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _fetchBlinkByTime();
+  }
+
+  @override
+  void didUpdateWidget(covariant BlinkByTimeBarChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.userId != widget.userId ||
+        oldWidget.formId != widget.formId ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      _future = _fetchBlinkByTime();
+    }
+  }
+
+  Future<List<ChartPoint>> _fetchBlinkByTime() async {
+    final uri = Uri.parse('$backendBaseUrl/api/chart-metrics/blink-by-time')
+        .replace(
+          queryParameters: {
+            'user_id': widget.userId,
+            'form_id': widget.formId,
+            'selected_date': widget.selectedDate,
+          },
+        );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load blink by time: ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final rawData = (decoded['data'] as List? ?? []);
+
+    return rawData
+        .map((e) => ChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  double _calculateMaxY(List<ChartPoint> data) {
+    if (data.isEmpty) return 10;
+    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    return maxValue < 10 ? 10 : maxValue + 2;
+  }
+
+  Color _statusColor(double blinkPerMin) {
+    if (blinkPerMin >= 15) return const Color(0xFF2EC4B6);
+    if (blinkPerMin >= 10) return const Color(0xFFFF9F1C);
+    return const Color(0xFFE63946);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Blink Rate by Time',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Compares blink rate across the day to find low-blink periods.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        const SizedBox(height: 10),
+    return FutureBuilder<List<ChartPoint>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        Expanded(
-          child: BarChart(
-            BarChartData(
-              maxY: 25,
-              gridData: const FlGridData(show: true),
-              borderData: FlBorderData(show: true),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: true, reservedSize: 36),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= buckets.length) return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          buckets[i].label,
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      );
-                    },
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              'Failed to load blink by time data',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        final data = snapshot.data ?? [];
+
+        if (data.isEmpty) {
+          return const Center(
+            child: Text(
+              'No blink by time data available',
+              style: TextStyle(color: Colors.black54),
+            ),
+          );
+        }
+
+        final maxY = _calculateMaxY(data);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Blink Rate by Time',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Shows average blink rate for each 3-hour period of the day.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  maxY: maxY,
+                  alignment: BarChartAlignment.spaceAround,
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: true),
+                  titlesData: FlTitlesData(
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 36,
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 48,
+                        getTitlesWidget: (value, meta) {
+                          final i = value.toInt();
+                          if (i < 0 || i >= data.length) {
+                            return const SizedBox();
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              data[i].label,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
+                  barGroups: List.generate(data.length, (i) {
+                    final item = data[i];
+                    return BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: item.value,
+                          color: _statusColor(item.value),
+                          width: 18,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
               ),
-              barGroups: List.generate(buckets.length, (i) {
-                final b = buckets[i];
-                final color = _statusColor(b.value);
-                return BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    BarChartRodData(
-                      toY: b.value.toDouble(),
-                      color: color,
-                      width: 18,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                );
-              }),
             ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 12,
-          children: const [
-            _LegendDot(color: Color(0xFF2EC4B6), text: 'Normal'),
-            _LegendDot(color: Color(0xFFFF9F1C), text: 'Moderate'),
-            _LegendDot(color: Color(0xFFE63946), text: 'Danger'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              children: const [
+                _LegendDot(color: Color(0xFF2EC4B6), text: 'Normal'),
+                _LegendDot(color: Color(0xFFFF9F1C), text: 'Moderate'),
+                _LegendDot(color: Color(0xFFE63946), text: 'Danger'),
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
-  }
-
-  Color _statusColor(int blinkPerMin) {
-    // مثال منطقي بسيط (عدّليه لاحقًا حسب قياسكم)
-    if (blinkPerMin >= 15) return const Color(0xFF2EC4B6); // طبيعي
-    if (blinkPerMin >= 10) return const Color(0xFFFF9F1C); // متوسط
-    return const Color(0xFFE63946); // خطر
   }
 }
 
-class _BlinkBucket {
-  final String label;
-  final int value;
-  _BlinkBucket(this.label, this.value);
+Color _statusColor(int blinkPerMin) {
+  // مثال منطقي بسيط (عدّليه لاحقًا حسب قياسكم)
+  if (blinkPerMin >= 15) return const Color(0xFF2EC4B6); // طبيعي
+  if (blinkPerMin >= 10) return const Color(0xFFFF9F1C); // متوسط
+  return const Color(0xFFE63946); // خطر
 }
 
 /* =========================
-   Chart 3: Bar chart
+   Chart 2: Bar chart
    Alerts count by type (3 types dummy)
    ========================= */
 
-class AlertsBarChart extends StatelessWidget {
-  AlertsBarChart({super.key});
+class AlertsBarChart extends StatefulWidget {
+  final TimeRange range;
+  final String userId;
+  final String formId;
+  final String selectedDate;
 
-  final List<_AlertBucket> alerts = [
-    _AlertBucket('Incorrect\nsensor', 4),
-    _AlertBucket('Low\nlight', 7),
-    _AlertBucket('Low\nblink', 5),
-  ];
+  const AlertsBarChart({
+    super.key,
+    required this.range,
+    required this.userId,
+    required this.formId,
+    required this.selectedDate,
+  });
+
+  @override
+  State<AlertsBarChart> createState() => _AlertsBarChartState();
+}
+
+class _AlertsBarChartState extends State<AlertsBarChart> {
+  late Future<List<ChartPoint>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _fetchAlertCounts();
+  }
+
+  @override
+  void didUpdateWidget(covariant AlertsBarChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.userId != widget.userId ||
+        oldWidget.formId != widget.formId ||
+        oldWidget.range != widget.range ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      _future = _fetchAlertCounts();
+    }
+  }
+
+  String _rangeTypeToApi(TimeRange range) {
+    switch (range) {
+      case TimeRange.daily:
+        return 'day';
+      case TimeRange.weekly:
+        return 'week';
+      case TimeRange.monthly:
+        return 'month';
+      case TimeRange.yearly:
+        return 'year';
+    }
+  }
+
+  Future<List<ChartPoint>> _fetchAlertCounts() async {
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/alert-count')
+        .replace(
+          queryParameters: {
+            'user_id': widget.userId,
+            'form_id': widget.formId,
+            'range_type': _rangeTypeToApi(widget.range),
+            'selected_date': widget.selectedDate,
+          },
+        );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load alerts chart: ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final rawData = (decoded['data'] as List? ?? []);
+
+    return rawData
+        .map((e) => ChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  double _calculateMaxY(List<ChartPoint> data) {
+    if (data.isEmpty) return 5;
+    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    return maxValue < 5 ? 5 : maxValue + 1;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Alerts by Type',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Summarizes alert counts to highlight the most common issues.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        const SizedBox(height: 10),
+    return FutureBuilder<List<ChartPoint>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        Expanded(
-          child: BarChart(
-            BarChartData(
-              maxY: 10,
-              gridData: const FlGridData(show: true),
-              borderData: FlBorderData(show: true),
-              titlesData: FlTitlesData(
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: true, reservedSize: 36),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 44,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= alerts.length) return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          alerts[i].label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      );
-                    },
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              'Failed to load alerts data',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        final alerts = snapshot.data ?? [];
+
+        if (alerts.isEmpty) {
+          return const Center(
+            child: Text(
+              'No alert data available',
+              style: TextStyle(color: Colors.black54),
+            ),
+          );
+        }
+
+        final maxY = _calculateMaxY(alerts);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Alerts by Type',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Summarizes alert counts to highlight the most common issues.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  maxY: maxY,
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: true),
+                  titlesData: FlTitlesData(
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 36,
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 44,
+                        getTitlesWidget: (value, meta) {
+                          final i = value.toInt();
+                          if (i < 0 || i >= alerts.length) {
+                            return const SizedBox();
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              alerts[i].label,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
+                  barGroups: List.generate(alerts.length, (i) {
+                    final item = alerts[i];
+                    return BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: item.value,
+                          color: const Color(0xFF2EC4B6),
+                          width: 18,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
               ),
-              barGroups: List.generate(alerts.length, (i) {
-                final a = alerts[i];
-                return BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    BarChartRodData(
-                      toY: a.count.toDouble(),
-                      color: const Color(0xFF2EC4B6),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                );
-              }),
             ),
-          ),
-        ),
-
-        const SizedBox(height: 6),
-        const Text(
-          'Dummy counts .',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-      ],
+            const SizedBox(height: 6),
+            const Text(
+              'Loaded from database.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -530,31 +833,95 @@ class _AlertBucket {
 }
 
 /* =========================
-   Chart 4: scatterplot chart
+   Chart 3: scatterplot chart
    BlueLight 
    ========================= */
 
-class BlueLightScatterChart extends StatelessWidget {
-  const BlueLightScatterChart({super.key});
+class BlueLightScatterChart extends StatefulWidget {
+  final TimeRange range;
+  final String userId;
+  final String formId;
+  final String selectedDate;
 
-  List<ScatterSpot> _spots() {
-    final data = [
-      [2, 1],
-      [4, 1.5],
-      [6, 2],
-      [8, 2.5],
-      [10, 3],
-      [12, 3.5],
-      [14, 4],
-      [16, 4.5],
-      [18, 5],
-    ];
+  const BlueLightScatterChart({
+    super.key,
+    required this.range,
+    required this.userId,
+    required this.formId,
+    required this.selectedDate,
+  });
 
+  @override
+  State<BlueLightScatterChart> createState() => _BlueLightScatterChartState();
+}
+
+class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
+  late Future<List<ScatterChartPoint>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _fetchBlueLightScatter();
+  }
+
+  @override
+  void didUpdateWidget(covariant BlueLightScatterChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.userId != widget.userId ||
+        oldWidget.formId != widget.formId ||
+        oldWidget.range != widget.range ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      _future = _fetchBlueLightScatter();
+    }
+  }
+
+  String _rangeTypeToApi(TimeRange range) {
+    switch (range) {
+      case TimeRange.daily:
+        return 'day';
+      case TimeRange.weekly:
+        return 'week';
+      case TimeRange.monthly:
+        return 'month';
+      case TimeRange.yearly:
+        return 'year';
+    }
+  }
+
+  Future<List<ScatterChartPoint>> _fetchBlueLightScatter() async {
+    final uri =
+        Uri.parse(
+          '$backendBaseUrl/api/chart-metrics/blue-light-scatter',
+        ).replace(
+          queryParameters: {
+            'user_id': widget.userId,
+            'form_id': widget.formId,
+            'range_type': _rangeTypeToApi(widget.range),
+            'selected_date': widget.selectedDate,
+          },
+        );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load blue light scatter: ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final rawData = (decoded['data'] as List? ?? []);
+
+    return rawData
+        .map((e) => ScatterChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  List<ScatterSpot> _buildScatterSpots(List<ScatterChartPoint> data) {
     return data
         .map(
-          (e) => ScatterSpot(
-            e[0].toDouble(),
-            e[1].toDouble(),
+          (point) => ScatterSpot(
+            point.x,
+            point.y,
             dotPainter: FlDotCirclePainter(
               color: const Color(0xFF2EC4B6),
               radius: 6,
@@ -564,100 +931,155 @@ class BlueLightScatterChart extends StatelessWidget {
         .toList();
   }
 
+  double _maxX(List<ScatterChartPoint> data) {
+    if (data.isEmpty) return 100;
+    final maxValue = data.map((e) => e.x).reduce((a, b) => a > b ? a : b);
+    return maxValue <= 0 ? 100 : maxValue + 20;
+  }
+
+  double _maxY(List<ScatterChartPoint> data) {
+    if (data.isEmpty) return 1;
+    final maxValue = data.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+    return maxValue <= 0 ? 1 : maxValue + 0.1;
+  }
+
+  String _rangeLabel(TimeRange range) {
+    switch (range) {
+      case TimeRange.daily:
+        return 'daily';
+      case TimeRange.weekly:
+        return 'weekly';
+      case TimeRange.monthly:
+        return 'monthly';
+      case TimeRange.yearly:
+        return 'yearly';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Blue Light Exposure',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Shows how blue-light exposure changes across the day.',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        const SizedBox(height: 10),
+    return FutureBuilder<List<ScatterChartPoint>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        Expanded(
-          child: ScatterChart(
-            ScatterChartData(
-              minX: 0,
-              maxX: 24,
-              minY: 0,
-              maxY: 5,
-              gridData: const FlGridData(show: true),
-              borderData: FlBorderData(show: true),
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              'Failed to load blue light data',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
 
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
+        final data = snapshot.data ?? [];
 
-                leftTitles: AxisTitles(
-                  axisNameWidget: const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      'Blue Light (0–5)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+        if (data.isEmpty) {
+          return const Center(
+            child: Text(
+              'No blue light data available',
+              style: TextStyle(color: Colors.black54),
+            ),
+          );
+        }
+
+        final spots = _buildScatterSpots(data);
+        final maxX = _maxX(data);
+        final maxY = _maxY(data);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Blue Light Exposure',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Shows the relationship between lux and blue light ratio for the selected ${_rangeLabel(widget.range)} range.',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ScatterChart(
+                ScatterChartData(
+                  minX: 0,
+                  maxX: maxX,
+                  minY: 0,
+                  maxY: maxY,
+                  gridData: const FlGridData(show: true),
+                  borderData: FlBorderData(show: true),
+                  scatterSpots: spots,
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      axisNameWidget: const Padding(
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          'Blue Ratio',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      axisNameSize: 22,
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: maxY > 1 ? (maxY / 5) : 0.2,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toStringAsFixed(2),
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  axisNameSize: 22,
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      if (value % 1 != 0) return const SizedBox();
-                      if (value < 0 || value > 5) return const SizedBox();
-                      return Text(
-                        value.toInt().toString(),
-                        style: const TextStyle(fontSize: 11),
-                      );
-                    },
-                  ),
-                ),
-
-                bottomTitles: AxisTitles(
-                  axisNameWidget: const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Time (0–24)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                    bottomTitles: AxisTitles(
+                      axisNameWidget: const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Lux',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      axisNameSize: 24,
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: maxX > 100 ? (maxX / 5) : 20,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toStringAsFixed(0),
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  axisNameSize: 24,
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 4,
-                    reservedSize: 30,
-                    getTitlesWidget: (value, meta) {
-                      if (value % 4 != 0) return const SizedBox();
-                      if (value < 0 || value > 24) return const SizedBox();
-                      return Text(
-                        '${value.toInt()}h',
-                        style: const TextStyle(fontSize: 11),
-                      );
-                    },
                   ),
                 ),
               ),
-
-              scatterSpots: _spots(),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 8),
+            Text(
+              'Each dot represents one ${_rangeLabel(widget.range)} time bucket.',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        );
+      },
     );
   }
 }

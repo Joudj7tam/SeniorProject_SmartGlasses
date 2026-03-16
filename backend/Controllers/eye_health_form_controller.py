@@ -294,3 +294,75 @@ async def get_smart_light_state(form_id: str, main_account_id: str | None = None
     enabled = bool(form.get("smart_light_enabled", False))
 
     return {"success": True, "data": {"form_id": form_id, "enabled": enabled}}
+
+
+
+# --------------- Get selected home charts ---------------
+async def get_home_selected_charts(form_id: str, main_account_id: str):
+    form = await db.eye_health_forms.find_one({
+        "_id": ObjectId(form_id),
+        "main_account_id": ObjectId(main_account_id)
+    })
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    charts = form.get("home_selected_charts", [])
+
+    return {
+        "success": True,
+        "message": "Home selected charts fetched successfully",
+        "data": {
+            "form_id": form_id,
+            "home_selected_charts": charts
+        }
+    }
+
+
+
+# --------------- Update selected home charts ---------------
+async def update_home_selected_charts(form_id: str, main_account_id: str, charts: list[str]):
+    allowed_chart_types = {
+        "blinkByTime",
+        "alerts",
+        "blueLightScatter"
+    }
+
+    # validate values
+    invalid_values = [c for c in charts if c not in allowed_chart_types]
+    if invalid_values:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid chart types: {invalid_values}"
+        )
+
+    # validate form belongs to this user
+    form = await db.eye_health_forms.find_one({
+        "_id": ObjectId(form_id),
+        "main_account_id": ObjectId(main_account_id)
+    })
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    await db.eye_health_forms.update_one(
+        {
+            "_id": ObjectId(form_id),
+            "main_account_id": ObjectId(main_account_id)
+        },
+        {
+            "$set": {
+                "home_selected_charts": charts,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+
+    return {
+        "success": True,
+        "message": "Home selected charts updated successfully",
+        "data": {
+            "form_id": form_id,
+            "home_selected_charts": charts
+        }
+    }

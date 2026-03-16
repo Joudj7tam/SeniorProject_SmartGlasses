@@ -53,3 +53,9 @@ backend/firebase/serviceAccountKey.json
 backend/firebase/serviceAccountKey.json.json
 
 
+
+# database scripts files
+seed_chart_metrics_script.py
+seed_notifications_script.py
+
+

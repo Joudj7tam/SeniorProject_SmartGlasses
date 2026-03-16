@@ -5,7 +5,7 @@ Purpose:
 from fastapi import HTTPException
 from Models.notification_model import NotificationModel
 from database import db
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from firebase.firebase_client import send_push_notification, USER_FCM_TOKEN
 
@@ -27,7 +27,9 @@ async def create_notification(notification):
 
     # Timestamps
     now = datetime.utcnow()
-    notification_dict["created_at"] = now
+    # لا تستبدلي created_at إذا جاء من السكربت
+    if not notification_dict.get("created_at"):
+        notification_dict["created_at"] = now
     notification_dict["updated_at"] = now
 
     # link to user_id and form_id based on deviceId
@@ -90,6 +92,9 @@ async def create_notification(notification):
         "message": "Notification created successfully",
         "data": notification_dict,
     }
+    
+    
+
 async def update_notification_read_status(notification_id: str, is_read: bool, user_id: str, form_id: str):
     """
     Update isRead field for a notification and unlock device if needed.
@@ -185,3 +190,109 @@ async def delete_notification(notification_id: str, user_id: str, form_id: str):
         raise HTTPException(status_code=404, detail="Notification not found")
 
     return {"message": "Notification deleted successfully", "id": notification_id}
+
+
+
+# ---------------------------------------------------------
+# Helper: build date filter based on range
+# supported ranges:
+# - day
+# - week
+# - month
+# - year
+# ---------------------------------------------------------
+def build_date_filter(range_type: str, selected_date: datetime | None = None):
+    now = datetime.utcnow()
+
+    # if no selected date is provided, use current date/time
+    base_date = selected_date or now
+
+    if range_type == "day":
+        # start of the selected day
+        start_date = datetime(base_date.year, base_date.month, base_date.day)
+        end_date = start_date + timedelta(days=1)
+
+    elif range_type == "week":
+        # get beginning of the week (Monday)
+        start_date = datetime(base_date.year, base_date.month, base_date.day) - timedelta(days=base_date.weekday())
+        end_date = start_date + timedelta(days=7)
+
+    elif range_type == "month":
+        # start of selected month
+        start_date = datetime(base_date.year, base_date.month, 1)
+
+        # next month
+        if base_date.month == 12:
+            end_date = datetime(base_date.year + 1, 1, 1)
+        else:
+            end_date = datetime(base_date.year, base_date.month + 1, 1)
+
+    elif range_type == "year":
+        # start of selected year
+        start_date = datetime(base_date.year, 1, 1)
+        end_date = datetime(base_date.year + 1, 1, 1)
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid range. Use day, week, month, or year.")
+
+    return start_date, end_date
+
+# ---------------------------------------------------------
+# Helper: parse selected date from query param
+# ---------------------------------------------------------
+def parse_selected_date(selected_date: str | None = None) -> datetime | None:
+    if not selected_date:
+        return None
+
+    try:
+        return datetime.strptime(selected_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid selected_date format. Use YYYY-MM-DD."
+        )
+        
+
+
+# ---------------------------------------------------------
+# Get Alert Count chart data
+# Returns count of notifications grouped by type
+# ---------------------------------------------------------
+async def get_alert_count_chart(user_id: str, form_id: str, range_type: str, selected_date: datetime | None = None):
+    start_date, end_date = build_date_filter(range_type, selected_date)
+
+    pipeline = [
+        {
+            # filter notifications by user, form, and date range
+            "$match": {
+                "user_id": user_id,
+                "form_id": form_id,
+                "created_at": {"$gte": start_date, "$lt": end_date},
+            }
+        },
+        {
+            # group by notification type and count documents
+            "$group": {
+                "_id": "$metric_name",
+                "count": {"$sum": 1},
+            }
+        },
+        {
+            # sort by count descending
+            "$sort": {"count": -1}
+        }
+    ]
+
+    results = []
+    async for doc in db.notifications.aggregate(pipeline):
+        results.append({
+            "label": doc["_id"] if doc["_id"] else "unknown",
+            "value": doc["count"]
+        })
+
+    return {
+        "chart": "alert_count",
+        "range": range_type,
+        "selected_date": selected_date.strftime("%Y-%m-%d") if selected_date else None,
+        "data": results
+    }

@@ -90,10 +90,9 @@ class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   String? deviceId;
   bool _profilesLoadedOnce = false; // first-time loading indicator
+  bool _isUpdatingHomeCharts = false;
 
-  final Set<ProgressChartType> _homeSelectedCharts = {
-    ProgressChartType.blinkTrend,
-  };
+  final Set<ProgressChartType> _homeSelectedCharts = {};
 
   bool _powerOn = false;
   Timer? _deviceStateTimer;
@@ -240,6 +239,145 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ================= Home Selected Charts =================
+
+  ProgressChartType? _chartTypeFromString(String value) {
+    switch (value) {
+      case 'blinkByTime':
+        return ProgressChartType.blinkByTime;
+      case 'alerts':
+        return ProgressChartType.alerts;
+      case 'blueLightScatter':
+        return ProgressChartType.blueLightScatter;
+      default:
+        return null;
+    }
+  }
+
+  String _chartTypeToString(ProgressChartType type) {
+    switch (type) {
+      case ProgressChartType.blinkByTime:
+        return 'blinkByTime';
+      case ProgressChartType.alerts:
+        return 'alerts';
+      case ProgressChartType.blueLightScatter:
+        return 'blueLightScatter';
+    }
+  }
+
+  Future<void> _loadHomeSelectedCharts() async {
+    final formId = _activeProfileId;
+    if (formId == null) return;
+
+    try {
+      final uri =
+          Uri.parse(
+            '$backendBaseUrl/api/eye-health-form/get-home-selected-charts',
+          ).replace(
+            queryParameters: {
+              'form_id': formId,
+              'main_account_id': widget.mainAccountId,
+            },
+          );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to load home charts (code: ${res.statusCode})';
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final charts = (data['home_selected_charts'] as List?) ?? [];
+
+      final loadedCharts = charts
+          .map((e) => _chartTypeFromString(e.toString()))
+          .whereType<ProgressChartType>()
+          .toSet();
+
+      if (!mounted) return;
+      setState(() {
+        _homeSelectedCharts
+          ..clear()
+          ..addAll(loadedCharts);
+      });
+    } catch (e) {
+      debugPrint('Load home charts error: $e');
+    }
+  }
+
+  Future<void> _updateHomeSelectedChartsInBackend() async {
+    final formId = _activeProfileId;
+    if (formId == null) return;
+
+    final chartStrings = _homeSelectedCharts.map(_chartTypeToString).toList();
+
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/eye-health-form/update-home-selected-charts/$formId',
+      ).replace(queryParameters: {'main_account_id': widget.mainAccountId});
+
+      final res = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(chartStrings),
+      );
+
+      if (res.statusCode != 200) {
+        throw 'Failed to update home charts (code: ${res.statusCode}) ${res.body}';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> _toggleChartForHome(ProgressChartType chart) async {
+    if (_isUpdatingHomeCharts) return;
+
+    final previousCharts = Set<ProgressChartType>.from(_homeSelectedCharts);
+
+    setState(() {
+      _isUpdatingHomeCharts = true;
+      if (_homeSelectedCharts.contains(chart)) {
+        _homeSelectedCharts.remove(chart);
+      } else {
+        _homeSelectedCharts.add(chart);
+      }
+    });
+
+    try {
+      await _updateHomeSelectedChartsInBackend();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _homeSelectedCharts.contains(chart)
+                ? 'Added to Home'
+                : 'Removed from Home',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _homeSelectedCharts
+          ..clear()
+          ..addAll(previousCharts);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update home charts: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingHomeCharts = false;
+      });
+    }
+  }
+
   // Loads sub-accounts (profiles) from backend.
   Future<void> _loadProfiles() async {
     try {
@@ -275,6 +413,7 @@ class _HomePageState extends State<HomePage> {
 
       await _refreshDeviceLinkByDeviceId();
       await _loadDeviceStateFromDb();
+      await _loadHomeSelectedCharts();
 
       if (_profiles.isEmpty) {
         _glassesLink.value = {
@@ -397,12 +536,20 @@ class _HomePageState extends State<HomePage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final device = data['device'];
-        deviceId = device['deviceId']?.toString();
+
+        final newDeviceId = device['deviceId']?.toString();
+        final newPower = device['power'] == true;
 
         if (!mounted) return;
-        setState(() {
-          _powerOn = device['power'] == true;
-        });
+
+        final hasChanged = (deviceId != newDeviceId) || (_powerOn != newPower);
+
+        if (hasChanged) {
+          setState(() {
+            deviceId = newDeviceId;
+            _powerOn = newPower;
+          });
+        }
       } else {
         debugPrint('Device not found');
       }
@@ -921,25 +1068,9 @@ class _HomePageState extends State<HomePage> {
       body: _selectedIndex == 2
           ? ProgressPage(
               selectedForHome: _homeSelectedCharts,
-              onToggleForHome: (chart) {
-                setState(() {
-                  if (_homeSelectedCharts.contains(chart)) {
-                    _homeSelectedCharts.remove(chart);
-                  } else {
-                    _homeSelectedCharts.add(chart);
-                  }
-                });
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _homeSelectedCharts.contains(chart)
-                          ? 'Added to Home'
-                          : 'Removed from Home',
-                    ),
-                  ),
-                );
-              },
+              onToggleForHome: _toggleChartForHome,
+              userId: widget.mainAccountId,
+              formId: _activeProfileId ?? '',
             )
           : Stack(
               children: [
@@ -1036,16 +1167,19 @@ class _HomePageState extends State<HomePage> {
                               children: [
                                 _buildPowerCard(),
                                 const SizedBox(height: 16),
+
+                                _buildSelectedChartsSection(),
+                                const SizedBox(height: 16),
+
                                 _buildDistanceCard(),
                                 const SizedBox(height: 16),
+
                                 _buildBrightnessCard(),
                                 const SizedBox(height: 16),
 
                                 _buildDrynessCard(),
                                 const SizedBox(height: 16),
-                                _buildSelectedChartsSection(),
 
-                                const SizedBox(height: 16),
                                 _buildGenerateReportButton(),
                                 const SizedBox(height: 18),
                               ],
@@ -1202,8 +1336,6 @@ class _HomePageState extends State<HomePage> {
 
   String _chartTitle(ProgressChartType type) {
     switch (type) {
-      case ProgressChartType.blinkTrend:
-        return 'Blink Trend';
       case ProgressChartType.blinkByTime:
         return 'Blink by Time';
       case ProgressChartType.alerts:
@@ -1213,16 +1345,39 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _todayToApi() {
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
   Widget _chartWidget(ProgressChartType type) {
+    final formId = _activeProfileId ?? '';
+    final selectedDate = _todayToApi();
+
     switch (type) {
-      case ProgressChartType.blinkTrend:
-        return const BlinkTrendLineChart(range: TimeRange.daily); // أو weekly
       case ProgressChartType.blinkByTime:
-        return BlinkByTimeBarChart();
+        return BlinkByTimeBarChart(
+          userId: widget.mainAccountId,
+          formId: formId,
+          selectedDate: selectedDate,
+        );
       case ProgressChartType.alerts:
-        return AlertsBarChart();
+        return AlertsBarChart(
+          range: TimeRange.daily,
+          userId: widget.mainAccountId,
+          formId: formId,
+          selectedDate: selectedDate,
+        );
       case ProgressChartType.blueLightScatter:
-        return const BlueLightScatterChart();
+        return BlueLightScatterChart(
+          range: TimeRange.daily,
+          userId: widget.mainAccountId,
+          formId: formId,
+          selectedDate: selectedDate,
+        );
     }
   }
   // 1) Distance Card

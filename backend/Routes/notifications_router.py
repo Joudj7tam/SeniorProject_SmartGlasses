@@ -1,11 +1,14 @@
+from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel
-
+from typing import Optional
 from Controllers.notification_controller import (
     create_notification,
     get_user_notifications,
     delete_notification,
     update_notification_read_status,
+    get_alert_count_chart,
+    parse_selected_date
 )
 from Models.notification_model import NotificationModel
 
@@ -47,3 +50,17 @@ async def mark_notification_read(notification_id: str, user_id: str, form_id: st
     }
     """
     return await update_notification_read_status(notification_id, payload.isRead, user_id, form_id)
+
+
+# ---------------------------------------------------------
+# Get Alert Count chart data
+# ---------------------------------------------------------
+@router.get("/alert-count")
+async def fetch_alert_count(
+    user_id: str,
+    form_id: str,
+    range_type: str,
+    selected_date: str | None = None,
+):
+    parsed_date = parse_selected_date(selected_date)
+    return await get_alert_count_chart(user_id, form_id, range_type, parsed_date)
