@@ -7,6 +7,13 @@ import 'package:http/http.dart' as http;
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
+class _DeviceItem {
+  final String id;
+  final String name;
+
+  const _DeviceItem({required this.id, required this.name});
+}
+
 class SettingsPage extends StatefulWidget {
   final bool smartLightEnabled;
   final double smartLightIntensity; // 0..1
@@ -38,11 +45,117 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _smartLightEnabled;
 
+  final List<_DeviceItem> _devices = [
+    const _DeviceItem(id: 'SMART_GLASSES_001', name: 'My Smart Glasses'),
+  ];
+
+  String? _selectedDeviceId = 'SMART_GLASSES_001';
+  final TextEditingController _deviceNameController = TextEditingController();
+
+  _DeviceItem? get _selectedDevice {
+    try {
+      return _devices.firstWhere((d) => d.id == _selectedDeviceId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _smartLightEnabled = widget.smartLightEnabled;
     _loadSmartLightState();
+  }
+
+  @override
+  void dispose() {
+    _deviceNameController.dispose();
+    super.dispose();
+  }
+
+  void _showAddDeviceDialog() {
+    _deviceNameController.clear();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Add New Device',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: TextField(
+            controller: _deviceNameController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Enter a unique device name',
+              filled: true,
+              fillColor: const Color(0xFFFFF7EE),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF9F1C),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                final enteredName = _deviceNameController.text.trim();
+
+                if (enteredName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a device name')),
+                  );
+                  return;
+                }
+
+                final alreadyExists = _devices.any(
+                  (d) => d.name.toLowerCase() == enteredName.toLowerCase(),
+                );
+
+                if (alreadyExists) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Device name must be unique')),
+                  );
+                  return;
+                }
+
+                final newDevice = _DeviceItem(
+                  id: 'DEV_${DateTime.now().millisecondsSinceEpoch}',
+                  name: enteredName,
+                );
+
+                setState(() {
+                  _devices.add(newDevice);
+                  _selectedDeviceId = newDevice.id;
+                });
+
+                Navigator.pop(ctx);
+              },
+              child: const Text('Add Device'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _logout() async {
@@ -100,54 +213,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _unlinkGlasses() async {
-    final deviceId = widget.glassesLink.value['deviceId'];
-    final formId = widget.activeFormId;
+    widget.glassesLink.value = {
+      'deviceId': _selectedDeviceId,
+      'user_id': null,
+      'form_id': null,
+      'name': null,
+    };
 
-    if (deviceId == null ||
-        deviceId.isEmpty ||
-        formId == null ||
-        formId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot unlink: missing device/form info'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final uri = Uri.parse('$backendBaseUrl/api/devices/unlink').replace(
-        queryParameters: {
-          'deviceId': deviceId,
-          'user_id': widget.mainAccountId,
-          'form_id': formId,
-        },
-      );
-
-      final res = await http.post(uri);
-
-      if (res.statusCode != 200) {
-        throw 'Unlink failed (code: ${res.statusCode}): ${res.body}';
-      }
-
-      // update local state to reflect unlinking
-      widget.glassesLink.value = {
-        'deviceId': deviceId,
-        'user_id': null,
-        'form_id': null,
-        'name': null,
-      };
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Glasses unlinked successfully')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Device unlinked successfully')),
+    );
   }
 
   Widget _buildGlassesLinkSection() {
@@ -162,118 +238,300 @@ class _SettingsPageState extends State<SettingsPage> {
             (linkedUserId != null && linkedUserId.isNotEmpty) &&
             (linkedFormId != null && linkedFormId.isNotEmpty);
 
-        // is the currently active profile linked to this device?
         final isCurrentProfileLinked =
             isDeviceLinked && (linkedFormId == widget.activeFormId);
 
-        // text to show under "Glasses Link" title
         final subtitleText = isDeviceLinked
             ? 'Linked to: ${linkedName ?? 'another account'}'
             : 'Not linked to any account.';
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE7F0FF),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.link, color: Color(0xFF4D96FF)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Glasses Link',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE7F0FF),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitleText,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
+                    child: const Icon(
+                      Icons.visibility_outlined,
+                      color: Color(0xFF4D96FF),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Devices',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Add, name, and choose the device you want to link.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7EE),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.link_rounded,
+                      color: Color(0xFF4D96FF),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        subtitleText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // if linked: Unlink
-              if (isDeviceLinked) ...[
-                if (isCurrentProfileLinked)
-                  TextButton(
-                    onPressed: () async {
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+              const SizedBox(height: 18),
+
+              const Text(
+                'Choose Device',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7EE),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.black.withOpacity(0.06)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedDeviceId,
+                    isExpanded: true,
+                    borderRadius: BorderRadius.circular(18),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    items: _devices.map((device) {
+                      return DropdownMenuItem<String>(
+                        value: device.id,
+                        child: Text(
+                          device.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
-                          title: const Text('Unlink Glasses'),
-                          content: const Text(
-                            'Are you sure you want to unlink the glasses?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Unlink'),
-                            ),
-                          ],
                         ),
                       );
-
-                      if (ok == true) {
-                        await _unlinkGlasses();
-                      }
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedDeviceId = value;
+                      });
                     },
-                    child: const Text(
-                      'Unlink',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  )
-                else
-                  TextButton(
-                    onPressed: widget.onRequestLink,
-                    child: const Text(
-                      'Link',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showAddDeviceDialog,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text(
+                    'Add New Device',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2EC4B6),
+                    side: const BorderSide(color: Color(0xFFCBF3F0)),
+                    backgroundColor: const Color(0xFFF7FFFE),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-              ] else ...[
-                TextButton(
-                  onPressed: widget.onRequestLink,
-                  child: const Text(
-                    'Link',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _selectedDevice == null
+                          ? null
+                          : () {
+                              widget.glassesLink.value = {
+                                'deviceId': _selectedDevice!.id,
+                                'user_id': widget.mainAccountId,
+                                'form_id': widget.activeFormId,
+                                'name': _selectedDevice!.name,
+                              };
+
+                              widget.onRequestLink();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${_selectedDevice!.name} selected for linking',
+                                  ),
+                                ),
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9F1C),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text(
+                        'Link Selected Device',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: isDeviceLinked
+                          ? () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  title: const Text('Unlink Device'),
+                                  content: const Text(
+                                    'Are you sure you want to unlink this device?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text(
+                                        'Unlink',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (ok == true) {
+                                await _unlinkGlasses();
+                              }
+                            }
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(
+                          color: isDeviceLinked
+                              ? Colors.red.withOpacity(0.25)
+                              : Colors.grey.withOpacity(0.2),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text(
+                        'Unlink',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              if (isCurrentProfileLinked) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2FFFA),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF2EC4B6),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This device is currently linked to the active profile.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
