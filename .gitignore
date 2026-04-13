@@ -49,6 +49,7 @@ backend/firebase/serviceAccountKey.json
 **/serviceAccountKey.json
 .env
 .env.*
+backend/.env
 
 backend/firebase/serviceAccountKey.json.json
 
