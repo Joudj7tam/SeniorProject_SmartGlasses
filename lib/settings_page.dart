@@ -44,8 +44,11 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late bool _smartLightEnabled;
+  bool _isLoadingDevices = false;
+  bool _powerOn = false;
+  bool _isPowerLoading = false;
 
-  final List<_DeviceItem> _devices = [
+  List<_DeviceItem> _devices = [
     const _DeviceItem(id: 'SMART_GLASSES_001', name: 'My Smart Glasses'),
   ];
 
@@ -65,6 +68,8 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _smartLightEnabled = widget.smartLightEnabled;
     _loadSmartLightState();
+    _loadDevicesFromBackend();
+    _loadLinkedDeviceFromBackend();
   }
 
   @override
@@ -117,7 +122,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              onPressed: () {
+              onPressed: () async {
                 final enteredName = _deviceNameController.text.trim();
 
                 if (enteredName.isEmpty) {
@@ -138,17 +143,21 @@ class _SettingsPageState extends State<SettingsPage> {
                   return;
                 }
 
-                final newDevice = _DeviceItem(
-                  id: 'DEV_${DateTime.now().millisecondsSinceEpoch}',
-                  name: enteredName,
-                );
+                try {
+                  await _addDeviceToBackend(enteredName);
 
-                setState(() {
-                  _devices.add(newDevice);
-                  _selectedDeviceId = newDevice.id;
-                });
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
 
-                Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Device added successfully')),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
               },
               child: const Text('Add Device'),
             ),
@@ -212,17 +221,334 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _loadDevicesFromBackend() async {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return;
+
+    setState(() => _isLoadingDevices = true);
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
+        queryParameters: {'user_id': widget.mainAccountId, 'form_id': formId},
+      );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to load devices (code: ${res.statusCode})';
+      }
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = (body['data'] as List?) ?? [];
+
+      final loadedDevices = data
+          .map((item) {
+            final map = item as Map<String, dynamic>;
+            return _DeviceItem(
+              id: (map['deviceId'] ?? '').toString(),
+              name: ((map['device_name'] ?? '').toString().isNotEmpty)
+                  ? (map['device_name'] ?? '').toString()
+                  : (map['deviceId'] ?? '').toString(),
+            );
+          })
+          .where((d) => d.id.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _devices = loadedDevices;
+
+        if (_devices.isNotEmpty) {
+          final selectedStillExists = _devices.any(
+            (d) => d.id == _selectedDeviceId,
+          );
+          _selectedDeviceId = selectedStillExists
+              ? _selectedDeviceId
+              : _devices.first.id;
+        } else {
+          _selectedDeviceId = null;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading devices: $e')));
+    } finally {
+      if (!mounted) return;
+      setState(() => _isLoadingDevices = false);
+    }
+  }
+
+  Future<void> _addDeviceToBackend(String deviceName) async {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return;
+
+    final deviceId = 'DEV_${DateTime.now().millisecondsSinceEpoch}';
+
+    final uri = Uri.parse('$backendBaseUrl/api/devices/add');
+
+    final res = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'deviceId': deviceId,
+        'device_name': deviceName,
+        'user_id': widget.mainAccountId,
+        'form_id': formId,
+        'is_linked': false,
+        'power': false,
+        'errorLock': false,
+      }),
+    );
+
+    if (res.statusCode != 200) {
+      throw 'Failed to add device (code: ${res.statusCode}): ${res.body}';
+    }
+
+    await _loadDevicesFromBackend();
+
+    if (!mounted) return;
+    setState(() {
+      _selectedDeviceId = deviceId;
+    });
+  }
+
+  Future<void> _loadLinkedDeviceFromBackend() async {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return;
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/linked').replace(
+        queryParameters: {'user_id': widget.mainAccountId, 'form_id': formId},
+      );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final device = body['device'] as Map<String, dynamic>;
+
+        final deviceId = (device['deviceId'] ?? '').toString();
+
+        widget.glassesLink.value = {
+          'deviceId': deviceId.isEmpty ? null : deviceId,
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+          'name': null,
+        };
+        await _loadLinkedDevicePower();
+        return;
+      }
+
+      if (res.statusCode == 404) {
+        widget.glassesLink.value = {
+          'deviceId': null,
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+        };
+        if (!mounted) return;
+        setState(() {
+          _powerOn = false;
+        });
+        return;
+      }
+
+      throw 'Failed to load linked device (code: ${res.statusCode})';
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading linked device: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadLinkedDevicePower() async {
+    final linkedDeviceId = widget.glassesLink.value['deviceId'];
+
+    if (linkedDeviceId == null || linkedDeviceId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _powerOn = false;
+      });
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(
+        '$backendBaseUrl/api/devices/power/$linkedDeviceId',
+      );
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to load device power (code: ${res.statusCode})';
+      }
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+
+      if (!mounted) return;
+      setState(() {
+        _powerOn = body['power'] == true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading device power: $e')));
+    }
+  }
+
+  Future<void> _toggleLinkedDevicePower(bool value) async {
+    final formId = widget.activeFormId;
+    final linkedDeviceId = widget.glassesLink.value['deviceId'];
+
+    if (formId == null ||
+        formId.isEmpty ||
+        linkedDeviceId == null ||
+        linkedDeviceId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isPowerLoading = true);
+
+    try {
+      final uri = Uri.parse('$backendBaseUrl/api/devices/power');
+
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'deviceId': linkedDeviceId,
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
+          'power': value,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        throw 'Failed to update power (code: ${res.statusCode}): ${res.body}';
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _powerOn = value;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating device power: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() => _isPowerLoading = false);
+    }
+  }
+
+  Future<void> _linkSelectedDevice() async {
+    final formId = widget.activeFormId;
+    final selected = _selectedDevice;
+
+    if (formId == null || formId.isEmpty || selected == null) return;
+
+    final uri = Uri.parse('$backendBaseUrl/api/devices/link').replace(
+      queryParameters: {
+        'deviceId': selected.id,
+        'user_id': widget.mainAccountId,
+        'form_id': formId,
+      },
+    );
+
+    final res = await http.post(uri);
+
+    if (res.statusCode != 200) {
+      throw 'Failed to link device (code: ${res.statusCode}): ${res.body}';
+    }
+
+    await _loadDevicesFromBackend();
+    await _loadLinkedDeviceFromBackend();
+    await _loadLinkedDevicePower();
+  }
+
   Future<void> _unlinkGlasses() async {
-    widget.glassesLink.value = {
-      'deviceId': _selectedDeviceId,
-      'user_id': null,
-      'form_id': null,
-      'name': null,
-    };
+    final formId = widget.activeFormId;
+    final linkedDeviceId = widget.glassesLink.value['deviceId'];
+
+    if (formId == null ||
+        formId.isEmpty ||
+        linkedDeviceId == null ||
+        linkedDeviceId.isEmpty) {
+      return;
+    }
+
+    final uri = Uri.parse('$backendBaseUrl/api/devices/unlink').replace(
+      queryParameters: {
+        'deviceId': linkedDeviceId,
+        'user_id': widget.mainAccountId,
+        'form_id': formId,
+      },
+    );
+
+    final res = await http.post(uri);
+
+    if (res.statusCode != 200) {
+      throw 'Failed to unlink device (code: ${res.statusCode}): ${res.body}';
+    }
+
+    await _loadDevicesFromBackend();
+    await _loadLinkedDeviceFromBackend();
+    if (!mounted) return;
+    setState(() {
+      _powerOn = false;
+    });
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Device unlinked successfully')),
+    );
+  }
+
+  Future<void> _deleteDevice(String deviceId) async {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return;
+
+    final uri = Uri.parse('$backendBaseUrl/api/devices/delete').replace(
+      queryParameters: {
+        'deviceId': deviceId,
+        'user_id': widget.mainAccountId,
+        'form_id': formId,
+      },
+    );
+
+    final res = await http.delete(uri);
+
+    if (res.statusCode != 200) {
+      throw 'Failed to delete device (code: ${res.statusCode}): ${res.body}';
+    }
+
+    final wasLinked = widget.glassesLink.value['deviceId'] == deviceId;
+
+    await _loadDevicesFromBackend();
+
+    if (wasLinked) {
+      widget.glassesLink.value = {
+        'deviceId': null,
+        'user_id': null,
+        'form_id': null,
+        'name': null,
+      };
+
+      if (!mounted) return;
+      setState(() {
+        _powerOn = false;
+      });
+    } else {
+      await _loadLinkedDeviceFromBackend();
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Device deleted successfully')),
     );
   }
 
@@ -232,18 +558,24 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, link, _) {
         final linkedFormId = link['form_id'];
         final linkedUserId = link['user_id'];
-        final linkedName = link['name'];
+        final linkedDeviceId = link['deviceId'];
+
+        String? linkedDeviceName;
+        try {
+          linkedDeviceName = _devices
+              .firstWhere((d) => d.id == linkedDeviceId)
+              .name;
+        } catch (_) {
+          linkedDeviceName = null;
+        }
 
         final isDeviceLinked =
             (linkedUserId != null && linkedUserId.isNotEmpty) &&
             (linkedFormId != null && linkedFormId.isNotEmpty);
 
-        final isCurrentProfileLinked =
-            isDeviceLinked && (linkedFormId == widget.activeFormId);
-
         final subtitleText = isDeviceLinked
-            ? 'Linked to: ${linkedName ?? 'another account'}'
-            : 'Not linked to any account.';
+            ? 'Currently linked device: ${linkedDeviceName ?? 'Unknown device'}'
+            : 'No device currently linked';
 
         return Container(
           width: double.infinity,
@@ -323,12 +655,67 @@ class _SettingsPageState extends State<SettingsPage> {
                     Expanded(
                       child: Text(
                         subtitleText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7EE),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.power_settings_new_rounded,
+                      color: Color(0xFFFF9F1C),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Device Power',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isDeviceLinked
+                                ? 'Control ${linkedDeviceName ?? 'linked device'}'
+                                : 'No linked device to control',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _powerOn,
+                      onChanged: (!isDeviceLinked || _isPowerLoading)
+                          ? null
+                          : (value) async {
+                              await _toggleLinkedDevicePower(value);
+                            },
                     ),
                   ],
                 ),
@@ -355,23 +742,102 @@ class _SettingsPageState extends State<SettingsPage> {
                     isExpanded: true,
                     borderRadius: BorderRadius.circular(18),
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    selectedItemBuilder: (context) {
+                      return _devices.map((device) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            device.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList();
+                    },
                     items: _devices.map((device) {
                       return DropdownMenuItem<String>(
                         value: device.id,
-                        child: Text(
-                          device.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                device.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    title: const Text('Delete Device'),
+                                    content: Text(
+                                      'Are you sure you want to delete ${device.name}?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (ok == true) {
+                                  Navigator.pop(context); // يقفل dropdown
+                                  try {
+                                    await _deleteDevice(device.id);
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString())),
+                                    );
+                                  }
+                                }
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDeviceId = value;
-                      });
-                    },
+                    onChanged: _isLoadingDevices
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _selectedDeviceId = value;
+                            });
+                          },
                   ),
                 ),
               ),
@@ -381,7 +847,7 @@ class _SettingsPageState extends State<SettingsPage> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _showAddDeviceDialog,
+                  onPressed: _isLoadingDevices ? null : _showAddDeviceDialog,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(
                     'Add New Device',
@@ -405,25 +871,26 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _selectedDevice == null
+                      onPressed: _selectedDevice == null || _isLoadingDevices
                           ? null
-                          : () {
-                              widget.glassesLink.value = {
-                                'deviceId': _selectedDevice!.id,
-                                'user_id': widget.mainAccountId,
-                                'form_id': widget.activeFormId,
-                                'name': _selectedDevice!.name,
-                              };
+                          : () async {
+                              try {
+                                await _linkSelectedDevice();
 
-                              widget.onRequestLink();
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${_selectedDevice!.name} selected for linking',
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '${_selectedDevice!.name} linked successfully',
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFF9F1C),
@@ -452,8 +919,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   title: const Text('Unlink Device'),
-                                  content: const Text(
-                                    'Are you sure you want to unlink this device?',
+                                  content: Text(
+                                    'Are you sure you want to unlink ${linkedDeviceName ?? 'this device'}?',
                                   ),
                                   actions: [
                                     TextButton(
@@ -476,7 +943,14 @@ class _SettingsPageState extends State<SettingsPage> {
                               );
 
                               if (ok == true) {
-                                await _unlinkGlasses();
+                                try {
+                                  await _unlinkGlasses();
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString())),
+                                  );
+                                }
                               }
                             }
                           : null,
@@ -492,49 +966,17 @@ class _SettingsPageState extends State<SettingsPage> {
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      child: const Text(
-                        'Unlink',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      child: Text(
+                        isDeviceLinked
+                            ? 'Unlink: ${linkedDeviceName ?? 'Device'}'
+                            : 'Unlink',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
                 ],
               ),
-
-              if (isCurrentProfileLinked) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2FFFA),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF2EC4B6),
-                        size: 18,
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'This device is currently linked to the active profile.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
         );

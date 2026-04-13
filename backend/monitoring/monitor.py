@@ -1,12 +1,3 @@
-# monitor.py
-# ================================================
-# MongoDB watcher:
-# - Watches raw sensor data
-# - Detects incorrect data
-# - Locks system temporarily
-# - Triggers auto shutdown if no user response
-# ================================================
-
 import asyncio
 from database import db
 from monitoring.metrics import MetricsEngine
@@ -28,17 +19,26 @@ async def watch_database():
             data = doc.get("data", {})
 
             # ------------------------------
-            # Load device state from devices collection
+            # Load device from devices collection
+            # Only continue if this device is currently linked
             # ------------------------------
-            device = await db["devices"].find_one({"deviceId": device_id})
+            device = await db["devices"].find_one({
+                "deviceId": device_id,
+                "is_linked": True
+            })
+
+            # Device not linked → ignore data
+            if not device:
+                print("⚠️ Device not linked → ignoring data")
+                continue
 
             # Device OFF → ignore data
-            if device and device.get("power") == False:
+            if device.get("power") == False:
                 print("🔌 Device OFF → ignoring data")
                 continue
 
-            # Error lock active → ignore everything
-            if device and device.get("errorLock", False):
+            # Error lock active → ignore everything until user responds
+            if device.get("errorLock", False):
                 print("🔒 Error lock active → waiting for user response")
                 continue
 
@@ -95,41 +95,52 @@ async def watch_database():
                     message += f" ({', '.join(reasons)})"
 
                 print("❌ Incorrect data detected:", reasons)
-                
-                device = await db["devices"].find_one({"deviceId": device_id})
 
-                # Lock device temporarily
+                # Lock device temporarily until user reads notification
                 await db["devices"].update_one(
-                    {"deviceId": device_id},
+                    {
+                        "deviceId": device_id,
+                        "user_id": device["user_id"],
+                        "form_id": device["form_id"]
+                    },
                     {"$set": {
-                        "power": True,          # ON to alert user
-                        "errorLock": True,      # lock until user response
-                        "lastUpdated": datetime.utcnow()
+                        "power": True,          # keep device ON so user can be alerted
+                        "errorLock": True,      # prevent further processing until user responds
+                        "updated_at": datetime.utcnow()
                     }}
                 )
-                
+
+                # Create sensor error notification
                 result = await db["notifications"].insert_one({
-                    "user_id" : device.get("user_id"),
-                    "form_id" : device.get("form_id"),
+                    "user_id": device.get("user_id"),
+                    "form_id": device.get("form_id"),
                     "deviceId": device_id,
                     "title": "Incorrect Sensor Data",
                     "message": message,
                     "timestamp": doc.get("timestamp", datetime.utcnow()),
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
                     "isRead": False,
                     "type": "sensor_error"
                 })
 
+                # Start auto shutdown timer
                 asyncio.create_task(
-                    auto_shutdown(result.inserted_id, device_id)
+                    auto_shutdown(
+                        result.inserted_id,
+                        device_id,
+                        device["user_id"],
+                        device["form_id"]
+                    )
                 )
 
-                continue  # ⛔ stop here
+                continue  # stop here if incorrect data detected
 
             # ------------------------------
-            # Normal behavior (rules)
+            # Normal behavior (rules evaluation)
             # ------------------------------
             await evaluate_rules(metrics)
-            
+
             # ------------------------------
             # Save chart metrics every 5 minutes
             # ------------------------------
@@ -139,8 +150,8 @@ async def watch_database():
             if minutes_passed >= 5:
                 await create_chart_metric({
                     "deviceId": device_id,
-                    "user_id": device.get("user_id") if device else None,
-                    "form_id": device.get("form_id") if device else None,
+                    "user_id": device.get("user_id"),
+                    "form_id": device.get("form_id"),
                     "timestamp": now,
                     "blink_count": metrics_engine.blink_count,
                     "blink_rate": metrics["blink_rate"],
@@ -155,29 +166,44 @@ async def watch_database():
                 last_chart_save_time = now
 
 
-async def auto_shutdown(notification_id, device_id):
+async def auto_shutdown(notification_id, device_id, user_id, form_id):
+    # Wait 30 seconds before checking if shutdown is needed
     await asyncio.sleep(30)
 
+    # Check if user has already read the notification
     notification = await db["notifications"].find_one({"_id": notification_id})
 
     if notification and notification.get("isRead", False):
         print("✅ Notification read → cancel shutdown")
         return
 
-    device = await db["devices"].find_one({"deviceId": device_id})
+    # Get the same device linked to this user + form
+    device = await db["devices"].find_one({
+        "deviceId": device_id,
+        "user_id": user_id,
+        "form_id": form_id
+    })
 
-    if device and not device.get("errorLock", True):
+    if not device:
+        return
+
+    # If error lock is already cleared, do not shut down
+    if not device.get("errorLock", True):
         print("✅ Error resolved → no shutdown")
         return
 
     print("⏱ No response → auto shutdown")
 
+    # Turn device OFF and clear lock
     await db["devices"].update_one(
-        {"deviceId": device_id},
+        {
+            "deviceId": device_id,
+            "user_id": user_id,
+            "form_id": form_id
+        },
         {"$set": {
-            "power": False,            # 🔌 OFF
+            "power": False,
             "errorLock": False,
             "updated_at": datetime.utcnow()
         }}
-    ) 
-
+    )

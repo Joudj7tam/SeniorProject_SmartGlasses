@@ -16,34 +16,31 @@ async def create_notification(notification):
 
     Args:
         notification: NotificationModel or dict payload.
-
-    Returns:
-        API response with created notification data.
     """
     if hasattr(notification, "dict"):
         notification_dict = notification.dict()
     else:
         notification_dict = notification
 
-    # Timestamps
     now = datetime.utcnow()
-    # لا تستبدلي created_at إذا جاء من السكربت
+
     if not notification_dict.get("created_at"):
         notification_dict["created_at"] = now
     notification_dict["updated_at"] = now
 
-    # link to user_id and form_id based on deviceId
-    link = await db.devices.find_one(
-        {"deviceId": notification_dict["deviceId"], "power": True}
-    )
+    # link notification to linked + powered device only
+    link = await db.devices.find_one({
+        "deviceId": notification_dict["deviceId"],
+        "is_linked": True,
+        "power": True
+    })
 
     if not link:
-        raise HTTPException(status_code=400, detail="Device not linked to any user")
+        raise HTTPException(status_code=400, detail="Device is not linked or inactive")
 
     notification_dict["user_id"] = link.get("user_id")
     notification_dict["form_id"] = link.get("form_id")
 
-    # Insert into DB
     result = await db.notifications.insert_one(notification_dict)
     if not result.inserted_id:
         raise HTTPException(status_code=500, detail="Error inserting notification")
@@ -51,20 +48,17 @@ async def create_notification(notification):
     notification_dict["id"] = str(result.inserted_id)
     notification_dict.pop("_id", None)
 
-    # Send FCM push notification using user's stored fcm_token (best-effort)
     try:
         user_id = (notification_dict.get("user_id") or "").strip()
         user_token = None
 
         if user_id:
-            # devices.user_id is expected to be stored as string of Mongo ObjectId
             try:
                 user_oid = ObjectId(user_id)
                 user_doc = await db.users.find_one({"_id": user_oid})
                 if user_doc:
                     user_token = user_doc.get("fcm_token")
             except Exception:
-                # user_id not a valid ObjectId string
                 user_token = None
 
         if user_token:
@@ -128,11 +122,17 @@ async def update_notification_read_status(notification_id: str, is_read: bool, u
     # 2️⃣ المستخدم علّمه كمقروء
     if is_read and notification.get("type") == "sensor_error":
         await db["devices"].update_one(
-            {"deviceId": notification["deviceId"]},
-            {"$set": {
-                "errorLock": False,
-                "updated_at": datetime.utcnow()
-            }}
+            {
+                "deviceId": notification["deviceId"],
+                "user_id": user_id,
+                "form_id": form_id
+            },
+            {
+                "$set": {
+                    "errorLock": False,
+                    "updated_at": datetime.utcnow()
+                }
+            }
         )
 
     # تجهيز البيانات للرد

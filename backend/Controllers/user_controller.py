@@ -94,17 +94,10 @@ async def delete_main_account(firebase_uid: str):
         "main_account_id": user_id
     })
     
-    # 3- Unassign all devices linked to this user
-    await db.devices.update_many(
-        {"user_id": str(user_id)},
-        {
-            "$set": {
-                "user_id": None,
-                "form_id": None,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    # 3- delete all devices related to this user
+    await db.devices.delete_many({
+        "user_id": str(user_id)
+    })
     
     # 4- delete user
     await db.users.delete_one({

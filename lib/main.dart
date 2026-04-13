@@ -558,40 +558,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _togglePower(bool value) async {
-    final formId = _activeProfileId;
-    if (formId == null) return;
-    final previousState = _powerOn;
-
-    setState(() {
-      _powerOn = value;
-    });
-    try {
-      final uri = Uri.parse('$backendBaseUrl/api/devices/power');
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': widget.mainAccountId,
-          'form_id': formId,
-          'deviceId': deviceId,
-          'power': value,
-        }),
-      );
-
-      debugPrint('Response: ${res.statusCode} - ${res.body}');
-      if (res.statusCode != 200) {
-        throw 'Failed (${res.statusCode}) ${res.body}';
-      }
-    } catch (e) {
-      setState(() => _powerOn = previousState);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to change device power: $e')),
-      );
-    }
-  }
-
   int _selectedIndex = 0;
   // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
@@ -708,14 +674,6 @@ class _HomePageState extends State<HomePage> {
     return _selectedIndex == index
         ? const Color(0xFF2EC4B6) // selected item
         : Colors.black45;
-  }
-
-  TextStyle _labelStyle(int index) {
-    return TextStyle(
-      fontSize: 11,
-      fontWeight: _selectedIndex == index ? FontWeight.w600 : FontWeight.w400,
-      color: _iconColor(index),
-    );
   }
 
   String _greeting() {
@@ -1165,9 +1123,6 @@ class _HomePageState extends State<HomePage> {
                           child: SingleChildScrollView(
                             child: Column(
                               children: [
-                                _buildPowerCard(),
-                                const SizedBox(height: 16),
-
                                 _buildSelectedChartsSection(),
                                 const SizedBox(height: 16),
 
@@ -1380,60 +1335,8 @@ class _HomePageState extends State<HomePage> {
         );
     }
   }
+
   // 1) Distance Card
-
-  // 1) Power Card
-  Widget _buildPowerCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // ===== العناوين =====
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Smart Glasses Power',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Turn your smart glasses on or off.',
-                  style: TextStyle(fontSize: 12, color: Colors.black45),
-                ),
-              ],
-            ),
-          ),
-
-          Switch(
-            value: _powerOn,
-            activeColor: const Color(0xFF341c8c),
-            onChanged: _togglePower,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 2) Distance Card
 
   Widget _buildDistanceCard() {
     return _SensorCard(

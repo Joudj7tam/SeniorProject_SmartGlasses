@@ -247,15 +247,11 @@ async def delete_eye_health_form(main_account_id: str, form_id: str):
                 {"$set": {"is_active": True, "updated_at": now}}
             )
             
-    # 6) Unassign device if linked to this form
-    await db.devices.update_many(
-        {"user_id": main_account_id, "form_id": form_id},
-        {"$set": {
-                "form_id": None,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    # 6) delete all devices linked to this form (if any)
+    await db.devices.delete_many({
+        "user_id": main_account_id,
+        "form_id": form_id
+    })
 
     return {"success": True, "message": "Sub-account deleted successfully"}
 

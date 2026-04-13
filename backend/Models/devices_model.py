@@ -3,15 +3,21 @@ from datetime import datetime
 from typing import Optional
 
 class DevicesModel(BaseModel):
-    # IDs
+    # Device identity
     deviceId: str
-    user_id: Optional[str] = None  # main account mongoDB id
-    form_id: Optional[str] = None  # eye health form mongoDB id
+    device_name: Optional[str] = None
 
-    # State
-    power: Optional[bool] = False     # Indicates if the device is ON (True) or OFF (False)
-    errorLock: Optional[bool] = False    # Indicates if the device is locked due to an error (e.g., failed to turn on/off)
+    # Fixed ownership to one specific form
+    user_id: str
+    form_id: str
 
-    # Timestamps (set in controller)
+    # Current link state inside the same form
+    is_linked: Optional[bool] = False
+
+    # Device state
+    power: Optional[bool] = False
+    errorLock: Optional[bool] = False
+
+    # Timestamps
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

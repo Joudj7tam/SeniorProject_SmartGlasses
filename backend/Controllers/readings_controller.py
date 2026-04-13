@@ -11,18 +11,19 @@ async def create_reading(reading: ReadingModel):
 
     if doc["timestamp"] is None:
         doc["timestamp"] = datetime.utcnow()
-        
-    # link to user_id and form_id based on deviceId
-    link = await db.devices.find_one({
+
+    # device must be linked and powered on
+    device = await db.devices.find_one({
         "deviceId": reading.deviceId,
+        "is_linked": True,
         "power": True
     })
 
-    if link:
-        doc["user_id"] = link["user_id"]
-        doc["form_id"] = link["form_id"]
-    else:
-        raise HTTPException(status_code=404, detail="Device not found or inactive")
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found, not linked, or inactive")
+
+    doc["user_id"] = device["user_id"]
+    doc["form_id"] = device["form_id"]
 
     result = await db[collection_name].insert_one(doc)
 
@@ -30,3 +31,4 @@ async def create_reading(reading: ReadingModel):
         "success": True,
         "inserted_id": str(result.inserted_id)
     }
+    
