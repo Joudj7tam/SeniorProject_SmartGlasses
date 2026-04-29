@@ -152,3 +152,34 @@ async def update_fcm_token(user_id: str, fcm_token: str):
         raise HTTPException(status_code=404, detail="User not found")
 
     return {"message": "FCM token updated successfully"}
+
+async def update_user_account(firebase_uid: str, payload: dict):
+    user = await db.users.find_one({"firebase_uid": firebase_uid})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update_data = {}
+
+    if "phone" in payload:
+        update_data["phone"] = payload["phone"]
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    update_data["updated_at"] = datetime.utcnow()
+
+    await db.users.update_one(
+        {"firebase_uid": firebase_uid},
+        {"$set": update_data}
+    )
+
+    updated_user = await db.users.find_one({"firebase_uid": firebase_uid})
+    updated_user["id"] = str(updated_user["_id"])
+    updated_user.pop("_id", None)
+
+    return {
+        "success": True,
+        "message": "User account updated successfully",
+        "data": updated_user
+    }

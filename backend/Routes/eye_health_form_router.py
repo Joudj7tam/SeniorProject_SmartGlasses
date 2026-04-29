@@ -12,7 +12,8 @@ from Controllers.eye_health_form_controller import (
     toggle_smart_light,
     get_smart_light_state,
     get_home_selected_charts,
-    update_home_selected_charts
+    update_home_selected_charts,
+    update_eye_health_form
 )
 
 router = APIRouter()
@@ -86,3 +87,11 @@ async def update_selected_home_charts(
         main_account_id=main_account_id,
         charts=home_selected_charts
     )
+
+@router.put("/update/{form_id}")
+async def update_form(
+    form_id: str,
+    main_account_id: str,
+    payload: dict = Body(...)
+):
+    return await update_eye_health_form(form_id, main_account_id, payload)

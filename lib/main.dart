@@ -698,9 +698,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openProfileInfoPage() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const EyeHealthProfilePage()));
+    final formId = _activeProfileId;
+
+    if (formId == null || formId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active profile found')),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EyeHealthProfilePage(
+          mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+        ),
+      ),
+    );
   }
 
   void _openSettingsPage() {

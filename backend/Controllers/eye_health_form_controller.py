@@ -74,12 +74,13 @@ async def get_eye_health_form_by_id(form_id: str, main_account_id: str):
     form = await db.eye_health_forms.find_one({
         "_id": ObjectId(form_id),
         "main_account_id": ObjectId(main_account_id)
-        })
+    })
     
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
     form["id"] = str(form["_id"])
+    form["main_account_id"] = str(form["main_account_id"])
     form.pop("_id", None)
 
     return form
@@ -362,3 +363,65 @@ async def update_home_selected_charts(form_id: str, main_account_id: str, charts
             "home_selected_charts": charts
         }
     }
+
+    # --------------- Update eye health form ---------------
+async def update_eye_health_form(form_id: str, main_account_id: str, payload: dict):
+
+    form = await db.eye_health_forms.find_one({
+        "_id": ObjectId(form_id),
+        "main_account_id": ObjectId(main_account_id)
+    })
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    allowed_fields = {
+        "full_name",
+        "date_of_birth",
+        "gender",
+        "previous_eye_conditions",
+        "chronic_diseases",
+        "uses_glasses",
+        "uses_contact_lenses",
+        "eye_surgery_history",
+        "screen_time_hours",
+        "lighting_conditions",
+        "sleep_hours",
+        "diet",
+        "current_eye_symptoms",
+        "smart_light_enabled",
+    }
+
+    update_data = {}
+
+    for key, value in payload.items():
+        if key in allowed_fields:
+            update_data[key] = value
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    update_data["updated_at"] = datetime.utcnow()
+
+    await db.eye_health_forms.update_one(
+        {
+            "_id": ObjectId(form_id),
+            "main_account_id": ObjectId(main_account_id)
+        },
+        {"$set": update_data}
+    )
+
+    updated_form = await db.eye_health_forms.find_one({
+        "_id": ObjectId(form_id),
+        "main_account_id": ObjectId(main_account_id)
+    })
+
+    updated_form["id"] = str(updated_form["_id"])
+    updated_form["main_account_id"] = str(updated_form["main_account_id"])
+    updated_form.pop("_id", None)
+
+    return {
+        "success": True,
+        "message": "Eye health form updated successfully",
+        "data": updated_form
+    }    

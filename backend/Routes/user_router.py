@@ -1,11 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 from Models.user_model import UserModel
 from Controllers.user_controller import (
     create_main_account,
     login,
     delete_main_account,
     get_user_by_firebase_uid,
-    update_fcm_token
+    update_fcm_token,
+    update_user_account
 )
 
 router = APIRouter()
@@ -26,7 +27,11 @@ async def login_user(id_token: str):
 @router.delete("/delete-main")
 async def delete_main_account_route(main_uid: str):
     return await delete_main_account(main_uid)
-
+    
+# --------- update info ---------
+@router.put("/{firebase_uid}")
+async def update_user(firebase_uid: str, payload: dict = Body(...)):
+    return await update_user_account(firebase_uid, payload)
 
 # --------- جلب بيانات المستخدم بواسطة Firebase UID ---------
 @router.get("/{firebase_uid}")
