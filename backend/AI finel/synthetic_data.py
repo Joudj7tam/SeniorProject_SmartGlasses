@@ -80,7 +80,7 @@ def generate_sensor_windows(profiles: pd.DataFrame,
             # focus duration window (minutes)
             focus_minutes = float(np.clip(rng.normal(35, 15), 1, 120))
 
-            # -----------------------------
+            # ----------------------------- 
             # Research-inspired environment effect
             # -----------------------------
             # lower humidity = higher evaporation risk

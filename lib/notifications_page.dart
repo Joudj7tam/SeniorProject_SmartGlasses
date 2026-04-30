@@ -57,10 +57,10 @@ class NotificationsPage extends StatefulWidget {
   final String formId; // active profile (eye health form id)
 
   const NotificationsPage({
-    Key? key,
+    super.key,
     required this.userId,
     required this.formId,
-  }) : super(key: key);
+  });
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -510,7 +510,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _notifications.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = _notifications[index];
         final selected = _isSelected(item);

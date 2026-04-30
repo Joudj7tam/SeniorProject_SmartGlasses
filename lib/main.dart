@@ -572,8 +572,8 @@ class _HomePageState extends State<HomePage> {
   // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
-  double _smartLightIntensity = 0.95; // 0..1
-  Color _smartLightColor = const Color(0xFF06D6A0); // example green
+  final double _smartLightIntensity = 0.95; // 0..1
+  final Color _smartLightColor = const Color(0xFF06D6A0); // example green
 
   // ================= Sub-Accounts  =================
   // Profiles = Forms from backend
@@ -1353,6 +1353,62 @@ class _HomePageState extends State<HomePage> {
 
   // 1) Distance Card
 
+<<<<<<< HEAD
+=======
+  // 1) Power Card
+  Widget _buildPowerCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ===== العناوين =====
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Smart Glasses Power',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Turn your smart glasses on or off.',
+                  style: TextStyle(fontSize: 12, color: Colors.black45),
+                ),
+              ],
+            ),
+          ),
+
+          Switch(
+            value: _powerOn,
+            activeThumbColor: const Color(0xFF341c8c),
+            onChanged: _togglePower,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2) Distance Card
+
+>>>>>>> deema-ai-backup
   Widget _buildDistanceCard() {
     return _SensorCard(
       title: 'Distance to Screen',
