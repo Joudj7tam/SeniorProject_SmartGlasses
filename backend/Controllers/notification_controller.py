@@ -70,7 +70,7 @@ async def create_notification(notification):
         if user_token:
             title = notification_dict.get("title", "Smart Glasses Alert")
             body = notification_dict.get("message", "")
-
+###############
             send_push_notification(
                 user_token,
                 title,

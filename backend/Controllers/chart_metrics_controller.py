@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from Models.chart_metrics_model import ChartMetricsModel
 
 
-# Add new chart metrics record (every 5 minutes)
+# Add new chart metrics record (every 5 minutes)here add the sythetc data for the statistics 
 async def create_chart_metric(metric: ChartMetricsModel):
 
     if hasattr(metric, "dict"):

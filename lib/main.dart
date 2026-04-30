@@ -606,8 +606,8 @@ class _HomePageState extends State<HomePage> {
   // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
-  double _smartLightIntensity = 0.95; // 0..1
-  Color _smartLightColor = const Color(0xFF06D6A0); // example green
+  final double _smartLightIntensity = 0.95; // 0..1
+  final Color _smartLightColor = const Color(0xFF06D6A0); // example green
 
   // ================= Sub-Accounts  =================
   // Profiles = Forms from backend
@@ -1425,7 +1425,7 @@ class _HomePageState extends State<HomePage> {
 
           Switch(
             value: _powerOn,
-            activeColor: const Color(0xFF341c8c),
+            activeThumbColor: const Color(0xFF341c8c),
             onChanged: _togglePower,
           ),
         ],
