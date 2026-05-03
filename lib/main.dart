@@ -11,6 +11,7 @@ import 'health_form_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
 import 'progress_page.dart';
+import 'tips_page.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -1239,20 +1240,35 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
 
-      bottomNavigationBar: SmartBottomNav(
-        selectedIndex: _selectedIndex,
-        onItemTap: (index) {
-          if (index == 1) {
-            _openSettingsPage();
-            return;
-          }
-          if (index == 3) {
-            _openNotifications();
-            return;
-          }
-          _onItemTapped(index);
-        },
+    bottomNavigationBar: SmartBottomNav(
+    selectedIndex: _selectedIndex,
+    onItemTap: (index) {
+    if (index == 1) {
+      _openSettingsPage();
+      return;
+    }
+
+    if (index == 3) {
+      _openNotifications();
+      return;
+    }
+
+    if (index == 4) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: _activeProfileId ?? '',
       ),
+    ),
+  );
+  return;
+}
+
+    _onItemTapped(index);
+  },
+    ),
     );
   }
 
