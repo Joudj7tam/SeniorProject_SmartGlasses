@@ -1,11 +1,5 @@
-// smart_bottom_nav.dart
 import 'package:flutter/material.dart';
 
-/// Shared bottom navigation bar used across screens.
-///
-/// Maintainability note:
-/// - Keep UI-only.
-/// - Navigation decisions should remain in the parent widget via onItemTap.
 class SmartBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onItemTap;
@@ -19,13 +13,15 @@ class SmartBottomNav extends StatelessWidget {
   Color _iconColor(int index) {
     return selectedIndex == index
         ? const Color(0xFF2EC4B6)
-        : Colors.black45;
+        : const Color(0xFF8A8580);
   }
 
   TextStyle _labelStyle(int index) {
+    final selected = selectedIndex == index;
     return TextStyle(
-      fontSize: 11,
-      fontWeight: selectedIndex == index ? FontWeight.w600 : FontWeight.w400,
+      fontSize: 12,
+      height: 1,
+      fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
       color: _iconColor(index),
     );
   }
@@ -34,92 +30,97 @@ class SmartBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      color: Colors.white,
+      notchMargin: 10,
+      elevation: 0,
+      color: Colors.white.withOpacity(0.96),
       child: SizedBox(
-        height: 68,
+        height: 78,
         child: Row(
           children: [
-            // Home + Settings
             Expanded(
               flex: 2,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  InkWell(
-                    onTap: () => onItemTap(0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.home_outlined, color: _iconColor(0)),
-                        const SizedBox(height: 2),
-                        Text('Home', style: _labelStyle(0)),
-                      ],
-                    ),
+                  _navItem(
+                    index: 0,
+                    icon: Icons.home_outlined,
+                    label: 'Home',
                   ),
-                  InkWell(
-                    onTap: () => onItemTap(1),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.settings_outlined, color: _iconColor(1)),
-                        const SizedBox(height: 2),
-                        Text('Settings', style: _labelStyle(1)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            //progress
-            Expanded(
-              flex: 1,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    'Progress',
-                    style: _labelStyle(2),
-                    textAlign: TextAlign.center,
+                  _navItem(
+                    index: 1,
+                    icon: Icons.settings_outlined,
+                    label: 'Settings',
                   ),
                 ],
               ),
             ),
 
-            // Alerts + Tips
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 45),
+                child: Text(
+                  'Progress',
+                  style: _labelStyle(2),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
             Expanded(
               flex: 2,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  InkWell(
-                    onTap: () => onItemTap(3),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.notifications_active_outlined,
-                            color: _iconColor(3)),
-                        const SizedBox(height: 2),
-                        Text('Alerts', style: _labelStyle(3)),
-                      ],
-                    ),
+                  _navItem(
+                    index: 3,
+                    icon: Icons.notifications_none_rounded,
+                    label: 'Alerts',
                   ),
-                  InkWell(
-                    onTap: () => onItemTap(4),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.lightbulb_outline, color: _iconColor(4)),
-                        const SizedBox(height: 2),
-                        Text('Tips', style: _labelStyle(4)),
-                      ],
-                    ),
+                  _navItem(
+                    index: 4,
+                    icon: Icons.lightbulb_outline_rounded,
+                    label: 'Tips',
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final selected = selectedIndex == index;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => onItemTap(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFCBF3F0).withOpacity(0.45)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: _iconColor(index),
+              size: selected ? 28 : 25,
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: _labelStyle(index)),
           ],
         ),
       ),

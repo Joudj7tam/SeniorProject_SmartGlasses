@@ -11,6 +11,7 @@ import 'health_form_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
 import 'progress_page.dart';
+import 'tips_page.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -59,9 +60,20 @@ class SmartGlassesApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // home: const HomePage(), //############################
+
+      /* home: HomePage(
+  mainAccountId: 'test123',
+  firebaseUid: 'testUID',
+),*/
       home: const LoginPage(), //############################
+
       // home: const RegisterPage(), //############################
+
+      /* home: HealthFormPage(
+  mainAccountId: 'test123',
+  firebaseUid: 'testUID',
+  goHomeAfterSave: false,
+),*/
       routes: {'/login': (_) => const LoginPage()},
     );
   }
@@ -701,9 +713,9 @@ class _HomePageState extends State<HomePage> {
     final formId = _activeProfileId;
 
     if (formId == null || formId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active profile found')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No active profile found')));
       return;
     }
 
@@ -1038,6 +1050,8 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8EFE5),
+      extendBody: true,
       body: _selectedIndex == 2
           ? ProgressPage(
               selectedForHome: _homeSelectedCharts,
@@ -1047,30 +1061,66 @@ class _HomePageState extends State<HomePage> {
             )
           : Stack(
               children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF7FD1C9),
+                        Color(0xFFEAF4EC),
+                        Color(0xFFFFD08A),
+                      ],
+                      stops: [0.0, 0.55, 1.0],
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  top: -90,
+                  left: -90,
+                  child: _homeSoftCircle(260, Colors.white, 0.18),
+                ),
+                Positioned(
+                  bottom: 120,
+                  right: -70,
+                  child: _homeSoftCircle(220, const Color(0xFFFFBF69), 0.22),
+                ),
+
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ====== header ======
                         Row(
                           children: [
                             InkWell(
                               borderRadius: BorderRadius.circular(999),
                               onTap: _openProfileInfoPage,
-                              child: const CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Color(0xFFCBF3F0),
-                                child: Icon(
+                              child: Container(
+                                width: 66,
+                                height: 66,
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFCBF3F0,
+                                  ).withOpacity(0.85),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.55),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
                                   Icons.person,
-                                  size: 28,
+                                  size: 34,
                                   color: Color(0xFF2EC4B6),
                                 ),
                               ),
                             ),
 
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 18),
+
                             InkWell(
                               onTap: _openProfileMenu,
                               child: Column(
@@ -1079,17 +1129,19 @@ class _HomePageState extends State<HomePage> {
                                   Text(
                                     _greeting(),
                                     style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black54,
+                                      fontSize: 15,
+                                      color: Color(0xFF4D4540),
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 6),
                                   Text(
                                     _activeAccountName,
                                     style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
+                                      fontSize: 23,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF4D3732),
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ],
@@ -1097,61 +1149,38 @@ class _HomePageState extends State<HomePage> {
                             ),
 
                             const Spacer(),
-                            // جرس التنبيهات
+
                             IconButton(
                               onPressed: _openNotifications,
-                              icon: const Icon(
-                                Icons.notifications_none_rounded,
-                              ),
-                              color: const Color(0xFF2EC4B6),
-                              iconSize: 26,
+                              icon: const Icon(Icons.notifications_rounded),
+                              color: Colors.white,
+                              iconSize: 27,
                             ),
-                            // زر الزائد لفتح الكويك أكشنز
+
                             IconButton(
                               onPressed: _toggleQuickActions,
-                              icon: const Icon(Icons.add_circle_outline),
-                              color: const Color(0xFF2EC4B6),
-                              iconSize: 28,
+                              icon: const Icon(Icons.add_circle_rounded),
+                              color: Colors.white,
+                              iconSize: 30,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
 
-                        // ====== عنوان بسيط للهوم ======
-                        const Text(
-                          'Today\'s Eye Health Overview',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Visual preview of your current setup (distance, brightness & eye dryness).',
-                          style: TextStyle(fontSize: 13, color: Colors.black54),
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 58),
 
-                        // ====== باقي المحتوى في Scroll ======
                         Expanded(
                           child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
                             child: Column(
                               children: [
                                 _buildSelectedChartsSection(),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 12),
 
-                                _buildDistanceCard(),
-                                const SizedBox(height: 16),
-
-                                _buildBrightnessCard(),
-                                const SizedBox(height: 16),
-
-                                _buildDrynessCard(),
-                                const SizedBox(height: 16),
+                                _buildDailyTipCard(),
+                                const SizedBox(height: 12),
 
                                 _buildGenerateReportButton(),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 90),
                               ],
                             ),
                           ),
@@ -1161,37 +1190,95 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                // ====== (Edit / Wi-Fi / Mode) circles ======
                 if (_showQuickActions) _buildQuickActionsOverlay(),
               ],
             ),
 
-      // ================== الأيقونة الدائرية (Progress) ==================
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        shape: const CircleBorder(),
-        elevation: 4,
-        backgroundColor: const Color(0xFFFFBF69),
-        onPressed: () => _onItemTapped(2),
-        child: Icon(Icons.show_chart, color: _iconColor(2)),
+      floatingActionButton: Container(
+        width: 78,
+        height: 78,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFE9FFFC), Color(0xFFBFF3EE)],
+          ),
+          border: Border.all(color: Colors.white, width: 8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2EC4B6).withOpacity(0.32),
+              blurRadius: 28,
+              spreadRadius: 2,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: const Color(0xFFFFBF69).withOpacity(0.18),
+              blurRadius: 35,
+              spreadRadius: 5,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => _onItemTapped(2),
+            child: Center(
+              child: Icon(
+                Icons.trending_up_rounded,
+                color: _selectedIndex == 2
+                    ? const Color(0xFF2EC4B6)
+                    : const Color(0xFF7C746E),
+                size: 39,
+              ),
+            ),
+          ),
+        ),
       ),
 
-      // ================== Bottom Bar ==================
-      bottomNavigationBar: SmartBottomNav(
-        selectedIndex: _selectedIndex,
-        onItemTap: (index) {
-          if (index == 1) {
-            // Settings
-            _openSettingsPage();
-            return;
-          }
-          if (index == 3) {
-            // Alerts → افتح صفحة الإشعارات
-            _openNotifications();
-            return;
-          }
-          _onItemTapped(index);
-        },
+    bottomNavigationBar: SmartBottomNav(
+    selectedIndex: _selectedIndex,
+    onItemTap: (index) {
+    if (index == 1) {
+      _openSettingsPage();
+      return;
+    }
+
+    if (index == 3) {
+      _openNotifications();
+      return;
+    }
+
+    if (index == 4) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: _activeProfileId ?? '',
+      ),
+    ),
+  );
+  return;
+}
+
+    _onItemTapped(index);
+  },
+    ),
+    );
+  }
+
+  Widget _homeSoftCircle(double size, Color color, double opacity) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withOpacity(opacity),
+        shape: BoxShape.circle,
       ),
     );
   }
@@ -1277,11 +1364,34 @@ class _HomePageState extends State<HomePage> {
     if (_homeSelectedCharts.isEmpty) {
       return _SensorCard(
         title: 'Home Charts',
-        subtitle: 'No charts selected yet.',
-        child: const SizedBox(
-          height: 60,
+        subtitle: '',
+        child: SizedBox(
+          height: 210,
           child: Center(
-            child: Text('Go to Progress and select charts to show here.'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Opacity(
+                  opacity: 0.30,
+                  child: Image.asset(
+                    'assets/images/home_chart.png',
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                SizedBox(height: 14),
+                Text(
+                  'Go to Progress and select charts to show here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF4D4540),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -1293,11 +1403,8 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.only(bottom: 16),
           child: _SensorCard(
             title: _chartTitle(type),
-            subtitle: 'Selected from Progress page .',
-            child: SizedBox(
-              height: 260, // مهم: عشان الرسم يبان داخل الكارد
-              child: _chartWidget(type),
-            ),
+            subtitle: 'Selected from Progress page.',
+            child: SizedBox(height: 260, child: _chartWidget(type)),
           ),
         );
       }).toList(),
@@ -1351,230 +1458,75 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 1) Distance Card
-
-  Widget _buildDistanceCard() {
-    return _SensorCard(
-      title: 'Distance to Screen',
-      subtitle: 'Preview of how far you are from the screen.',
-      child: SizedBox(
-        height: 120,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // الشخص
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.person_outline, size: 40, color: Colors.black54),
-                SizedBox(height: 4),
-                Text(
-                  'You',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ],
-            ),
-            // الخط المتقطع + القيمة
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final dashWidth = 6.0;
-                      final dashSpace = 4.0;
-                      final dashCount =
-                          (constraints.maxWidth / (dashWidth + dashSpace))
-                              .floor();
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(dashCount, (index) {
-                          return Container(
-                            width: dashWidth,
-                            height: 2,
-                            margin: EdgeInsets.only(
-                              right: index == dashCount - 1 ? 0 : dashSpace,
-                            ),
-                            color: const Color(0xFF2EC4B6),
-                          );
-                        }),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_demoDistanceCm.toStringAsFixed(0)} cm',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '(sample value – will be live later)',
-                    style: TextStyle(fontSize: 11, color: Colors.black45),
-                  ),
-                ],
-              ),
-            ),
-            // الجهاز
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(
-                  Icons.desktop_windows_outlined,
-                  size: 36,
-                  color: Colors.black54,
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Screen',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 3) Brightness Card
-  Widget _buildBrightnessCard() {
-    return _SensorCard(
-      title: 'Screen Brightness',
-      subtitle: 'Preview of current brightness level.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.wb_sunny_rounded,
-            size: 48,
-            color: Color(0xFFFF9F1C),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 26,
-            child: Stack(
-              children: [
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7EE),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: _demoBrightness.clamp(0.0, 1.0),
-                  child: Container(
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2EC4B6),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment(
-                    (_demoBrightness.clamp(0.0, 1.0) * 2) - 1,
-                    0,
-                  ),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(
-                        color: const Color(0xFF2EC4B6),
-                        width: 2,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Level: ${(_demoBrightness * 100).round()}%',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '(will be controlled by real sensor input)',
-            style: TextStyle(fontSize: 11, color: Colors.black45),
+  Widget _buildDailyTipCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4F2), // لون أخضر فاتح ناعم
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFBFE3DF), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2EC4B6).withOpacity(0.15),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-    );
-  }
-
-  // 4) Dryness Card
-  Widget _buildDrynessCard() {
-    final drynessPercent = (_demoDryness * 100).round();
-    String drynessLabel;
-    if (_demoDryness < 0.33) {
-      drynessLabel = 'Low dryness (comfortable)';
-    } else if (_demoDryness < 0.66) {
-      drynessLabel = 'Moderate dryness';
-    } else {
-      drynessLabel = 'High dryness (take a break)';
-    }
-
-    return _SensorCard(
-      title: 'Eye Dryness',
-      subtitle: 'Indicative dryness level & blink activity.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Row(
         children: [
-          Text(
-            '$drynessPercent%',
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF2EC4B6),
+          // 🔹 أيقونة اللمبة
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8FCAC3),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.lightbulb_outline_rounded,
+              color: Colors.white,
+              size: 34,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            drynessLabel,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
+
+          const SizedBox(width: 16),
+
+          // 🔹 النص
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Eye Care Tip',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF6AAFA7),
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Follow the 20-20-20 rule: Every 20 minutes,\nlook at something 20 feet away for 20 seconds.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.25,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(
-                Icons.remove_red_eye_outlined,
-                size: 26,
-                color: Colors.black54,
-              ),
-              SizedBox(width: 8),
-              Icon(
-                Icons.remove_red_eye_outlined,
-                size: 22,
-                color: Colors.black38,
-              ),
-              SizedBox(width: 8),
-              Icon(
-                Icons.remove_red_eye_outlined,
-                size: 18,
-                color: Colors.black26,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Blinking icons are placeholders for future animation.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Colors.black45),
+
+          const SizedBox(width: 8),
+
+          Image.asset(
+            'assets/images/phone_20.png', // 👈 عدل الاسم إذا مختلف
+            width: 90,
+            height: 90,
+            fit: BoxFit.contain,
           ),
         ],
       ),
@@ -1586,29 +1538,26 @@ class _HomePageState extends State<HomePage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 4),
         gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFF9F1C), // primary
-            Color(0xFF2EC4B6), // secondary
-          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFFFFB25E), Color(0xFF6FD3C8)],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 16,
-            offset: const Offset(0, 10),
+            color: const Color(0xFF2EC4B6).withOpacity(0.25),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           onTap: () {
-            // UI only for now
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Generate Report (UI only for now)'),
@@ -1616,27 +1565,24 @@ class _HomePageState extends State<HomePage> {
             );
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                // Icon bubble
                 Container(
-                  width: 54,
-                  height: 54,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withOpacity(0.30)),
+                    color: Colors.white.withOpacity(0.32),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.45)),
                   ),
                   child: const Icon(
                     Icons.auto_graph_rounded,
                     color: Colors.white,
-                    size: 28,
+                    size: 30,
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                // Text
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1645,36 +1591,20 @@ class _HomePageState extends State<HomePage> {
                         'Generate a Report',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                       SizedBox(height: 4),
                       Text(
                         'Create a summary based on your latest readings & profile.',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: Colors.white,
                           fontSize: 12,
-                          height: 1.2,
+                          height: 1.25,
                         ),
                       ),
                     ],
-                  ),
-                ),
-
-                // Arrow
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.25)),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 16,
                   ),
                 ),
               ],
@@ -1702,15 +1632,16 @@ class _SensorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFFAF4).withOpacity(0.93),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 22,
+            spreadRadius: -8,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -1720,17 +1651,23 @@ class _SensorCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2D2926),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 12, color: Colors.black45),
-          ),
-          const SizedBox(height: 12),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF8F8880),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
           child,
         ],
       ),
