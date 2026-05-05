@@ -66,7 +66,6 @@ class SmartGlassesApp extends StatelessWidget {
   firebaseUid: 'testUID',
 ),*/
       home: const LoginPage(), //############################
-
       // home: const RegisterPage(), //############################
 
       /* home: HealthFormPage(
@@ -1195,80 +1194,24 @@ class _HomePageState extends State<HomePage> {
             ),
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        width: 78,
-        height: 78,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE9FFFC), Color(0xFFBFF3EE)],
-          ),
-          border: Border.all(color: Colors.white, width: 8),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2EC4B6).withOpacity(0.32),
-              blurRadius: 28,
-              spreadRadius: 2,
-              offset: const Offset(0, 12),
-            ),
-            BoxShadow(
-              color: const Color(0xFFFFBF69).withOpacity(0.18),
-              blurRadius: 35,
-              spreadRadius: 5,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _onItemTapped(2),
-            child: Center(
-              child: Icon(
-                Icons.trending_up_rounded,
-                color: _selectedIndex == 2
-                    ? const Color(0xFF2EC4B6)
-                    : const Color(0xFF7C746E),
-                size: 39,
-              ),
-            ),
-          ),
-        ),
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: _selectedIndex,
+        onTap: () => _onItemTapped(2),
       ),
 
-    bottomNavigationBar: SmartBottomNav(
-    selectedIndex: _selectedIndex,
-    onItemTap: (index) {
-    if (index == 1) {
-      _openSettingsPage();
-      return;
-    }
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: _selectedIndex,
 
-    if (index == 3) {
-      _openNotifications();
-      return;
-    }
+        onHomeTap: () => _onItemTapped(0),
 
-    if (index == 4) {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => TipsPage(
-        mainAccountId: widget.mainAccountId,
-        firebaseUid: widget.firebaseUid,
-        formId: _activeProfileId ?? '',
+        onSettingsTap: _openSettingsPage,
+
+        onProgressTap: () => _onItemTapped(2),
+
+        onAlertsTap: _openNotifications,
+
+        onTipsTap: () => _onItemTapped(4),
       ),
-    ),
-  );
-  return;
-}
-
-    _onItemTapped(index);
-  },
-    ),
     );
   }
 

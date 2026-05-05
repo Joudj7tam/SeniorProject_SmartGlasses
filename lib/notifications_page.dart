@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'smart_bottom_nav.dart';
 
 /// Base URL for the backend API.
 ///
@@ -76,6 +77,31 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Color get _bgColor => const Color(0xFFFFF7EE);
   Color get _accent => const Color(0xFF2EC4B6);
+
+  void _goHome() {
+  Navigator.pop(context);
+}
+
+void _goSettings() {
+  Navigator.pop(context);
+  // لاحقًا إذا حبيتي تفتحين Settings مباشرة من هنا،
+  // نحتاج نمرر mainAccountId وباقي بيانات SettingsPage لهذه الصفحة.
+}
+
+void _goProgress() {
+  Navigator.pop(context);
+  // بما أن Progress حاليًا داخل HomePage عن طريق selectedIndex = 2،
+  // الرجوع للهوم هو الخيار الآمن بدون تكرار منطق HomePage.
+}
+
+void _goAlerts() {
+  // نحن أصلًا داخل صفحة الإشعارات
+}
+
+void _goTips() {
+  Navigator.pop(context);
+  // لاحقًا إذا عندكم TipsPage مستقلة، نقدر نفتحها من هنا.
+}
 
   @override
   void initState() {
@@ -375,6 +401,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       backgroundColor: _bgColor,
       extendBody: true,
+
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+  floatingActionButton: _selectionMode
+      ? null
+      : SmartProgressFab(
+          selectedIndex: 3,
+          onTap: _goProgress,
+        ),
+
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -469,43 +504,50 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       ),
       bottomNavigationBar: _selectionMode
-          ? Container(
-              height: 70,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFAF4),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 18,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
+    ? Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFAF4),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            TextButton.icon(
+              onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
+              icon: const Icon(Icons.done_all_rounded),
+              label: const Text('Read'),
+              style: TextButton.styleFrom(foregroundColor: _accent),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Delete'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent,
               ),
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
-                    icon: const Icon(Icons.done_all_rounded),
-                    label: const Text('Read'),
-                    style: TextButton.styleFrom(foregroundColor: _accent),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    label: const Text('Delete'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : null,
+            ),
+          ],
+        ),
+      )
+    : SmartBottomNav(
+        selectedIndex: 3,
+        onHomeTap: _goHome,
+        onSettingsTap: _goSettings,
+        onProgressTap: _goProgress,
+        onAlertsTap: _goAlerts,
+        onTipsTap: _goTips,
+      ),
     );
   }
 
@@ -573,8 +615,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(10, 26, 10, 120),
+  physics: const BouncingScrollPhysics(),
+  padding: EdgeInsets.fromLTRB(
+    10,
+    26,
+    10,
+    _selectionMode ? 110 : 150,
+  ),
       itemCount: _notifications.length,
       separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
