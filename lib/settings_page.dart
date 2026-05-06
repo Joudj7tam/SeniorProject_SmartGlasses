@@ -1077,6 +1077,64 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildLogoutButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.62),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.75),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFBE9360).withOpacity(0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: _showLogoutDialog,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Colors.redAccent,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Log Out',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1169,33 +1227,14 @@ class _SettingsPageState extends State<SettingsPage> {
                             _buildGlassesLinkSection(),
                             const SizedBox(height: 16),
                             _buildSmartLightSection(),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 16),
+                            _buildLogoutButton(),
+                            const SizedBox(height: 28),
                           ],
                         ),
                       ),
                     ),
 
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: _showLogoutDialog,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: Colors.white.withOpacity(0.18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        child: const Text(
-                          'Log Out',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -183,7 +183,7 @@ class PdfReportService {
 
     return savedPath;
 
-    return savedPath;
+    
   }
 
   static Future<_ReportUser> _fetchUser(String firebaseUid) async {
