@@ -26,6 +26,38 @@ Widget build(BuildContext context) {
   return Scaffold(
   extendBody: true,
   backgroundColor: Colors.transparent,
+
+  floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+  floatingActionButton: SmartProgressFab(
+    selectedIndex: 4,
+    onTap: () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProgressPage(
+  selectedForHome: {},
+  onToggleForHome: (_) {},
+  userId: mainAccountId,
+  firebaseUid: firebaseUid,
+  formId: formId,
+  onBackRequested: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipsPage(
+          mainAccountId: mainAccountId,
+          firebaseUid: firebaseUid,
+          formId: formId,
+        ),
+      ),
+    );
+  },
+),
+        ),
+      );
+    },
+  ),
+
   body: Container(
     decoration: const BoxDecoration(
       gradient: LinearGradient(
@@ -55,91 +87,93 @@ Widget build(BuildContext context) {
             ProtectionSection(),
             SizedBox(height: 24),
             AboutSection(),
-            SizedBox(height: 100),
+            SizedBox(height: 150),
           ],
         ),
       ),
     ),
   ),
-    bottomNavigationBar: SmartBottomNav(
-    selectedIndex: 4,
+  bottomNavigationBar: SmartBottomNav(
+  selectedIndex: 4,
 
-    onHomeTap: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomePage(
-            mainAccountId: mainAccountId,
-            firebaseUid: firebaseUid,
-          ),
+  onHomeTap: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomePage(
+          mainAccountId: mainAccountId,
+          firebaseUid: firebaseUid,
         ),
-      );
-    },
+      ),
+    );
+  },
 
-    onSettingsTap: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SettingsPage(
-            mainAccountId: mainAccountId,
-            smartLightEnabled: true,
-            smartLightIntensity: 0.95,
-            smartLightColor: const Color(0xFF06D6A0),
-            onSmartLightToggle: (_) {},
-            glassesLink: ValueNotifier({
-              'user_id': null,
-              'form_id': null,
-              'name': null,
-              'deviceId': null,
-            }),
-            onRequestLink: () {},
-            activeFormId: formId,
-          ),
+  onSettingsTap: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsPage(
+          mainAccountId: mainAccountId,
+          smartLightEnabled: true,
+          smartLightIntensity: 0.95,
+          smartLightColor: const Color(0xFF06D6A0),
+          onSmartLightToggle: (_) {},
+          glassesLink: ValueNotifier({
+            'user_id': null,
+            'form_id': null,
+            'name': null,
+            'deviceId': null,
+          }),
+          onRequestLink: () {},
+          activeFormId: formId,
         ),
-      );
-    },
+      ),
+    );
+  },
 
-    onProgressTap: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProgressPage(
-            selectedForHome: {},
-            onToggleForHome: (_) {},
-            userId: mainAccountId,
-            firebaseUid: firebaseUid,
-            formId: formId,
-            onBackRequested: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TipsPage(
-                    mainAccountId: mainAccountId,
-                    firebaseUid: firebaseUid,
-                    formId: formId,
-                  ),
-                ),
-              );
-            },
-          ),
+  onProgressTap: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+  selectedForHome: {},
+  onToggleForHome: (_) {},
+  userId: mainAccountId,
+  firebaseUid: firebaseUid,
+  formId: formId,
+  onBackRequested: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipsPage(
+          mainAccountId: mainAccountId,
+          firebaseUid: firebaseUid,
+          formId: formId,
         ),
-      );
-    },
+      ),
+    );
+  },
+),
+      ),
+    );
+  },
 
-    onAlertsTap: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => NotificationsPage(
-            userId: mainAccountId,
-            formId: formId,
-          ),
+  onAlertsTap: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(
+          userId: mainAccountId,
+          formId: formId,
         ),
-      );
-    },
+      ),
+    );
+  },
 
-    onTipsTap: () {},
-  ),
+  onTipsTap: () {
+    // Already on Tips page
+  },
+),
 );
 }
 }

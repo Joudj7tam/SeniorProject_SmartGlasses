@@ -730,6 +730,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openTipsPage() {
+  final formId = _activeProfileId;
+
+  if (formId == null || formId.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No active profile found')),
+    );
+    return;
+  }
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+      ),
+    ),
+  );
+}
+
   void _openProfileInfoPage() {
     final formId = _activeProfileId;
 
@@ -1607,18 +1628,18 @@ class _HomePageState extends State<HomePage> {
       ),
 
       bottomNavigationBar: SmartBottomNav(
-        selectedIndex: _selectedIndex,
+  selectedIndex: _selectedIndex,
 
-        onHomeTap: () => _onItemTapped(0),
+  onHomeTap: () => _onItemTapped(0),
 
-        onSettingsTap: _openSettingsPage,
+  onSettingsTap: _openSettingsPage,
 
-        onProgressTap: () => _onItemTapped(2),
+  onProgressTap: () => _onItemTapped(2),
 
-        onAlertsTap: _openNotifications,
+  onAlertsTap: _openNotifications,
 
-        onTipsTap: () => _onItemTapped(4),
-      ),
+  onTipsTap: _openTipsPage,
+),
     );
   }
 
