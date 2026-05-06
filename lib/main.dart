@@ -719,16 +719,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openNotifications() {
-    final formId = _activeProfileId;
-    if (formId == null) return;
+  final formId = _activeProfileId;
+  if (formId == null) return;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            NotificationsPage(userId: widget.mainAccountId, formId: formId),
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => NotificationsPage(
+        userId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
       ),
+    ),
+  );
+}
+
+Future<void> _openProgressPage() async {
+  final formId = _activeProfileId;
+
+  if (formId == null || formId.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No active profile found')),
     );
+    return;
   }
+
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ProgressPage(
+        userId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+        onBackRequested: () {
+          Navigator.pop(context);
+        },
+      ),
+    ),
+  );
+
+  await _loadHomeSelectedCharts();
+}
 
   void _openTipsPage() {
   final formId = _activeProfileId;
@@ -773,23 +802,25 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSettingsPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SettingsPage(
-          mainAccountId: widget.mainAccountId,
-          smartLightEnabled: _smartLightEnabled,
-          smartLightIntensity: _smartLightIntensity,
-          smartLightColor: _smartLightColor,
-          onSmartLightToggle: (v) => setState(() => _smartLightEnabled = v),
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
 
-          glassesLink: _glassesLink,
+        smartLightEnabled: _smartLightEnabled,
+        smartLightIntensity: _smartLightIntensity,
+        smartLightColor: _smartLightColor,
+        onSmartLightToggle: (v) => setState(() => _smartLightEnabled = v),
 
-          onRequestLink: () => _showLinkGlassesDialog(),
-          activeFormId: _activeProfileId,
-        ),
+        glassesLink: _glassesLink,
+
+        onRequestLink: () => _showLinkGlassesDialog(),
+        activeFormId: _activeProfileId,
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _toggleQuickActions() {
     setState(() {
@@ -1476,16 +1507,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8EFE5),
       extendBody: true,
-      body: _selectedIndex == 2
-          ? ProgressPage(
-              selectedForHome: _homeSelectedCharts,
-              onToggleForHome: _toggleChartForHome,
-              userId: widget.mainAccountId,
-              firebaseUid: widget.firebaseUid,
-              formId: _activeProfileId ?? '',
-              onBackRequested: _goBackFromProgress,
-            )
-          : Stack(
+      body: Stack(
               children: [
                 Container(
                   decoration: const BoxDecoration(
@@ -1515,7 +1537,7 @@ class _HomePageState extends State<HomePage> {
 
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
+                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1623,9 +1645,9 @@ class _HomePageState extends State<HomePage> {
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: SmartProgressFab(
-        selectedIndex: _selectedIndex,
-        onTap: () => _onItemTapped(2),
-      ),
+  selectedIndex: _selectedIndex,
+  onTap: _openProgressPage,
+),
 
       bottomNavigationBar: SmartBottomNav(
   selectedIndex: _selectedIndex,
@@ -1634,7 +1656,7 @@ class _HomePageState extends State<HomePage> {
 
   onSettingsTap: _openSettingsPage,
 
-  onProgressTap: () => _onItemTapped(2),
+  onProgressTap: _openProgressPage,
 
   onAlertsTap: _openNotifications,
 

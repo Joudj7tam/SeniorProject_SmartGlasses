@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+
 import 'smart_bottom_nav.dart';
+import 'tips_page.dart';
+import 'main.dart';
+import 'progress_page.dart';
+import 'settings_page.dart';
 
 /// Base URL for the backend API.
 ///
@@ -55,11 +60,13 @@ class NotificationItem {
 
 class NotificationsPage extends StatefulWidget {
   final String userId; // mainAccountId
+  final String firebaseUid;
   final String formId; // active profile (eye health form id)
 
   const NotificationsPage({
     super.key,
     required this.userId,
+    required this.firebaseUid,
     required this.formId,
   });
 
@@ -78,29 +85,83 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Color get _bgColor => const Color(0xFFFFF7EE);
   Color get _accent => const Color(0xFF2EC4B6);
 
-  void _goHome() {
-  Navigator.pop(context);
+void _goHome() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => HomePage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+      ),
+    ),
+  );
 }
 
 void _goSettings() {
-  Navigator.pop(context);
-  // لاحقًا إذا حبيتي تفتحين Settings مباشرة من هنا،
-  // نحتاج نمرر mainAccountId وباقي بيانات SettingsPage لهذه الصفحة.
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+
+        smartLightEnabled: true,
+        smartLightIntensity: 0.95,
+        smartLightColor: const Color(0xFF06D6A0),
+        onSmartLightToggle: (_) {},
+        glassesLink: ValueNotifier({
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+          'deviceId': null,
+        }),
+        onRequestLink: () {},
+        activeFormId: widget.formId,
+      ),
+    ),
+  );
 }
 
 void _goProgress() {
-  Navigator.pop(context);
-  // بما أن Progress حاليًا داخل HomePage عن طريق selectedIndex = 2،
-  // الرجوع للهوم هو الخيار الآمن بدون تكرار منطق HomePage.
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ProgressPage(
+  userId: widget.userId,
+  firebaseUid: widget.firebaseUid,
+  formId: widget.formId,
+  onBackRequested: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(
+          userId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+          formId: widget.formId,
+        ),
+      ),
+    );
+  },
+),
+    ),
+  );
 }
 
 void _goAlerts() {
-  // نحن أصلًا داخل صفحة الإشعارات
+  // Already on Alerts page
 }
 
 void _goTips() {
-  Navigator.pop(context);
-  // لاحقًا إذا عندكم TipsPage مستقلة، نقدر نفتحها من هنا.
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+        formId: widget.formId,
+      ),
+    ),
+  );
 }
 
   @override
@@ -426,14 +487,34 @@ void _goTips() {
                 padding: const EdgeInsets.fromLTRB(28, 24, 28, 10),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 32,
-                        color: Colors.black,
-                      ),
-                    ),
+InkWell(
+  borderRadius: BorderRadius.circular(22),
+  onTap: () => Navigator.pop(context),
+  child: Container(
+    width: 46,
+    height: 46,
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFCF8).withOpacity(0.92),
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: const Color(0xFFEADCCD),
+        width: 1.2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 12,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: const Icon(
+      Icons.arrow_back_ios_new_rounded,
+      size: 21,
+      color: Color(0xFF3E2E25),
+    ),
+  ),
+),
                     const Expanded(
                       child: Text(
                         'Notifications',
@@ -441,7 +522,7 @@ void _goTips() {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black,
+                          color: Color(0xFF3E2E25),
                           letterSpacing: -0.4,
                         ),
                       ),

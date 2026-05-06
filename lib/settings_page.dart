@@ -5,6 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'smart_bottom_nav.dart';
+import 'main.dart';
+import 'progress_page.dart';
+import 'notifications_page.dart';
+import 'tips_page.dart';
+
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 const Color _settingsBgTop = Color(0xFF98DED7);
@@ -36,27 +42,29 @@ class _DeviceItem {
 
 class SettingsPage extends StatefulWidget {
   final bool smartLightEnabled;
-  final double smartLightIntensity; // 0..1
+  final double smartLightIntensity;
   final Color smartLightColor;
   final String? activeFormId;
   final ValueNotifier<Map<String, String?>> glassesLink;
   final VoidCallback onRequestLink;
   final String mainAccountId;
+  final String firebaseUid;
 
   /// يرجّع قيمة السويتش للهوم (عشان  الربط بعدين بالباك/الـESP)
   final ValueChanged<bool>? onSmartLightToggle;
 
-  const SettingsPage({
-    super.key,
-    required this.smartLightEnabled,
-    required this.smartLightIntensity,
-    required this.smartLightColor,
-    this.onSmartLightToggle,
-    required this.glassesLink,
-    required this.onRequestLink,
-    required this.activeFormId,
-    required this.mainAccountId,
-  });
+const SettingsPage({
+  super.key,
+  required this.smartLightEnabled,
+  required this.smartLightIntensity,
+  required this.smartLightColor,
+  this.onSmartLightToggle,
+  required this.glassesLink,
+  required this.onRequestLink,
+  required this.activeFormId,
+  required this.mainAccountId,
+  required this.firebaseUid,
+});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -67,6 +75,109 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isLoadingDevices = false;
   bool _powerOn = false;
   bool _isPowerLoading = false;
+
+  String? get _safeFormId {
+  final formId = widget.activeFormId;
+  if (formId == null || formId.isEmpty) return null;
+  return formId;
+}
+
+void _showNoActiveProfileMessage() {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('No active profile found')),
+  );
+}
+
+void _goHome() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => HomePage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+      ),
+    ),
+  );
+}
+
+void _goSettings() {
+  // Already on Settings page
+}
+
+void _goProgress() {
+  final formId = _safeFormId;
+  if (formId == null) {
+    _showNoActiveProfileMessage();
+    return;
+  }
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ProgressPage(
+        userId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+        onBackRequested: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SettingsPage(
+                mainAccountId: widget.mainAccountId,
+                firebaseUid: widget.firebaseUid,
+                smartLightEnabled: _smartLightEnabled,
+                smartLightIntensity: widget.smartLightIntensity,
+                smartLightColor: widget.smartLightColor,
+                onSmartLightToggle: widget.onSmartLightToggle,
+                glassesLink: widget.glassesLink,
+                onRequestLink: widget.onRequestLink,
+                activeFormId: widget.activeFormId,
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
+void _goAlerts() {
+  final formId = _safeFormId;
+  if (formId == null) {
+    _showNoActiveProfileMessage();
+    return;
+  }
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => NotificationsPage(
+        userId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+      ),
+    ),
+  );
+}
+
+void _goTips() {
+  final formId = _safeFormId;
+  if (formId == null) {
+    _showNoActiveProfileMessage();
+    return;
+  }
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+      ),
+    ),
+  );
+}
 
   List<_DeviceItem> _devices = [
     const _DeviceItem(id: 'SMART_GLASSES_001', name: 'My Smart Glasses'),
@@ -1138,8 +1249,25 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _settingsBgMid,
-      body: Container(
+  backgroundColor: _settingsBgMid,
+  extendBody: true,
+
+  floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+  floatingActionButton: SmartProgressFab(
+    selectedIndex: 1,
+    onTap: _goProgress,
+  ),
+
+  bottomNavigationBar: SmartBottomNav(
+    selectedIndex: 1,
+    onHomeTap: _goHome,
+    onSettingsTap: _goSettings,
+    onProgressTap: _goProgress,
+    onAlertsTap: _goAlerts,
+    onTipsTap: _goTips,
+  ),
+
+  body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1180,60 +1308,72 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.28),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.45),
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 18,
-                              color: _settingsText,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'Settings',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: _settingsText,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    SizedBox(
+  height: 54,
+  child: Stack(
+    alignment: Alignment.center,
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => Navigator.pop(context),
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.28),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.45),
+              ),
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 21,
+              color: _settingsText,
+            ),
+          ),
+        ),
+      ),
+
+      const Center(
+        child: Text(
+          'Settings',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: _settingsText,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
                     const SizedBox(height: 16),
 
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            _buildGlassesLinkSection(),
-                            const SizedBox(height: 16),
-                            _buildSmartLightSection(),
-                            const SizedBox(height: 16),
-                            _buildLogoutButton(),
-                            const SizedBox(height: 28),
-                          ],
-                        ),
-                      ),
-                    ),
+  child: SingleChildScrollView(
+    physics: const BouncingScrollPhysics(),
+    padding: EdgeInsets.only(
+      bottom: MediaQuery.of(context).padding.bottom + 135,
+    ),
+    child: Column(
+      children: [
+        _buildGlassesLinkSection(),
+        const SizedBox(height: 16),
+        _buildSmartLightSection(),
+        const SizedBox(height: 16),
+        _buildLogoutButton(),
+      ],
+    ),
+  ),
+),
 
                   ],
                 ),

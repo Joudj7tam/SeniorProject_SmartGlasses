@@ -4,6 +4,12 @@ import 'pdf_report_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'smart_bottom_nav.dart';
+import 'main.dart';
+import 'notifications_page.dart';
+import 'tips_page.dart';
+import 'settings_page.dart';
+
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
 enum ProgressChartType { blinkByTime, alerts, blueLightScatter }
@@ -65,21 +71,17 @@ class ScatterChartPoint {
 }
 
 class ProgressPage extends StatefulWidget {
-  final Set<ProgressChartType> selectedForHome;
-  final ValueChanged<ProgressChartType> onToggleForHome;
   final String userId;
   final String firebaseUid;
   final String formId;
-  final VoidCallback onBackRequested;
+  final VoidCallback? onBackRequested;
 
   const ProgressPage({
     super.key,
-    required this.selectedForHome,
-    required this.onToggleForHome,
     required this.userId,
     required this.firebaseUid,
     required this.formId,
-    required this.onBackRequested,
+    this.onBackRequested,
   });
 
   @override
@@ -91,6 +93,220 @@ class _ProgressPageState extends State<ProgressPage> {
   ProgressChartType _active = ProgressChartType.blinkByTime;
   DateTime _selectedDate = DateTime.now();
   bool _isGeneratingPdf = false;
+
+  final Set<ProgressChartType> _selectedForHome = {};
+bool _isUpdatingHomeCharts = false;
+
+String _chartTypeToString(ProgressChartType type) {
+  switch (type) {
+    case ProgressChartType.blinkByTime:
+      return 'blinkByTime';
+    case ProgressChartType.alerts:
+      return 'alerts';
+    case ProgressChartType.blueLightScatter:
+      return 'blueLightScatter';
+  }
+}
+
+ProgressChartType? _chartTypeFromString(String value) {
+  switch (value) {
+    case 'blinkByTime':
+      return ProgressChartType.blinkByTime;
+    case 'alerts':
+      return ProgressChartType.alerts;
+    case 'blueLightScatter':
+      return ProgressChartType.blueLightScatter;
+    default:
+      return null;
+  }
+}
+
+@override
+void initState() {
+  super.initState();
+  _loadHomeSelectedCharts();
+}
+
+Future<void> _loadHomeSelectedCharts() async {
+  if (widget.formId.isEmpty) return;
+
+  try {
+    final uri = Uri.parse(
+      '$backendBaseUrl/api/eye-health-form/get-home-selected-charts',
+    ).replace(
+      queryParameters: {
+        'form_id': widget.formId,
+        'main_account_id': widget.userId,
+      },
+    );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw 'Failed to load home charts (code: ${res.statusCode})';
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final charts = (data['home_selected_charts'] as List?) ?? [];
+
+    final loadedCharts = charts
+        .map((e) => _chartTypeFromString(e.toString()))
+        .whereType<ProgressChartType>()
+        .toSet();
+
+    if (!mounted) return;
+
+    setState(() {
+      _selectedForHome
+        ..clear()
+        ..addAll(loadedCharts);
+    });
+  } catch (e) {
+    debugPrint('Load home charts error: $e');
+  }
+}
+
+Future<void> _updateHomeSelectedChartsInBackend() async {
+  if (widget.formId.isEmpty) return;
+
+  final chartStrings = _selectedForHome.map(_chartTypeToString).toList();
+
+  final uri = Uri.parse(
+    '$backendBaseUrl/api/eye-health-form/update-home-selected-charts/${widget.formId}',
+  ).replace(
+    queryParameters: {
+      'main_account_id': widget.userId,
+    },
+  );
+
+  final res = await http.put(
+    uri,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode(chartStrings),
+  );
+
+  if (res.statusCode != 200) {
+    throw 'Failed to update home charts (code: ${res.statusCode}) ${res.body}';
+  }
+}
+
+Future<void> _toggleChartForHome(ProgressChartType chart) async {
+  if (_isUpdatingHomeCharts) return;
+
+  final previousCharts = Set<ProgressChartType>.from(_selectedForHome);
+
+  setState(() {
+    _isUpdatingHomeCharts = true;
+
+    if (_selectedForHome.contains(chart)) {
+      _selectedForHome.remove(chart);
+    } else {
+      _selectedForHome.add(chart);
+    }
+  });
+
+  try {
+    await _updateHomeSelectedChartsInBackend();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _selectedForHome.contains(chart)
+              ? 'Added to Home'
+              : 'Removed from Home',
+        ),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() {
+      _selectedForHome
+        ..clear()
+        ..addAll(previousCharts);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to update home charts: $e')),
+    );
+  } finally {
+    if (!mounted) return;
+
+    setState(() {
+      _isUpdatingHomeCharts = false;
+    });
+  }
+}
+
+void _goHome() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => HomePage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+      ),
+    ),
+  );
+}
+
+void _goSettings() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+
+        smartLightEnabled: true,
+        smartLightIntensity: 0.95,
+        smartLightColor: const Color(0xFF06D6A0),
+        onSmartLightToggle: (_) {},
+        glassesLink: ValueNotifier({
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+          'deviceId': null,
+        }),
+        onRequestLink: () {},
+        activeFormId: widget.formId,
+      ),
+    ),
+  );
+}
+
+void _goProgress() {
+  // Already on Progress page
+}
+
+void _goAlerts() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => NotificationsPage(
+        userId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+        formId: widget.formId,
+      ),
+    ),
+  );
+}
+
+void _goTips() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+        formId: widget.formId,
+      ),
+    ),
+  );
+}
 
   Future<void> _pickFilterDate() async {
     final picked = await showDatePicker(
@@ -259,13 +475,32 @@ class _ProgressPageState extends State<ProgressPage> {
 
       @override
   Widget build(BuildContext context) {
-    final bool isSelected = widget.selectedForHome.contains(_active);
+    final bool isSelected = _selectedForHome.contains(_active);
 
     final double chartCardHeight = _active == ProgressChartType.blinkByTime
         ? 520
         : 500;
 
-    return Container(
+    return Scaffold(
+  backgroundColor: const Color(0xFFF6F3EE),
+  extendBody: true,
+
+  floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+  floatingActionButton: SmartProgressFab(
+    selectedIndex: 2,
+    onTap: _goProgress,
+  ),
+
+  bottomNavigationBar: SmartBottomNav(
+    selectedIndex: 2,
+    onHomeTap: _goHome,
+    onSettingsTap: _goSettings,
+    onProgressTap: _goProgress,
+    onAlertsTap: _goAlerts,
+    onTipsTap: _goTips,
+  ),
+
+  body: Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -284,50 +519,61 @@ class _ProgressPageState extends State<ProgressPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: widget.onBackRequested,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.22),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.35)),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 18,
-                        color: _textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Progress',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: _textPrimary,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
+              SizedBox(
+  height: 46,
+  child: Stack(
+    alignment: Alignment.center,
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: widget.onBackRequested,
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.28),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.45),
               ),
-              const SizedBox(height: 6),
-              const Padding(
-                padding: EdgeInsets.only(left: 48),
-                child: Text(
-                  'Charts preview .',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 21,
+              color: _textPrimary,
+            ),
+          ),
+        ),
+      ),
+
+      const Center(
+        child: Text(
+          'Progress',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: _textPrimary,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+const SizedBox(height: 0),
+const Center(
+  child: Text(
+    'Charts preview ',
+    style: TextStyle(
+      fontSize: 14,
+      color: _textSecondary,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+),
               const SizedBox(height: 16),
 
               // Chart picker
@@ -525,7 +771,7 @@ class _ProgressPageState extends State<ProgressPage> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    onPressed: () => widget.onToggleForHome(_active),
+                    onPressed: _isUpdatingHomeCharts ? null : () => _toggleChartForHome(_active),
                     icon: Icon(
                       isSelected
                           ? Icons.remove_circle_outline
@@ -635,6 +881,7 @@ class _ProgressPageState extends State<ProgressPage> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
