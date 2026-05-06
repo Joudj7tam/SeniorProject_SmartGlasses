@@ -237,344 +237,735 @@ class _HealthFormPageState extends State<HealthFormPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Eye-Health Information Form')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _sectionTitle('Personal Information'),
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => _requiredText(v, 'Full name is required'),
-                ),
-                const SizedBox(height: 12),
-
-                // DOB picker
-                InkWell(
-                  onTap: _pickDob,
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date of Birth',
-                      border: OutlineInputBorder(),
-                    ),
-                    child: Text(
-                      _dob == null
-                          ? 'Select date'
-                          : '${_dob!.year}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Gender
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _gender,
-                      hint: const Text('Select gender'),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(
-                          value: 'Female',
-                          child: Text('Female'),
-                        ),
-                      ],
-                      onChanged: (v) => setState(() => _gender = v),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-                _sectionTitle('Previous Eye Conditions'),
-                _chipRow(
-                  children: [
-                    _boolChip(
-                      'Myopia',
-                      _myopia,
-                      (v) => setState(() => _myopia = v),
-                    ),
-                    _boolChip(
-                      'Hyperopia',
-                      _hyperopia,
-                      (v) => setState(() => _hyperopia = v),
-                    ),
-                    _boolChip(
-                      'Astigmatism',
-                      _astigmatism,
-                      (v) => setState(() => _astigmatism = v),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-                _sectionTitle('Chronic Diseases'),
-                _chipRow(
-                  children: [
-                    _boolChip(
-                      'Diabetes',
-                      _diabetes,
-                      (v) => setState(() => _diabetes = v),
-                    ),
-                    _boolChip(
-                      'Hypertension',
-                      _hypertension,
-                      (v) => setState(() => _hypertension = v),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-                _sectionTitle('Glasses / Contact Lenses'),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Do you use glasses or contact lenses?',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _visionAid,
-                      hint: const Text('Select one'),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Glasses',
-                          child: Text('Glasses'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Contact Lenses',
-                          child: Text('Contact Lenses'),
-                        ),
-                        DropdownMenuItem(value: 'None', child: Text('None')),
-                      ],
-                      onChanged: (v) => setState(() => _visionAid = v),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-                _sectionTitle('History of Eye Surgeries'),
-                SwitchListTile(
-                  title: const Text('Have you had eye surgery?'),
-                  value: _hadSurgery,
-                  onChanged: (v) => setState(() => _hadSurgery = v),
-                ),
-                if (_hadSurgery) ...[
-                  TextFormField(
-                    controller: _surgeryDetailsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Surgery details',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-
-                const SizedBox(height: 18),
-                _sectionTitle('Daily Habits & Lifestyle'),
-                _sliderCard(
-                  title: 'Screen time (hours/day)',
-                  valueLabel: '${_screenTimeHours.round()} h',
-                  min: 0,
-                  max: 16,
-                  value: _screenTimeHours,
-                  onChanged: (v) => setState(() => _screenTimeHours = v),
-                ),
-                const SizedBox(height: 12),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Lighting',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _lighting,
-                      hint: const Text('Select lighting'),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Bright',
-                          child: Text('Bright'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Normal',
-                          child: Text('Normal'),
-                        ),
-                        DropdownMenuItem(value: 'Dim', child: Text('Dim')),
-                      ],
-                      onChanged: (v) => setState(() => _lighting = v),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _sliderCard(
-                  title: 'Sleep (hours/night)',
-                  valueLabel: '${_sleepHours.toStringAsFixed(0)} h',
-                  min: 0,
-                  max: 12,
-                  value: _sleepHours,
-                  onChanged: (v) => setState(() => _sleepHours = v),
-                ),
-                const SizedBox(height: 12),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Diet',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _diet,
-                      hint: const Text('Select diet'),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Healthy',
-                          child: Text('Healthy'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Average',
-                          child: Text('Average'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Unhealthy',
-                          child: Text('Unhealthy'),
-                        ),
-                      ],
-                      onChanged: (v) => setState(() => _diet = v),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-                _sectionTitle('Current Eye Symptoms'),
-                _chipRow(
-                  children: [
-                    _boolChip(
-                      'Dryness',
-                      _symDryness,
-                      (v) => setState(() => _symDryness = v),
-                    ),
-                    _boolChip(
-                      'Redness',
-                      _symRedness,
-                      (v) => setState(() => _symRedness = v),
-                    ),
-                    _boolChip(
-                      'Itching',
-                      _symItching,
-                      (v) => setState(() => _symItching = v),
-                    ),
-                    _boolChip(
-                      'Tearing',
-                      _symTearing,
-                      (v) => setState(() => _symTearing = v),
-                    ),
-                    _boolChip(
-                      'Eye strain',
-                      _symEyeStrain,
-                      (v) => setState(() => _symEyeStrain = v),
-                    ),
-                    _boolChip(
-                      'Blurred vision',
-                      _symBlurredVision,
-                      (v) => setState(() => _symBlurredVision = v),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save & Continue'),
-                  ),
-                ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFFF8EFE5),
+    body: Stack(
+      children: [
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFFBF6),
+                Color(0xFFF8EFE5),
+                Color(0xFFFFE7BF),
               ],
+              stops: [0.0, 0.55, 1.0],
             ),
           ),
         ),
-      ),
-    );
-  }
 
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
+        Positioned(
+          top: -90,
+          right: -80,
+          child: _softCircle(210, const Color(0xFF2E9EA0), 0.08),
+        ),
+        Positioned(
+          top: 170,
+          left: -120,
+          child: _softCircle(260, const Color(0xFFEFAA4B), 0.10),
+        ),
+        Positioned(
+          bottom: -80,
+          right: -60,
+          child: _softCircle(220, const Color(0xFFEFAA4B), 0.14),
+        ),
 
-  Widget _chipRow({required List<Widget> children}) {
-    return Wrap(spacing: 10, runSpacing: 10, children: children);
-  }
+        SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(22, 20, 22, 36),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(),
 
-  Widget _boolChip(String label, bool value, ValueChanged<bool> onChanged) {
-    return FilterChip(
-      label: Text(label),
-      selected: value,
-      onSelected: onChanged,
-    );
-  }
+                  const SizedBox(height: 24),
 
-  Widget _sliderCard({
-    required String title,
-    required String valueLabel,
-    required double min,
-    required double max,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+                  _heroCard(),
+
+                  const SizedBox(height: 22),
+
+                  _sectionCard(
+                    icon: Icons.person_outline_rounded,
+                    title: 'Personal Information',
+                    children: [
+                      _roundedTextField(
+                        controller: _fullNameController,
+                        hint: 'Full Name',
+                        icon: Icons.badge_outlined,
+                        validator: (v) =>
+                            _requiredText(v, 'Full name is required'),
+                      ),
+                      const SizedBox(height: 14),
+                      InkWell(
+                        onTap: _pickDob,
+                        borderRadius: BorderRadius.circular(22),
+                        child: InputDecorator(
+                          decoration: _roundedDecoration(
+                            label: 'Date of Birth',
+                            icon: Icons.calendar_month_outlined,
+                          ),
+                          child: Text(
+                            _dob == null
+                                ? 'Select date'
+                                : '${_dob!.year}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              color: Color(0xFF8F8880),
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _dropdownField(
+                        label: 'Gender',
+                        value: _gender,
+                        hint: 'Select gender',
+                        icon: Icons.wc_rounded,
+                        items: const ['Male', 'Female'],
+                        onChanged: (v) => setState(() => _gender = v),
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.remove_red_eye_outlined,
+                    title: 'Eye Conditions',
+                    children: [
+                      _chipRow(
+                        children: [
+                          _boolChip('Myopia', _myopia,
+                              (v) => setState(() => _myopia = v)),
+                          _boolChip('Hyperopia', _hyperopia,
+                              (v) => setState(() => _hyperopia = v)),
+                          _boolChip('Astigmatism', _astigmatism,
+                              (v) => setState(() => _astigmatism = v)),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.health_and_safety_outlined,
+                    title: 'Chronic Diseases',
+                    children: [
+                      _chipRow(
+                        children: [
+                          _boolChip('Diabetes', _diabetes,
+                              (v) => setState(() => _diabetes = v)),
+                          _boolChip('Hypertension', _hypertension,
+                              (v) => setState(() => _hypertension = v)),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.visibility_outlined,
+                    title: 'Vision Aid',
+                    children: [
+                      _dropdownField(
+                        label: 'Glasses / Contact Lenses',
+                        value: _visionAid,
+                        hint: 'Select one',
+                        icon: Icons.remove_red_eye_outlined,
+                        items: const ['Glasses', 'Contact Lenses', 'None'],
+                        onChanged: (v) => setState(() => _visionAid = v),
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.medical_services_outlined,
+                    title: 'Eye Surgeries',
+                    children: [
+                      _switchCard(
+                        title: 'Have you had eye surgery?',
+                        value: _hadSurgery,
+                        onChanged: (v) => setState(() => _hadSurgery = v),
+                      ),
+                      const SizedBox(height: 14),
+                      _roundedTextField(
+                        controller: _surgeryDetailsController,
+                        hint: 'Surgery Details',
+                        icon: Icons.edit_note_rounded,
+                        enabled: _hadSurgery,
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.light_mode_outlined,
+                    title: 'Daily Habits & Lifestyle',
+                    children: [
+                      _sliderCard(
+                        title: 'Screen time',
+                        subtitle: 'hours/day',
+                        valueLabel: '${_screenTimeHours.round()} h',
+                        min: 0,
+                        max: 16,
+                        value: _screenTimeHours,
+                        onChanged: (v) =>
+                            setState(() => _screenTimeHours = v),
+                      ),
+                      const SizedBox(height: 14),
+                      _dropdownField(
+                        label: 'Lighting',
+                        value: _lighting,
+                        hint: 'Select lighting',
+                        icon: Icons.lightbulb_outline_rounded,
+                        items: const ['Bright', 'Normal', 'Dim'],
+                        onChanged: (v) => setState(() => _lighting = v),
+                      ),
+                      const SizedBox(height: 14),
+                      _sliderCard(
+                        title: 'Sleep',
+                        subtitle: 'hours/night',
+                        valueLabel: '${_sleepHours.toStringAsFixed(0)} h',
+                        min: 0,
+                        max: 12,
+                        value: _sleepHours,
+                        onChanged: (v) => setState(() => _sleepHours = v),
+                      ),
+                      const SizedBox(height: 14),
+                      _dropdownField(
+                        label: 'Diet',
+                        value: _diet,
+                        hint: 'Select diet',
+                        icon: Icons.restaurant_outlined,
+                        items: const ['Healthy', 'Average', 'Unhealthy'],
+                        onChanged: (v) => setState(() => _diet = v),
+                      ),
+                    ],
+                  ),
+
+                  _sectionCard(
+                    icon: Icons.warning_amber_rounded,
+                    title: 'Current Eye Symptoms',
+                    children: [
+                      _chipRow(
+                        children: [
+                          _boolChip('Dryness', _symDryness,
+                              (v) => setState(() => _symDryness = v)),
+                          _boolChip('Redness', _symRedness,
+                              (v) => setState(() => _symRedness = v)),
+                          _boolChip('Itching', _symItching,
+                              (v) => setState(() => _symItching = v)),
+                          _boolChip('Tearing', _symTearing,
+                              (v) => setState(() => _symTearing = v)),
+                          _boolChip('Eye strain', _symEyeStrain,
+                              (v) => setState(() => _symEyeStrain = v)),
+                          _boolChip('Blurred vision', _symBlurredVision,
+                              (v) => setState(() => _symBlurredVision = v)),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  SizedBox(
+                    height: 60,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFFEFAA4B),
+                        disabledBackgroundColor:
+                            const Color(0xFFEFAA4B).withOpacity(0.55),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                      ),
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.2,
+                              ),
+                            )
+                          : const Text(
+                              'Save & Continue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _header() {
+  return Row(
+    children: [
+      GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.75),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFE7DED4)),
+          ),
+          child: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: Colors.black,
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      const Expanded(
+        child: Text(
+          'Eye-Health Form',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: Colors.black,
+            letterSpacing: -0.6,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _heroCard() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(30),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF2E9EA0),
+          Color(0xFF43B8B8),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF2E9EA0).withOpacity(0.25),
+          blurRadius: 22,
+          offset: const Offset(0, 12),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.22),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.remove_red_eye_outlined,
+            color: Colors.white,
+            size: 30,
+          ),
+        ),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(title)),
               Text(
-                valueLabel,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                'Tell us about your eyes',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                'This helps personalize your eye-health monitoring experience.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12.5,
+                  height: 1.3,
+                ),
               ),
             ],
           ),
-          Slider(
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _sectionCard({
+  required IconData icon,
+  required String title,
+  required List<Widget> children,
+}) {
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 18),
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.62),
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(
+        color: Colors.white.withOpacity(0.75),
+        width: 1.2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.045),
+          blurRadius: 18,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFAA4B).withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: const Color(0xFFEFAA4B), size: 21),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ...children,
+      ],
+    ),
+  );
+}
+
+InputDecoration _roundedDecoration({String? label, IconData? icon}) {
+  return InputDecoration(
+    labelText: label,
+    floatingLabelBehavior:
+        label == null ? FloatingLabelBehavior.never : FloatingLabelBehavior.auto,
+    labelStyle: const TextStyle(
+      color: Color(0xFF9B9690),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    ),
+    prefixIcon: icon == null
+        ? null
+        : Icon(icon, color: const Color(0xFF9B9690), size: 21),
+    filled: true,
+    fillColor: const Color(0xFFFFFAF4).withOpacity(0.88),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Color(0xFFE4DDD4), width: 1),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Color(0xFF2E9EA0), width: 1.4),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Color(0xFFE8E0D7), width: 1),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+    ),
+  );
+}
+
+Widget _roundedTextField({
+  required TextEditingController controller,
+  required String hint,
+  IconData? icon,
+  String? Function(String?)? validator,
+  bool enabled = true,
+  int maxLines = 1,
+}) {
+  return TextFormField(
+    controller: controller,
+    validator: validator,
+    enabled: enabled,
+    maxLines: maxLines,
+    cursorColor: const Color(0xFF2E9EA0),
+    style: TextStyle(
+      color: enabled ? Colors.black : const Color(0xFFB8B0A8),
+      fontSize: 15.5,
+      fontWeight: FontWeight.w600,
+    ),
+    decoration: _roundedDecoration(icon: icon).copyWith(
+      hintText: hint,
+      hintStyle: const TextStyle(
+        color: Color(0xFFAAA39B),
+        fontSize: 15.5,
+        fontWeight: FontWeight.w500,
+      ),
+      fillColor: enabled
+          ? const Color(0xFFFFFAF4).withOpacity(0.88)
+          : const Color(0xFFFFFAF4).withOpacity(0.48),
+    ),
+  );
+}
+
+Widget _dropdownField({
+  required String label,
+  required String? value,
+  required String hint,
+  required List<String> items,
+  required ValueChanged<String?> onChanged,
+  IconData? icon,
+}) {
+  return InputDecorator(
+    decoration: _roundedDecoration(label: label, icon: icon),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: value,
+        hint: Text(
+          hint,
+          style: const TextStyle(
+            color: Color(0xFFAAA39B),
+            fontSize: 15.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        icon: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: Color(0xFF9B9690),
+          size: 24,
+        ),
+        isExpanded: true,
+        dropdownColor: const Color(0xFFFFFAF4),
+        borderRadius: BorderRadius.circular(20),
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 15.5,
+          fontWeight: FontWeight.w600,
+        ),
+        items: items
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(item),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    ),
+  );
+}
+
+Widget _switchCard({
+  required String title,
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFAF4).withOpacity(0.88),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFFE4DDD4), width: 1),
+    ),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.healing_outlined,
+          color: Color(0xFF9B9690),
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF8F8880),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Transform.scale(
+          scale: 0.86,
+          child: Switch(
+            value: value,
+            activeColor: Colors.white,
+            activeTrackColor: const Color(0xFFEFAA4B),
+            inactiveThumbColor: const Color(0xFF8C8176),
+            inactiveTrackColor: const Color(0xFFF0E4D8),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _chipRow({required List<Widget> children}) {
+  return Wrap(
+    spacing: 9,
+    runSpacing: 11,
+    children: children,
+  );
+}
+
+Widget _boolChip(String label, bool value, ValueChanged<bool> onChanged) {
+  return FilterChip(
+    label: Text(
+      value ? '✓ $label' : label,
+      style: TextStyle(
+        color: value ? Colors.black : const Color(0xFF3C3630),
+        fontSize: 14.5,
+        fontWeight: value ? FontWeight.w800 : FontWeight.w600,
+      ),
+    ),
+    selected: value,
+    showCheckmark: false,
+    onSelected: onChanged,
+    backgroundColor: const Color(0xFFFFFAF4).withOpacity(0.88),
+    selectedColor: const Color(0xFFF5CE94),
+    side: BorderSide(
+      color: value ? const Color(0xFFEFAA4B) : const Color(0xFFE4DDD4),
+      width: value ? 1.2 : 1,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    elevation: 0,
+    pressElevation: 0,
+  );
+}
+
+Widget _sliderCard({
+  required String title,
+  required String subtitle,
+  required String valueLabel,
+  required double min,
+  required double max,
+  required double value,
+  required ValueChanged<double> onChanged,
+}) {
+  return Container(
+    padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFAF4).withOpacity(0.88),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0xFFE4DDD4), width: 1),
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E9EA0).withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.tune_rounded,
+                color: Color(0xFF2E9EA0),
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF9B9690),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFAA4B).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                valueLabel,
+                style: const TextStyle(
+                  color: Color(0xFFB66F12),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: const Color(0xFFEFAA4B),
+            inactiveTrackColor: const Color(0xFFE0D8CF),
+            thumbColor: const Color(0xFFEFAA4B),
+            overlayColor: const Color(0xFFEFAA4B).withOpacity(0.15),
+            trackHeight: 6,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 1.3),
+            activeTickMarkColor: const Color(0xFFFFD8A2),
+            inactiveTickMarkColor: const Color(0xFFCFC8BF),
+          ),
+          child: Slider(
             value: value,
             min: min,
             max: max,
@@ -582,8 +973,21 @@ class _HealthFormPageState extends State<HealthFormPage> {
             label: valueLabel,
             onChanged: onChanged,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _softCircle(double size, Color color, double opacity) {
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: color.withOpacity(opacity),
+      shape: BoxShape.circle,
+    ),
+  );
+}
+
 }

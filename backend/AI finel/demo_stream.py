@@ -1,7 +1,9 @@
 # demo_stream.py
-# ==============================
-# FIX IMPORT PATHS (IMPORTANT)
-# ==============================
+
+# =========================================================
+# FIX IMPORT PATHS
+# =========================================================
+
 import os
 import sys
 
@@ -14,15 +16,18 @@ sys.path.append(BACKEND_DIR)
 sys.path.append(CONTROLLERS_DIR)
 
 
-# ==============================
+# =========================================================
 # NORMAL IMPORTS
-# ==============================
+# =========================================================
+
 import asyncio
 import argparse
 import math
 import random
 from datetime import datetime, timedelta
 from typing import Dict, Generator
+
+from database import db
 
 from inference import predict_alerts
 from indices import compute_indices
@@ -33,12 +38,24 @@ from notification_manager import NotificationManager
 from chart_metrics_controller import create_chart_metric
 from notification_controller import create_notification
 
+from led_controller import (
+    apply_light_action_to_led,
+    map_light_action_to_scene,
+)
+
 
 # =========================================================
 # CONFIG
 # =========================================================
 
-DEVICE_ID = "DEV_1775931726539"
+# Current working device from MongoDB / app notifications:
+DEVICE_ID = "DEV_1777598211477"
+
+# LED controller IP from Magic Home / controller app:
+LED_CONTROLLER_IP = "192.168.100.34"
+
+# Set True now that hardware LED control works:
+LED_INTEGRATION_ENABLED = True
 
 # One reading represents 5 simulated minutes
 SIMULATED_MINUTES_PER_READING = 5
@@ -48,10 +65,8 @@ REAL_DELAY_SECONDS = 4
 
 # Demo length
 DEFAULT_TOTAL_READINGS = 30
-# 30 readings * 5 simulated minutes = 150 simulated minutes
-# 30 readings * 4 seconds = about 2 minutes real demo
 
-
+# Old smart_light integration print/apply flag
 SMART_LIGHT_INTEGRATION_ENABLED = False
 FOLLOW_ROUTINE = True
 
@@ -153,25 +168,81 @@ def gaussian_noise(mean: float = 0.0, std: float = 1.0) -> float:
     return random.gauss(mean, std)
 
 
-def maybe_spike(step: int, probability: float, magnitude_range: tuple[float, float]) -> float:
-    """
-    Occasional realistic spike:
-    - sudden screen brightness increase
-    - bright room
-    - short temporary exposure
-    """
+def maybe_spike(probability: float, magnitude_range: tuple[float, float]) -> float:
     if random.random() < probability:
         return random.uniform(*magnitude_range)
+
     return 0.0
 
 
-def sensor_to_chart_metric(sensor: Dict, device_id: str, timestamp: datetime) -> Dict:
+async def get_linked_device_context(device_id: str) -> dict:
     """
-    Convert AI sensor reading to your chart schema:
-    charts depend on blink_rate, lux, blue_ratio.
-    Your chart controller accepts dict payloads. 
+    Finds ONLY the requested deviceId.
+
+    Important:
+    We do not auto-select another linked device,
+    because that may belong to another user/account.
     """
 
+    def is_true(value):
+        return value is True or value == "true" or value == "True" or value == 1
+
+    print("\n🔍 Looking for YOUR linked active device...")
+    print(f"Requested DEVICE_ID = {device_id}")
+
+    device = await db.devices.find_one({"deviceId": device_id})
+
+    if not device:
+        print("\n❌ DEMO SETUP ERROR")
+        print(f"No device found with deviceId = {device_id}")
+        print("This means DEVICE_ID in demo_stream.py does not match MongoDB.")
+        return {}
+
+    print("\n📌 Device found in MongoDB:")
+    print(f"deviceId  = {device.get('deviceId')}")
+    print(f"name      = {device.get('deviceName') or device.get('name')}")
+    print(f"is_linked = {device.get('is_linked')}")
+    print(f"power     = {device.get('power')}")
+    print(f"user_id   = {device.get('user_id')}")
+    print(f"form_id   = {device.get('form_id')}")
+
+    if not is_true(device.get("is_linked")):
+        print("\n❌ DEMO SETUP ERROR")
+        print("Device exists, but is_linked is not true.")
+        print("Go to the app → Settings → Link Selected Device.")
+        return {}
+
+    if not is_true(device.get("power")):
+        print("\n❌ DEMO SETUP ERROR")
+        print("Device exists, but power is not true.")
+        print("Go to the app → Settings → turn Device Power ON.")
+        return {}
+
+    user_id = device.get("user_id")
+    form_id = device.get("form_id")
+
+    if not user_id or not form_id:
+        print("\n❌ DEMO SETUP ERROR")
+        print("Device is linked and powered, but user_id or form_id is missing.")
+        return {}
+
+    print("\n✅ YOUR linked active device is ready")
+    print(f"deviceId  = {device.get('deviceId')}")
+    print(f"user_id   = {user_id}")
+    print(f"form_id   = {form_id}\n")
+
+    return {
+        "deviceId": device.get("deviceId"),
+        "user_id": user_id,
+        "form_id": form_id,
+    }
+
+
+def sensor_to_chart_metric(
+    sensor: Dict,
+    device_context: Dict,
+    timestamp: datetime,
+) -> Dict:
     blink_rate = round(float(sensor["blink_rate_bpm"]), 2)
     lux = round(float(sensor["ambient_lux"]), 2)
 
@@ -183,17 +254,26 @@ def sensor_to_chart_metric(sensor: Dict, device_id: str, timestamp: datetime) ->
     blink_count = int(round(blink_rate * bucket_minutes))
 
     avg_ibi = round(60.0 / max(blink_rate, 0.1), 2)
-    latest_ibi = round(clamp(avg_ibi + random.uniform(-0.35, 0.35), 1.0, 12.0), 2)
+    latest_ibi = round(
+        clamp(avg_ibi + random.uniform(-0.35, 0.35), 1.0, 12.0),
+        2,
+    )
 
     return {
-        "deviceId": device_id,
+        "deviceId": device_context["deviceId"],
+        "user_id": device_context["user_id"],
+        "form_id": device_context["form_id"],
+
         "timestamp": timestamp,
+
         "blink_count": blink_count,
         "blink_rate": blink_rate,
         "latest_ibi": latest_ibi,
         "avg_ibi": avg_ibi,
+
         "lux": lux,
         "blue_ratio": blue_ratio,
+
         "bucket_minutes": bucket_minutes,
     }
 
@@ -203,27 +283,25 @@ def generate_live_readings(
     total_readings: int,
     start_time: datetime | None = None,
 ) -> Generator[tuple[int, datetime, Dict], None, None]:
-    """
-    Generates one reading every step.
-    Each reading represents 5 simulated minutes.
-    """
 
     if persona_key not in PERSONAS:
-        raise ValueError(f"Unknown persona '{persona_key}'. Choose from: {list(PERSONAS.keys())}")
+        raise ValueError(
+            f"Unknown persona '{persona_key}'. Choose from: {list(PERSONAS.keys())}"
+        )
 
     persona = PERSONAS[persona_key]
     baseline = persona["baseline"]
     fatigue = persona["fatigue"]
 
     start_time = start_time or datetime.utcnow().replace(second=0, microsecond=0)
-
     focus_minutes = 0.0
 
     for step in range(total_readings):
-        simulated_time = start_time + timedelta(minutes=step * SIMULATED_MINUTES_PER_READING)
-        focus_minutes += SIMULATED_MINUTES_PER_READING
+        simulated_time = start_time + timedelta(
+            minutes=step * SIMULATED_MINUTES_PER_READING
+        )
 
-        # Smooth wave to avoid flat synthetic-looking data
+        focus_minutes += SIMULATED_MINUTES_PER_READING
         wave = math.sin(step / 4.0)
 
         blink_rate = (
@@ -238,14 +316,14 @@ def generate_live_readings(
             + fatigue["blue_increase_per_step"] * step
             + wave * 15
             + gaussian_noise(0, 25)
-            + maybe_spike(step, probability=0.12, magnitude_range=(120, 260))
+            + maybe_spike(probability=0.12, magnitude_range=(120, 260))
         )
 
         ambient_lux = (
             baseline["ambient_lux"]
             + wave * 45
             + gaussian_noise(0, 35)
-            + maybe_spike(step, probability=0.08, magnitude_range=(180, 420))
+            + maybe_spike(probability=0.08, magnitude_range=(180, 420))
         )
 
         humidity = (
@@ -288,6 +366,12 @@ async def run_demo(
     persona = PERSONAS[persona_key]
     profile = persona["profile"]
 
+    device_context = await get_linked_device_context(DEVICE_ID)
+
+    if not device_context:
+        print("Stopping demo because linked active device was not found.")
+        return
+
     notification_manager = NotificationManager(
         persistence_required=persistence_required,
         cooldown_minutes=cooldown_minutes,
@@ -297,25 +381,28 @@ async def run_demo(
     print("CLIPVIEW LIVE AI DEMO STREAM")
     print("=" * 70)
     print(f"Persona: {persona['display_name']}")
-    print(f"Device ID: {DEVICE_ID}")
+    print(f"Device ID: {device_context['deviceId']}")
+    print(f"User ID: {device_context['user_id']}")
+    print(f"Form ID: {device_context['form_id']}")
+    print(f"LED IP: {LED_CONTROLLER_IP}")
+    print(f"LED Enabled: {LED_INTEGRATION_ENABLED}")
     print(f"Total readings: {total_readings}")
     print(f"Each reading = {SIMULATED_MINUTES_PER_READING} simulated minutes")
     print(f"Real delay = {delay_seconds} seconds")
     print("=" * 70)
 
-    for step, simulated_time, sensor in generate_live_readings(persona_key, total_readings):
+    last_led_scene = None
+
+    for step, simulated_time, sensor in generate_live_readings(
+        persona_key,
+        total_readings,
+    ):
         print(f"\n[{step}/{total_readings}] Simulated time: {simulated_time.isoformat()}")
 
-        # 1) AI prediction
         flags = predict_alerts(sensor, profile)
-
-        # 2) Indices
         indices = compute_indices(sensor, profile)
-
-        # 3) Recommendations
         recommendations = build_recommendations(flags, indices, sensor, profile)
 
-        # 4) Smart light decision
         light_action = evaluate_light(
             sensor,
             profile,
@@ -325,8 +412,11 @@ async def run_demo(
             follow_routine=FOLLOW_ROUTINE,
         )
 
-        # 5) Save chart metric to MongoDB
-        chart_payload = sensor_to_chart_metric(sensor, DEVICE_ID, simulated_time)
+        chart_payload = sensor_to_chart_metric(
+            sensor=sensor,
+            device_context=device_context,
+            timestamp=simulated_time,
+        )
 
         try:
             chart_result = await create_chart_metric(chart_payload)
@@ -334,9 +424,8 @@ async def run_demo(
         except Exception as e:
             chart_status = f"FAILED: {e}"
 
-        # 6) Notification logic: persistence + cooldown
         sent_notifications = await notification_manager.process_notifications(
-            device_id=DEVICE_ID,
+            device_id=device_context["deviceId"],
             flags=flags,
             sensor=sensor,
             indices=indices,
@@ -344,10 +433,24 @@ async def run_demo(
             now=datetime.utcnow(),
         )
 
-        # 7) Smart light apply/print
         apply_to_smart_light(light_action, SMART_LIGHT_INTEGRATION_ENABLED)
 
-        # 8) Terminal summary
+        scene_name = map_light_action_to_scene(light_action, flags)
+
+        # To avoid sending LED command every single reading,
+        # apply LED only when scene changes.
+        if scene_name != last_led_scene:
+            led_ok = apply_light_action_to_led(
+                ip=LED_CONTROLLER_IP,
+                light_action=light_action,
+                flags=flags,
+                enabled=LED_INTEGRATION_ENABLED,
+            )
+            last_led_scene = scene_name
+        else:
+            led_ok = True
+            print(f"[LED] Scene unchanged ({scene_name}) → no new command sent.")
+
         print("Sensor:", sensor)
         print("Flags:", flags)
 
@@ -366,12 +469,17 @@ async def run_demo(
             f"reason={light_action.reason}"
         )
 
+        print(f"LED scene: {scene_name} | applied={led_ok}")
         print("Chart:", chart_status)
 
         if sent_notifications:
             print("Notifications sent:")
-            for n in sent_notifications:
-                print(f"  - {n['metric_name']} | value={n['critical_value']} | {n['message']}")
+            for notification in sent_notifications:
+                print(
+                    f"  - {notification['metric_name']} | "
+                    f"value={notification['critical_value']} | "
+                    f"{notification['message']}"
+                )
         else:
             print("Notifications sent: none")
 
@@ -380,38 +488,48 @@ async def run_demo(
     print("\nDemo finished.")
 
 
+# =========================================================
+# CLI
+# =========================================================
+
 def parse_args():
     parser = argparse.ArgumentParser(description="ClipView live demo stream")
+
     parser.add_argument(
         "--persona",
         choices=list(PERSONAS.keys()),
         default="normal",
         help="Persona to simulate: normal, post_lasik, dry_eye",
     )
+
     parser.add_argument(
         "--readings",
         type=int,
         default=DEFAULT_TOTAL_READINGS,
         help="Number of live readings to generate",
     )
+
     parser.add_argument(
         "--delay",
         type=int,
         default=REAL_DELAY_SECONDS,
         help="Real seconds between readings",
     )
+
     parser.add_argument(
         "--persistence",
         type=int,
         default=2,
         help="Consecutive readings required before notification",
     )
+
     parser.add_argument(
         "--cooldown",
         type=int,
         default=15,
         help="Cooldown minutes per metric",
     )
+
     return parser.parse_args()
 
 
