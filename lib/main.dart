@@ -19,6 +19,16 @@ import 'dart:async';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
+const Color _sheetCream = Color(0xFFFFF7EE);
+const Color _sheetCard = Color(0xFFFFFCF8);
+const Color _sheetMint = Color(0xFF2EC4B6);
+const Color _sheetMintSoft = Color(0xFFDDF7F4);
+const Color _sheetOrange = Color(0xFFFF9F1C);
+const Color _sheetOrangeSoft = Color(0xFFFFE9C8);
+const Color _sheetText = Color(0xFF3E2E25);
+const Color _sheetMuted = Color(0xFF8F7D70);
+const Color _sheetBorder = Color(0xFFEADCCD);
+
 // For demo/testing purposes, using fixed device ID.
 const String kDeviceId = 'SMART_GLASSES_001';
 
@@ -559,6 +569,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   int _selectedIndex = 0;
+  int _previousIndex = 0;
   // Demo values only. Replace later with live sensor stream/state.
   final double _demoDistanceCm = 55; // مسافة تقريبية
   final double _demoBrightness = 0.65; // من 0 إلى 1
@@ -666,7 +677,16 @@ class _HomePageState extends State<HomePage> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
+      if (index != _selectedIndex) {
+        _previousIndex = _selectedIndex;
+        _selectedIndex = index;
+      }
+    });
+  }
+
+  void _goBackFromProgress() {
+    setState(() {
+      _selectedIndex = _previousIndex;
     });
   }
 
@@ -757,150 +777,532 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  ////////////##########
   void _openProfileMenu() {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Profiles',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withOpacity(0.35),
+    builder: (ctx) {
+      final sheetHeight = MediaQuery.of(ctx).size.height * 0.72;
+
+      return Container(
+        height: sheetHeight,
+        decoration: const BoxDecoration(
+          color: _sheetCream,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -55,
+              right: -35,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: _sheetMint.withOpacity(0.10),
+                  shape: BoxShape.circle,
+                ),
               ),
-              const SizedBox(height: 8),
-
-              // List accounts
-              ...List.generate(_profiles.length, (i) {
-                final name = (_profiles[i]['full_name'] ?? '').toString();
-                final isActive = _profiles[i]['is_active'] == true;
-                final formId = (_profiles[i]['id'] ?? '').toString();
-                final isMain = (_mainFormId != null && formId == _mainFormId);
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFCBF3F0),
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(color: Color(0xFF2EC4B6)),
+            ),
+            Positioned(
+              bottom: -45,
+              left: -35,
+              child: Container(
+                width: 145,
+                height: 145,
+                decoration: BoxDecoration(
+                  color: _sheetOrange.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: _sheetText.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
-                  ),
-                  title: Text(name),
-                  subtitle: isActive ? const Text('Active') : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!isActive)
-                        IconButton(
-                          icon: const Icon(Icons.swap_horiz),
-                          onPressed: () async {
-                            try {
-                              final formId = (_profiles[i]['id'] ?? '')
-                                  .toString();
+                    const SizedBox(height: 18),
 
-                              final uri =
-                                  Uri.parse(
-                                    '$backendBaseUrl/api/eye-health-form/switch',
-                                  ).replace(
-                                    queryParameters: {
-                                      'main_account_id': widget.mainAccountId,
-                                      'form_id': formId,
-                                    },
-                                  );
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: _sheetMintSoft,
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: const Icon(
+                            Icons.manage_accounts_outlined,
+                            color: _sheetMint,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Profiles',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: _sheetText,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Switch between your eye-health profiles.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: _sheetMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
 
-                              final res = await http.post(uri);
+                    const SizedBox(height: 18),
 
-                              if (res.statusCode != 200) {
-                                throw 'Switch failed (code: ${res.statusCode})';
-                              }
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            if (_profiles.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
+                                  color: _sheetCard,
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(color: _sheetBorder),
+                                ),
+                                child: const Text(
+                                  'No profiles available',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _sheetMuted,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
 
-                              await _loadProfiles(); // refresh to update is_active
-                              if (ctx.mounted) Navigator.pop(ctx);
+                            ...List.generate(_profiles.length, (i) {
+                              final name =
+                                  (_profiles[i]['full_name'] ?? '').toString();
+                              final isActive =
+                                  _profiles[i]['is_active'] == true;
+                              final formId =
+                                  (_profiles[i]['id'] ?? '').toString();
+                              final isMain =
+                                  (_mainFormId != null && formId == _mainFormId);
 
-                              if (!mounted) return;
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString())),
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(24),
+                                  onTap: () async {
+                                    try {
+                                      final formId =
+                                          (_profiles[i]['id'] ?? '').toString();
+
+                                      final uri = Uri.parse(
+                                        '$backendBaseUrl/api/eye-health-form/switch',
+                                      ).replace(
+                                        queryParameters: {
+                                          'main_account_id':
+                                              widget.mainAccountId,
+                                          'form_id': formId,
+                                        },
+                                      );
+
+                                      final res = await http.post(uri);
+
+                                      if (res.statusCode != 200) {
+                                        throw 'Switch failed (code: ${res.statusCode})';
+                                      }
+
+                                      await _loadProfiles();
+                                      if (ctx.mounted) Navigator.pop(ctx);
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(e.toString())),
+                                      );
+                                    }
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: isActive
+                                          ? _sheetMintSoft.withOpacity(0.82)
+                                          : _sheetCard,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isActive
+                                            ? _sheetMint.withOpacity(0.45)
+                                            : Colors.white.withOpacity(0.90),
+                                        width: isActive ? 1.4 : 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: isActive
+                                              ? _sheetMint.withOpacity(0.18)
+                                              : const Color(0xFFB88956)
+                                                  .withOpacity(0.10),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 54,
+                                          height: 54,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: isActive
+                                                  ? const [
+                                                      Color(0xFFBDF3EE),
+                                                      Color(0xFFEFFFFC),
+                                                    ]
+                                                  : const [
+                                                      Color(0xFFFFE7C2),
+                                                      Color(0xFFFFF8EF),
+                                                    ],
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 3,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: isActive
+                                                    ? _sheetMint
+                                                        .withOpacity(0.20)
+                                                    : _sheetOrange
+                                                        .withOpacity(0.14),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 5),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              name.isNotEmpty
+                                                  ? name[0].toUpperCase()
+                                                  : '?',
+                                              style: TextStyle(
+                                                color: isActive
+                                                    ? _sheetMint
+                                                    : _sheetOrange,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 13),
+
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                name.isEmpty
+                                                    ? 'Unnamed profile'
+                                                    : name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: _sheetText,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 9,
+                                                      vertical: 5,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: isActive
+                                                          ? _sheetMint
+                                                              .withOpacity(0.16)
+                                                          : _sheetOrangeSoft
+                                                              .withOpacity(0.75),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          isActive
+                                                              ? Icons
+                                                                  .check_circle_outline
+                                                              : Icons
+                                                                  .touch_app_outlined,
+                                                          size: 13,
+                                                          color: isActive
+                                                              ? _sheetMint
+                                                              : _sheetOrange,
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          isActive
+                                                              ? 'Active'
+                                                              : 'Tap to switch',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                            color: isActive
+                                                                ? _sheetMint
+                                                                : _sheetOrange,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  if (isMain) ...[
+                                                    const SizedBox(width: 7),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 5,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withOpacity(0.75),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(999),
+                                                      ),
+                                                      child: const Text(
+                                                        'Main',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: _sheetMuted,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (!isActive)
+                                              Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withOpacity(0.85),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: _sheetBorder,
+                                                  ),
+                                                ),
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.swap_horiz_rounded,
+                                                    color: _sheetText,
+                                                    size: 22,
+                                                  ),
+                                                  onPressed: () async {
+                                                    try {
+                                                      final formId =
+                                                          (_profiles[i]['id'] ??
+                                                                  '')
+                                                              .toString();
+
+                                                      final uri = Uri.parse(
+                                                        '$backendBaseUrl/api/eye-health-form/switch',
+                                                      ).replace(
+                                                        queryParameters: {
+                                                          'main_account_id':
+                                                              widget
+                                                                  .mainAccountId,
+                                                          'form_id': formId,
+                                                        },
+                                                      );
+
+                                                      final res =
+                                                          await http.post(uri);
+
+                                                      if (res.statusCode !=
+                                                          200) {
+                                                        throw 'Switch failed (code: ${res.statusCode})';
+                                                      }
+
+                                                      await _loadProfiles();
+                                                      if (ctx.mounted) {
+                                                        Navigator.pop(ctx);
+                                                      }
+
+                                                      if (!mounted) return;
+                                                    } catch (e) {
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            e.toString(),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            if (!isMain) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red
+                                                      .withOpacity(0.07),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .delete_outline_rounded,
+                                                    color: Colors.redAccent,
+                                                    size: 21,
+                                                  ),
+                                                  onPressed: () =>
+                                                      _confirmDeleteSubAccount(
+                                                    ctx,
+                                                    i,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               );
-                            }
-                          },
+                            }),
+
+                            const SizedBox(height: 4),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Add Sub-Account'),
+                                onPressed: () => _createSubAccount(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _sheetOrange,
+                                  side: BorderSide(
+                                    color: _sheetOrange.withOpacity(0.38),
+                                    width: 1.4,
+                                  ),
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.45),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: TextButton.icon(
+                                icon: const Icon(
+                                  Icons.delete_forever_rounded,
+                                  color: Colors.redAccent,
+                                ),
+                                label: const Text(
+                                  'Delete Main Account',
+                                  style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                onPressed: () => _confirmDeleteMainAccount(ctx),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  backgroundColor:
+                                      Colors.red.withOpacity(0.045),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+                          ],
                         ),
-                      if (!isMain) // prevent deleting main from here
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _confirmDeleteSubAccount(ctx, i),
-                        ),
-                    ],
-                  ),
-                  onTap: () async {
-                    try {
-                      final formId = (_profiles[i]['id'] ?? '').toString();
-
-                      final uri =
-                          Uri.parse(
-                            '$backendBaseUrl/api/eye-health-form/switch',
-                          ).replace(
-                            queryParameters: {
-                              'main_account_id': widget.mainAccountId,
-                              'form_id': formId,
-                            },
-                          );
-
-                      final res = await http.post(uri);
-
-                      if (res.statusCode != 200) {
-                        throw 'Switch failed (code: ${res.statusCode})';
-                      }
-
-                      await _loadProfiles(); // Refresh to update the active profile
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
-                    }
-                  },
-                );
-              }),
-
-              const SizedBox(height: 6),
-
-              // Add sub-account
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Sub-Account'),
-                  onPressed: () => _createSubAccount(ctx),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 6),
-
-              // Delete main account (FR9) - UI only
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  label: const Text(
-                    'Delete Main Account',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onPressed: () => _confirmDeleteMainAccount(ctx),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
     Navigator.pop(bottomSheetContext);
@@ -1043,7 +1445,9 @@ class _HomePageState extends State<HomePage> {
               selectedForHome: _homeSelectedCharts,
               onToggleForHome: _toggleChartForHome,
               userId: widget.mainAccountId,
+              firebaseUid: widget.firebaseUid,
               formId: _activeProfileId ?? '',
+              onBackRequested: _goBackFromProgress,
             )
           : Stack(
               children: [
@@ -1150,8 +1554,6 @@ class _HomePageState extends State<HomePage> {
                                 _buildDrynessCard(),
                                 const SizedBox(height: 16),
 
-                                _buildGenerateReportButton(),
-                                const SizedBox(height: 18),
                               ],
                             ),
                           ),
@@ -1295,7 +1697,7 @@ class _HomePageState extends State<HomePage> {
             title: _chartTitle(type),
             subtitle: 'Selected from Progress page .',
             child: SizedBox(
-              height: 260, // مهم: عشان الرسم يبان داخل الكارد
+              height: 380, // مهم: عشان الرسم يبان داخل الكارد
               child: _chartWidget(type),
             ),
           ),
@@ -1581,109 +1983,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================== Generate Report  ==================
-  Widget _buildGenerateReportButton() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFF9F1C), // primary
-            Color(0xFF2EC4B6), // secondary
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 16,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: () {
-            // UI only for now
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Generate Report (UI only for now)'),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: Row(
-              children: [
-                // Icon bubble
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withOpacity(0.30)),
-                  ),
-                  child: const Icon(
-                    Icons.auto_graph_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 14),
-
-                // Text
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Generate a Report',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Create a summary based on your latest readings & profile.',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Arrow
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.25)),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  
 }
 
 //// Shared UI card for sensor/indicator previews.
