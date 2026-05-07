@@ -1,13 +1,24 @@
 # notification_manager.py
+
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 
 class NotificationManager:
     """
-    Controls notification spam using:
-    1) persistence rule: same metric must appear for N consecutive readings
-    2) cooldown rule: same metric cannot be sent again before cooldown expires
+    Controls notification spam.
+
+    This file does NOT save notifications directly.
+    It only decides WHEN a notification should be sent.
+
+    notification_manager.py:
+        - persistence rule
+        - cooldown rule
+        - builds message text
+
+    notification_controller.py:
+        - saves notification to MongoDB
+        - sends FCM push if token is valid
     """
 
     def __init__(self, persistence_required: int = 2, cooldown_minutes: int = 15):
@@ -34,6 +45,7 @@ class NotificationManager:
             return False
 
         last_sent = self.last_sent_at.get(metric_name)
+
         if last_sent is None:
             return True
 
@@ -44,35 +56,45 @@ class NotificationManager:
 
     def get_message(self, metric_name: str, sensor: Dict, indices: Dict) -> tuple[str, float]:
         """
-        Returns:
-            message, critical_value
+        Build final notification message.
+
+        These messages now mention the smart-light response,
+        so the app explains both:
+        - what risk was detected
+        - what lighting action ClipView applied
         """
 
         if metric_name == "blink_low":
             score = indices["DEI"]["score"]
             value = float(sensor["blink_rate_bpm"])
+
             return (
-                f"Low blink rate detected for multiple readings. Dry Eye Index is {score}/100. Try blinking exercises and take a short break.",
+                f"Low blink rate persisted. Dry Eye Index is {score}/100. "
+                f"ClipView adjusted the room light to warm amber recovery mode to support eye comfort.",
                 value,
             )
 
         if metric_name == "blue_high":
             score = indices["BLI"]["score"]
             value = float(sensor["blue_lux"])
+
             return (
-                f"High blue-light exposure persisted. Blue Light Index is {score}/100. Reduce brightness or enable night mode.",
+                f"High blue-light exposure persisted. Blue Light Index is {score}/100. "
+                f"ClipView adjusted the room light to a warmer low-blue scene.",
                 value,
             )
 
         if metric_name == "focus_too_long":
             score = indices["EFI"]["score"]
             value = float(sensor["focus_minutes"])
+
             return (
-                f"Continuous focus time is high. Eye Focus Index is {score}/100. Take a 20-20-20 break.",
+                f"Continuous focus time is high. Eye Focus Index is {score}/100. "
+                f"ClipView switched to a soft recovery light and recommends a short 20-20-20 break.",
                 value,
             )
 
-        return ("Eye health risk detected.", 0.0)
+        return ("Eye health risk detected. ClipView adjusted the room light for comfort.", 0.0)
 
     async def process_notifications(
         self,
@@ -84,10 +106,6 @@ class NotificationManager:
         create_notification_func,
         now: Optional[datetime] = None,
     ) -> list[dict]:
-        """
-        Calls your existing backend create_notification(...) only when rules pass.
-        """
-
         now = now or datetime.utcnow()
         self.update_streaks(flags)
 
@@ -112,7 +130,9 @@ class NotificationManager:
 
             try:
                 result = await create_notification_func(payload)
+
                 self.mark_sent(metric_name, now)
+
                 sent.append({
                     "metric_name": metric_name,
                     "critical_value": critical_value,

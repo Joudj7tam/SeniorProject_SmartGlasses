@@ -7,6 +7,16 @@ import 'package:http/http.dart' as http;
 /// Later 'll replace the dummy data with API response from backend.
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
+const Color _profileCream = Color(0xFFFFF6EA);
+const Color _profileOrange = Color(0xFFFF9F1C);
+const Color _profileOrangeLight = Color(0xFFFFD49A);
+const Color _profileMint = Color(0xFF2EC4B6);
+const Color _profileMintLight = Color(0xFFD8F6F2);
+const Color _profileText = Color(0xFF3D2B22);
+const Color _profileMuted = Color(0xFF9B8170);
+const Color _profileCard = Color(0xFFFFFCF8);
+const Color _profileBorder = Color(0xFFF1DEC9);
+
 class EyeHealthProfilePage extends StatefulWidget {
   final String mainAccountId;
   final String firebaseUid;
@@ -375,198 +385,293 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
     );
   }
   @override
-  Widget build(BuildContext context) {
-    final form = _formData;
-    final user = _userData;
+Widget build(BuildContext context) {
+  final form = _formData;
+  final user = _userData;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
+  return Scaffold(
+    backgroundColor: _profileCream,
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFFFB75E),
+            Color(0xFFFFF4E6),
+            _profileCream,
+          ],
+          stops: [0.0, 0.28, 1.0],
         ),
-        title: Text(_isEditMode ? 'Edit Profile' : 'Profile Information'),
-        actions: [
-           Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: FilledButton.icon(
-              onPressed: _isLoading || _isSaving
-                  ? null
-                  : _isEditMode
-                      ? _cancelEditMode
-                      : _enterEditMode,
-              icon: Icon(
-                _isEditMode ? Icons.close_rounded : Icons.edit_outlined,
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -60,
+            right: -45,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                shape: BoxShape.circle,
               ),
-              label: Text(_isEditMode ? 'Cancel' : 'Edit'),
+            ),
+          ),
+          Positioned(
+            top: 72,
+            left: -45,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.14),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.30),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.45),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: _profileText,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _isEditMode ? 'Edit Profile' : 'Profile Information',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: _profileText,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: _profileOrange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 11,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                        ),
+                        onPressed: _isLoading || _isSaving
+                            ? null
+                            : _isEditMode
+                                ? _cancelEditMode
+                                : _enterEditMode,
+                        icon: Icon(
+                          _isEditMode ? Icons.close_rounded : Icons.edit_outlined,
+                          size: 17,
+                        ),
+                        label: Text(
+                          _isEditMode ? 'Cancel' : 'Edit',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                          ? _ErrorView(
+                              message: _error!,
+                              onRetry: _fetchAllData,
+                            )
+                          : form == null || user == null
+                              ? const Center(child: Text('No profile data found'))
+                              : _isEditMode
+                                  ? _buildEditBody()
+                                  : _buildViewBody(form, user),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? _ErrorView(
-                    message: _error!,
-                    onRetry: _fetchAllData,
-                  )
-                : form == null || user == null
-                    ? const Center(child: Text('No profile data found'))
-                    : _isEditMode
-                        ? _buildEditBody()
-                        : _buildViewBody(form, user),
-      ),
-    );
-  }
+    ),
+  );
+}
   Widget _buildViewBody(EyeHealthFormViewData form, UserAccountViewData user) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      children: [
-        _HeaderCard(data: form),
-        const SizedBox(height: 14),
+  return ListView(
+    padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
+    children: [
+      _HeaderCard(data: form),
+      const SizedBox(height: 16),
 
-        _SectionTitle(title: 'Account Information'),
-        const SizedBox(height: 10),
-          _InfoGrid(items: [
-            _InfoItem(
-              icon: Icons.person_outline,
-              title: 'Full Name',
-              value: form.fullName,
-            ),
-            _InfoItem(
-              icon: Icons.email_outlined,
-              title: 'Email',
-              value: user.email,
-            ),
-            _InfoItem(
-              icon: Icons.phone_outlined,
-              title: 'Phone',
-              value: user.phone.isEmpty ? '—' : user.phone,
-            ),
-            _InfoItem(
-              icon: Icons.verified_outlined,
-              title: 'Profile Status',
-              value: form.isActive ? 'Active' : 'Inactive',
-            ),
-          ]),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Personal Information'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
-              _InfoItem(
-                icon: Icons.badge_outlined,
-                title: 'Gender',
-                value: form.gender,
-                ),
-              _InfoItem(
-                icon: Icons.cake_outlined,
-                title: 'Date of Birth',
-                value: _fmtDate(form.dateOfBirth),
-                ),
-              _InfoItem(
-                icon: Icons.light_mode_outlined,
-                title: 'Smart Light',
-                value: form.smartLightEnabled ? 'Enabled' : 'Disabled',
-              ),                           
-          ]),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Previous Eye Conditions'),
-          const SizedBox(height: 10),
-          _ChipsWrap(
-            chips: form.previousEyeConditions.isEmpty
-                ? const ['None']
-                : form.previousEyeConditions.map(_humanize).toList(),
-          ),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Chronic Diseases'),
-          const SizedBox(height: 10),
-          _ChipsWrap(
-            chips: form.chronicDiseases.isEmpty
-                ? const ['None']
-                : form.chronicDiseases.map(_humanize).toList(),
-          ),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Vision Aids'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
-            _InfoItem(
-              icon: Icons.remove_red_eye_outlined,
-              title: 'Uses Glasses',
-              value: form.usesGlasses ? 'Yes' : 'No',
-            ),
-            _InfoItem(
-              icon: Icons.contact_page_outlined,
-              title: 'Uses Contact Lenses',
-              value: form.usesContactLenses ? 'Yes' : 'No',
-            ),
-          ]),
-          const SizedBox(height: 18),
+      _SectionTitle(title: 'Account Information'),
+      const SizedBox(height: 10),
+      _InfoGrid(items: [
+        _InfoItem(
+          icon: Icons.person_outline,
+          title: 'Full Name',
+          value: form.fullName,
+        ),
+        _InfoItem(
+          icon: Icons.email_outlined,
+          title: 'Email',
+          value: user.email,
+        ),
+        _InfoItem(
+          icon: Icons.phone_outlined,
+          title: 'Phone',
+          value: user.phone.isEmpty ? '—' : user.phone,
+        ),
+        _InfoItem(
+          icon: Icons.verified_outlined,
+          title: 'Profile Status',
+          value: form.isActive ? 'Active' : 'Inactive',
+        ),
+      ]),
 
-          _SectionTitle(title: 'Eye Surgery History'),
-          const SizedBox(height: 10),
-          _BigNoteCard(
-            icon: Icons.medical_information_outlined,
-            title: 'History',
-            text: (form.eyeSurgeryHistory == null ||
-                    form.eyeSurgeryHistory!.trim().isEmpty)
-                ? 'No surgeries reported.'
-                : form.eyeSurgeryHistory!.trim(),
-          ),
-          const SizedBox(height: 18),
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Personal Information'),
+      const SizedBox(height: 10),
+      _InfoGrid(items: [
+        _InfoItem(
+          icon: Icons.wc_rounded,
+          title: 'Gender',
+          value: form.gender,
+        ),
+        _InfoItem(
+          icon: Icons.cake_outlined,
+          title: 'Date of Birth',
+          value: _fmtDate(form.dateOfBirth),
+        ),
+        _InfoItem(
+          icon: Icons.light_mode_outlined,
+          title: 'Smart Light',
+          value: form.smartLightEnabled ? 'Enabled' : 'Disabled',
+        ),
+      ]),
 
-          _SectionTitle(title: 'Daily Habits & Lifestyle'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
-              _InfoItem(
-                icon: Icons.monitor_outlined,
-                title: 'Screen Time',
-                value: '${form.screenTimeHours} h/day',
-              ),
-              _InfoItem(
-                icon: Icons.lightbulb_outline,
-                title: 'Lighting',
-                value: form.lightingConditions,
-              ),
-              _InfoItem(
-                  icon: Icons.bedtime_outlined,
-                  title: 'Sleep',
-                  value: '${form.sleepHours} h/night',
-              ),
-              _InfoItem(
-                              icon: Icons.restaurant_outlined,
-                              title: 'Diet',
-                              value: form.diet ?? '—',
-                            ),
-                          ]),
-                          const SizedBox(height: 18),
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Previous Eye Conditions'),
+      const SizedBox(height: 10),
+      _ChipsWrap(
+        chips: form.previousEyeConditions.isEmpty
+            ? const ['None']
+            : form.previousEyeConditions.map(_humanize).toList(),
+      ),
 
-                          _SectionTitle(title: 'Current Eye Symptoms'),
-                          const SizedBox(height: 10),
-                          _ChipsWrap(
-                            chips: form.currentEyeSymptoms.isEmpty
-                                ? const ['None']
-                                : form.currentEyeSymptoms.map(_humanize).toList(),
-                          ),
-                          const SizedBox(height: 18),
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Chronic Diseases'),
+      const SizedBox(height: 10),
+      _ChipsWrap(
+        chips: form.chronicDiseases.isEmpty
+            ? const ['None']
+            : form.chronicDiseases.map(_humanize).toList(),
+      ),
 
-                          _SectionTitle(title: 'Record Metadata'),
-                          const SizedBox(height: 10),
-                          _InfoGrid(items: [
-                            _InfoItem(
-                              icon: Icons.calendar_month_outlined,
-                              title: 'Created At',
-                              value: _fmtDateTime(form.createdAt),
-                            ),
-                            _InfoItem(
-                              icon: Icons.update_outlined,
-                              title: 'Updated At',
-                              value: _fmtDateTime(form.updatedAt),
-                            ),
-                          ]),
-                        ],
-                      );
-  }
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Vision Aids'),
+      const SizedBox(height: 10),
+      _InfoGrid(items: [
+        _InfoItem(
+          icon: Icons.remove_red_eye_outlined,
+          title: 'Uses Glasses',
+          value: form.usesGlasses ? 'Yes' : 'No',
+        ),
+        _InfoItem(
+          icon: Icons.contact_page_outlined,
+          title: 'Uses Contact Lenses',
+          value: form.usesContactLenses ? 'Yes' : 'No',
+        ),
+      ]),
+
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Eye Surgery History'),
+      const SizedBox(height: 10),
+      _BigNoteCard(
+        icon: Icons.health_and_safety_outlined,
+        title: 'History',
+        text: (form.eyeSurgeryHistory == null ||
+                form.eyeSurgeryHistory!.trim().isEmpty)
+            ? 'No surgeries reported.'
+            : form.eyeSurgeryHistory!.trim(),
+      ),
+
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Daily Habits & Lifestyle'),
+      const SizedBox(height: 10),
+      _InfoGrid(items: [
+        _InfoItem(
+          icon: Icons.monitor_outlined,
+          title: 'Screen Time',
+          value: '${form.screenTimeHours} h/day',
+        ),
+        _InfoItem(
+          icon: Icons.lightbulb_outline,
+          title: 'Lighting',
+          value: form.lightingConditions,
+        ),
+        _InfoItem(
+          icon: Icons.bedtime_outlined,
+          title: 'Sleep',
+          value: '${form.sleepHours} h/night',
+        ),
+        _InfoItem(
+          icon: Icons.restaurant_outlined,
+          title: 'Diet',
+          value: form.diet ?? '—',
+        ),
+      ]),
+
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Current Eye Symptoms'),
+      const SizedBox(height: 10),
+      _ChipsWrap(
+        chips: form.currentEyeSymptoms.isEmpty
+            ? const ['None']
+            : form.currentEyeSymptoms.map(_humanize).toList(),
+      ),
+
+      const SizedBox(height: 18),
+      _SectionTitle(title: 'Record Metadata'),
+      const SizedBox(height: 10),
+      _InfoGrid(items: [
+        _InfoItem(
+          icon: Icons.calendar_month_outlined,
+          title: 'Created At',
+          value: _fmtDateTime(form.createdAt),
+        ),
+        _InfoItem(
+          icon: Icons.update_outlined,
+          title: 'Updated At',
+          value: _fmtDateTime(form.updatedAt),
+        ),
+      ]),
+    ],
+  );
+}
 
   Widget _buildEditBody() {
     return Form(
@@ -1130,12 +1235,26 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-      ),
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w900,
+            color: _profileText,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 32,
+          height: 3,
+          decoration: BoxDecoration(
+            color: _profileOrange,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1153,9 +1272,9 @@ class _InfoGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisExtent: 92,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        mainAxisExtent: 88,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
       ),
       itemBuilder: (_, i) => _InfoTile(item: items[i]),
     );
@@ -1181,47 +1300,50 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: _profileCard,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withOpacity(0.85)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFFB88956).withOpacity(0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 7),
           ),
         ],
-        border: Border.all(color: Colors.black.withOpacity(0.04)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.10),
+              color: const Color(0xFFFFF2E2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               item.icon,
               size: 18,
-              color: theme.colorScheme.primary,
+              color: _profileOrange,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.black.withOpacity(0.55),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: _profileMuted,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1230,8 +1352,10 @@ class _InfoTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: _profileText,
+                    height: 1.15,
                   ),
                 ),
               ],
@@ -1250,16 +1374,11 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final bg = isActive
-        ? theme.colorScheme.secondary.withOpacity(0.16)
-        : Colors.black.withOpacity(0.06);
-
-    final fg = isActive ? theme.colorScheme.secondary : Colors.black54;
+    final bg = isActive ? _profileMint.withOpacity(0.18) : Colors.black.withOpacity(0.06);
+    final fg = isActive ? _profileMint : Colors.black54;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
@@ -1269,16 +1388,16 @@ class _StatusChip extends StatelessWidget {
         children: [
           Icon(
             isActive ? Icons.check_circle_outline : Icons.circle_outlined,
-            size: 16,
+            size: 14,
             color: fg,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             isActive ? 'Active' : 'Inactive',
             style: TextStyle(
               color: fg,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
             ),
           ),
         ],
@@ -1293,52 +1412,103 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 92,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
           colors: [
-            theme.colorScheme.primary.withOpacity(0.18),
-            theme.colorScheme.secondary.withOpacity(0.18),
+            Color(0xFFFFE4BB),
+            Color(0xFFEAF3DD),
+            Color(0xFFCFF3EE),
           ],
         ),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withOpacity(0.65), width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFB88956).withOpacity(0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
+          ),
+        ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: theme.colorScheme.secondary.withOpacity(0.18),
-            child: Text(
-              data.fullName.isNotEmpty ? data.fullName[0].toUpperCase() : '?',
-              style: TextStyle(
-                color: theme.colorScheme.secondary,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-              ),
+          Positioned(
+            right: -18,
+            top: -20,
+            child: Icon(
+              Icons.remove_red_eye_outlined,
+              size: 78,
+              color: Colors.white.withOpacity(0.22),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(
               children: [
-                Text(
-                  data.fullName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: _profileMintLight,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _profileMint.withOpacity(0.22),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      data.fullName.isNotEmpty
+                          ? data.fullName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: _profileMint,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'Eye-Health Form Summary',
-                  style: TextStyle(color: Colors.black.withOpacity(0.55), fontSize: 12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w900,
+                          color: _profileText,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Eye-Health Form Summary',
+                        style: TextStyle(
+                          color: _profileMuted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                _StatusChip(isActive: data.isActive),
               ],
             ),
           ),
-          _StatusChip(isActive: data.isActive),
         ],
       ),
     );
@@ -1353,13 +1523,55 @@ class _ChipsWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 9,
+      runSpacing: 9,
       children: chips
           .map(
-            (t) => Chip(
-              label: Text(t),
-              side: BorderSide(color: Colors.black.withOpacity(0.06)),
+            (t) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: t.toLowerCase() == 'none'
+                    ? _profileCard
+                    : _profileMintLight.withOpacity(0.80),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: t.toLowerCase() == 'none'
+                      ? _profileBorder
+                      : _profileMint.withOpacity(0.22),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB88956).withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    t.toLowerCase() == 'none'
+                        ? Icons.remove_rounded
+                        : Icons.remove_red_eye_outlined,
+                    size: 14,
+                    color: t.toLowerCase() == 'none'
+                        ? _profileMuted
+                        : _profileMint,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    t,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: t.toLowerCase() == 'none'
+                          ? _profileMuted
+                          : _profileText,
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
           .toList(),
@@ -1380,52 +1592,77 @@ class _BigNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            _profileCard,
+            Color(0xFFE5FAF7),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.9)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFFB88956).withOpacity(0.10),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
           ),
         ],
-        border: Border.all(color: Colors.black.withOpacity(0.04)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(14),
+          Positioned(
+            right: -6,
+            bottom: -8,
+            child: Icon(
+              Icons.remove_red_eye_outlined,
+              size: 58,
+              color: _profileMint.withOpacity(0.16),
             ),
-            child: Icon(icon, color: theme.colorScheme.secondary),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _profileMintLight,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: Colors.black.withOpacity(0.75),
-                    height: 1.35,
-                  ),
+                child: Icon(icon, color: _profileMint, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: _profileText,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        color: _profileMuted,
+                        height: 1.35,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

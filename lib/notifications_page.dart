@@ -4,6 +4,12 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 
+import 'smart_bottom_nav.dart';
+import 'tips_page.dart';
+import 'main.dart';
+import 'progress_page.dart';
+import 'settings_page.dart';
+
 /// Base URL for the backend API.
 ///
 /// Notes:
@@ -54,11 +60,13 @@ class NotificationItem {
 
 class NotificationsPage extends StatefulWidget {
   final String userId; // mainAccountId
+  final String firebaseUid;
   final String formId; // active profile (eye health form id)
 
   const NotificationsPage({
     super.key,
     required this.userId,
+    required this.firebaseUid,
     required this.formId,
   });
 
@@ -76,6 +84,85 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Color get _bgColor => const Color(0xFFFFF7EE);
   Color get _accent => const Color(0xFF2EC4B6);
+
+void _goHome() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => HomePage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+      ),
+    ),
+  );
+}
+
+void _goSettings() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+
+        smartLightEnabled: true,
+        smartLightIntensity: 0.95,
+        smartLightColor: const Color(0xFF06D6A0),
+        onSmartLightToggle: (_) {},
+        glassesLink: ValueNotifier({
+          'user_id': null,
+          'form_id': null,
+          'name': null,
+          'deviceId': null,
+        }),
+        onRequestLink: () {},
+        activeFormId: widget.formId,
+      ),
+    ),
+  );
+}
+
+void _goProgress() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ProgressPage(
+  userId: widget.userId,
+  firebaseUid: widget.firebaseUid,
+  formId: widget.formId,
+  onBackRequested: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(
+          userId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+          formId: widget.formId,
+        ),
+      ),
+    );
+  },
+),
+    ),
+  );
+}
+
+void _goAlerts() {
+  // Already on Alerts page
+}
+
+void _goTips() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TipsPage(
+        mainAccountId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+        formId: widget.formId,
+      ),
+    ),
+  );
+}
 
   @override
   void initState() {
@@ -375,6 +462,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       backgroundColor: _bgColor,
       extendBody: true,
+
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+  floatingActionButton: _selectionMode
+      ? null
+      : SmartProgressFab(
+          selectedIndex: 3,
+          onTap: _goProgress,
+        ),
+
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -391,14 +487,34 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 padding: const EdgeInsets.fromLTRB(28, 24, 28, 10),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 32,
-                        color: Colors.black,
-                      ),
-                    ),
+InkWell(
+  borderRadius: BorderRadius.circular(22),
+  onTap: () => Navigator.pop(context),
+  child: Container(
+    width: 46,
+    height: 46,
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFCF8).withOpacity(0.92),
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: const Color(0xFFEADCCD),
+        width: 1.2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 12,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: const Icon(
+      Icons.arrow_back_ios_new_rounded,
+      size: 21,
+      color: Color(0xFF3E2E25),
+    ),
+  ),
+),
                     const Expanded(
                       child: Text(
                         'Notifications',
@@ -406,7 +522,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black,
+                          color: Color(0xFF3E2E25),
                           letterSpacing: -0.4,
                         ),
                       ),
@@ -469,43 +585,50 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       ),
       bottomNavigationBar: _selectionMode
-          ? Container(
-              height: 70,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFAF4),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 18,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
+    ? Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFAF4),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            TextButton.icon(
+              onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
+              icon: const Icon(Icons.done_all_rounded),
+              label: const Text('Read'),
+              style: TextButton.styleFrom(foregroundColor: _accent),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Delete'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent,
               ),
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: _selectedIds.isEmpty ? null : _markSelectedRead,
-                    icon: const Icon(Icons.done_all_rounded),
-                    label: const Text('Read'),
-                    style: TextButton.styleFrom(foregroundColor: _accent),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    label: const Text('Delete'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : null,
+            ),
+          ],
+        ),
+      )
+    : SmartBottomNav(
+        selectedIndex: 3,
+        onHomeTap: _goHome,
+        onSettingsTap: _goSettings,
+        onProgressTap: _goProgress,
+        onAlertsTap: _goAlerts,
+        onTipsTap: _goTips,
+      ),
     );
   }
 
@@ -573,8 +696,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(10, 26, 10, 120),
+  physics: const BouncingScrollPhysics(),
+  padding: EdgeInsets.fromLTRB(
+    10,
+    26,
+    10,
+    _selectionMode ? 110 : 150,
+  ),
       itemCount: _notifications.length,
       separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {

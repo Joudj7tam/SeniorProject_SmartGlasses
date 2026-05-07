@@ -3,7 +3,7 @@
 /// Includes sections for daily tips, news carousel, and feature highlights.
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http; 
+import 'package:http/http.dart' as http;
 import 'smart_bottom_nav.dart';
 import 'dart:async';
 
@@ -24,116 +24,137 @@ class TipsPage extends StatelessWidget {
     required this.formId,
   });
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-  extendBody: true,
-  backgroundColor: Colors.transparent,
-  body: Container(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.center,
-        colors: [
-          Color(0xFF8DCAC3),
-          Color(0xFFEAF6F4),
-          Color(0xFFFFF8F0),
-        ],
-        stops: [0.0, 0.50, 1.5],
-      ),
-    ),
-    child: SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          children: const [
-            SizedBox(height: 18),
-            HeaderSection(),
-            SizedBox(height: 18),
-            SearchBar(),
-            SizedBox(height: 28),
-            DailyTipCard(),
-            SizedBox(height: 24),
-            LatestNewsSection(),
-            SizedBox(height: 24),
-            ProtectionSection(),
-            SizedBox(height: 24),
-            AboutSection(),
-            SizedBox(height: 100),
-          ],
+  void _openProgress(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+          userId: mainAccountId,
+          firebaseUid: firebaseUid,
+          formId: formId,
+          onBackRequested: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TipsPage(
+                  mainAccountId: mainAccountId,
+                  firebaseUid: firebaseUid,
+                  formId: formId,
+                ),
+              ),
+            );
+          },
         ),
       ),
-    ),
-  ),
-  bottomNavigationBar: SmartBottomNav(
-  selectedIndex: 4,
-  onItemTap: (index) {
-    if (index == 4) return;
+    );
+  }
 
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomePage(
-            mainAccountId: mainAccountId,
-            firebaseUid: firebaseUid,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: 4,
+        onTap: () => _openProgress(context),
+      ),
+
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.center,
+            colors: [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
+            stops: [0.0, 0.50, 1.5],
           ),
         ),
-      );
-    }
-
-    if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SettingsPage(
-            mainAccountId: mainAccountId,
-            smartLightEnabled: true,
-            smartLightIntensity: 0.95,
-            smartLightColor: const Color(0xFF06D6A0),
-            onSmartLightToggle: (_) {},
-            glassesLink: ValueNotifier({
-              'user_id': null,
-              'form_id': null,
-              'name': null,
-              'deviceId': null,
-            }),
-            onRequestLink: () {},
-            activeFormId: formId,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: const [
+                SizedBox(height: 18),
+                HeaderSection(),
+                SizedBox(height: 18),
+                SearchBar(),
+                SizedBox(height: 28),
+                DailyTipCard(),
+                SizedBox(height: 24),
+                LatestNewsSection(),
+                SizedBox(height: 24),
+                ProtectionSection(),
+                SizedBox(height: 24),
+                AboutSection(),
+                SizedBox(height: 150),
+              ],
+            ),
           ),
         ),
-      );
-    }
+      ),
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: 4,
 
-    if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProgressPage(
-            selectedForHome: {},
-            onToggleForHome: (_) {},
-            userId: mainAccountId,
-            formId: formId,
-          ),
-        ),
-      );
-    }
+        onHomeTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomePage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
+              ),
+            ),
+          );
+        },
 
-    if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => NotificationsPage(
-            userId: mainAccountId,
-            formId: formId,
-          ),
-        ),
-      );
-    }
-  },
-),
-);
+        onSettingsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SettingsPage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
+
+                smartLightEnabled: true,
+                smartLightIntensity: 0.95,
+                smartLightColor: const Color(0xFF06D6A0),
+                onSmartLightToggle: (_) {},
+                glassesLink: ValueNotifier({
+                  'user_id': null,
+                  'form_id': null,
+                  'name': null,
+                  'deviceId': null,
+                }),
+                onRequestLink: () {},
+                activeFormId: formId,
+              ),
+            ),
+          );
+        },
+
+        onProgressTap: () => _openProgress(context),
+
+        onAlertsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NotificationsPage(
+                userId: mainAccountId,
+                firebaseUid: firebaseUid,
+                formId: formId,
+              ),
+            ),
+          );
+        },
+
+        onTipsTap: () {
+          // Already on Tips page
+        },
+      ),
+    );
+  }
 }
-}
+
 
 // Shared card style used across the page
 BoxDecoration cardStyle(
@@ -158,34 +179,69 @@ class HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            height: 54,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  "Tips & News",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+  color: Colors.white.withOpacity(0.28),
+  shape: BoxShape.circle,
+  border: Border.all(
+    color: Colors.white.withOpacity(0.45),
+  ),
+),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 21,
+                        color: Color(0xFF5B4636),
+                      ),
+                    ),
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  "Learn, protect, and improve your eye health",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.black54,
+
+                const Center(
+                  child: Text(
+                    "Tips  & News",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF3E2E25),
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.notifications_none, size: 28),
+
+          const SizedBox(height: 8),
+
+          const Center(
+            child: Text(
+              "Learn, protect, and improve your eye health",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -206,7 +262,8 @@ class SearchBar extends StatelessWidget {
         height: 38,
         child: TextField(
           decoration: InputDecoration(
-            hintText: "Search tips, news, and more..." ,   hintStyle: const TextStyle(fontSize: 15,color: Colors.grey,),
+            hintText: "Search tips, news, and more...",
+            hintStyle: const TextStyle(fontSize: 15, color: Colors.grey),
             prefixIcon: const Icon(Icons.search),
             filled: true,
             fillColor: Colors.white,
@@ -243,7 +300,10 @@ class DailyTipCard extends StatelessWidget {
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: cardStyle(const Color(0xFFf3f6f3), borderColor: const Color(0xFFD6EDEA)),
+            decoration: cardStyle(
+              const Color(0xFFf3f6f3),
+              borderColor: const Color(0xFFD6EDEA),
+            ),
             child: const Row(
               children: [
                 CircleAvatar(
@@ -275,11 +335,7 @@ class DailyTipCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.access_time,
-                  color: Colors.teal,
-                  size: 40,
-                ),
+                Icon(Icons.access_time, color: Colors.teal, size: 40),
               ],
             ),
           ),
@@ -367,7 +423,9 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
             );
           }
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              snapshot.data!.isEmpty) {
             return const SizedBox();
           }
 
@@ -386,10 +444,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                     "Latest News",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(
-                    "View all",
-                    style: TextStyle(color: Colors.teal),
-                  ),
+                  Text("View all", style: TextStyle(color: Colors.teal)),
                 ],
               ),
 
@@ -517,10 +572,7 @@ class ProtectionSection extends StatelessWidget {
                 "How to Protect Your Eyes",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(
-                "View all",
-                style: TextStyle(color: Colors.teal),
-              ),
+              Text("View all", style: TextStyle(color: Colors.teal)),
             ],
           ),
           SizedBox(height: 12),
@@ -547,8 +599,7 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.water_drop,
                     title: "Stay Hydrated",
-                    description:
-                        "Drink enough water to keep your eyes moist.",
+                    description: "Drink enough water to keep your eyes moist.",
                     color: Color(0xFF6bada0),
                     bgColor: Color(0xFFf6f7f3),
                     borderColor: Color(0xFFeaeeea),
@@ -601,21 +652,17 @@ class ProtectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8), 
-      decoration: cardStyle(bgColor,borderColor: borderColor),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: cardStyle(bgColor, borderColor: borderColor),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start, 
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           const SizedBox(height: 6),
 
           CircleAvatar(
             radius: 28,
             backgroundColor: color,
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 26,
-            ),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
 
           const SizedBox(height: 12),
@@ -638,10 +685,7 @@ class ProtectCard extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              height: 1.25,
-            ),
+            style: const TextStyle(fontSize: 11, height: 1.25),
           ),
         ],
       ),
@@ -654,7 +698,7 @@ class ProtectCard extends StatelessWidget {
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
 
-  // Feature item widget used inside About section
+ // Feature item widget used inside About section
 Widget featureItem(IconData icon, String title, String subtitle) {
   return Expanded(
     child: Padding(
@@ -709,6 +753,7 @@ Widget verticalDivider() {
     color: const Color(0xFFD6EDEA),
   );
 }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -718,10 +763,7 @@ Widget verticalDivider() {
         children: [
           const Text(
             "About CLIPVIEW",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
 
           const SizedBox(height: 12),
@@ -729,7 +771,10 @@ Widget verticalDivider() {
           /// first card 
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: cardStyle(const Color(0xFFf0f5f3),borderColor:Color(0xFFe6f0ee)),
+            decoration: cardStyle(
+              const Color(0xFFf0f5f3),
+              borderColor: Color(0xFFe6f0ee),
+            ),
             child: Row(
               children: [
                 ClipRRect(
@@ -795,32 +840,32 @@ Widget verticalDivider() {
         "Camera-free by design",
       ),
 
-      verticalDivider(),
+                verticalDivider(),
 
-      featureItem(
-        Icons.attach_file,
-        "Clip-On Design",
-        "Easy to attach and use",
-      ),
+                featureItem(
+                  Icons.attach_file,
+                  "Clip-On Design",
+                  "Easy to attach and use",
+                ),
 
-      verticalDivider(),
+                verticalDivider(),
 
-      featureItem(
-        Icons.battery_full,
-        "Long Battery",
-        "All-day monitoring on a single charge",
-      ),
+                featureItem(
+                  Icons.battery_full,
+                  "Long Battery",
+                  "All-day monitoring on a single charge",
+                ),
 
-      verticalDivider(),
+                verticalDivider(),
 
-      featureItem(
-        Icons.bar_chart,
-        "Smart Insights",
-        "AI-powered personalization",
-      ),
-    ],
-  ),
-),
+                featureItem(
+                  Icons.bar_chart,
+                  "Smart Insights",
+                  "AI-powered personalization",
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
