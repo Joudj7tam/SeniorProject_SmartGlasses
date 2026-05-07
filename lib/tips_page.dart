@@ -1,3 +1,6 @@
+/// TipsPage:
+/// Displays eye care tips, latest news, and protection guidance.
+/// Includes sections for daily tips, news carousel, and feature highlights.
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http; 
@@ -131,6 +134,8 @@ Widget build(BuildContext context) {
 );
 }
 }
+
+// Shared card style used across the page
 BoxDecoration cardStyle(
   Color color, {
   Color? borderColor,
@@ -144,6 +149,10 @@ BoxDecoration cardStyle(
     ),
   );
 }
+
+/// Header section:
+/// Shows page title and quick description
+
 class HeaderSection extends StatelessWidget {
   const HeaderSection({super.key});
 
@@ -183,6 +192,9 @@ class HeaderSection extends StatelessWidget {
   }
 }
 
+/// Search bar:
+/// Allows users to search tips, news, and content
+
 class SearchBar extends StatelessWidget {
   const SearchBar({super.key});
 
@@ -208,6 +220,9 @@ class SearchBar extends StatelessWidget {
     );
   }
 }
+
+/// Daily tip card:
+/// Displays a quick eye-care tip for users
 
 class DailyTipCard extends StatelessWidget {
   const DailyTipCard({super.key});
@@ -274,6 +289,10 @@ class DailyTipCard extends StatelessWidget {
   }
 }
 
+/// Latest news section:
+/// Fetches and displays eye health news using News API
+/// Includes auto-sliding carousel
+
 class LatestNewsSection extends StatefulWidget {
   const LatestNewsSection({super.key});
 
@@ -295,7 +314,8 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     super.initState();
     _newsFuture = fetchEyeNews();
   }
-
+  
+  // Fetch news articles from API
   Future<List<dynamic>> fetchEyeNews() async {
     final url = Uri.parse(
       "https://newsapi.org/v2/everything?q=eye%20health%20OR%20digital%20eye%20strain%20OR%20blue%20light&language=en&pageSize=5&apiKey=$apiKey",
@@ -311,6 +331,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     }
   }
 
+  // Start auto sliding between news cards
   void startAutoSlide(int length) {
     if (timer != null) return;
 
@@ -476,6 +497,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     super.dispose();
   }
 }
+
+/// Protection section:
+/// Shows simple actions to protect eye health
+
 class ProtectionSection extends StatelessWidget {
   const ProtectionSection({super.key});
 
@@ -553,6 +578,8 @@ class ProtectionSection extends StatelessWidget {
   }
 }
 
+/// Reusable card:
+/// Displays an icon, title, and short description
 class ProtectCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -622,8 +649,12 @@ class ProtectCard extends StatelessWidget {
   }
 }
 
+/// About section:
+/// Explains app features and benefits
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
+
+  // Feature item widget used inside About section
 Widget featureItem(IconData icon, String title, String subtitle) {
   return Expanded(
     child: Padding(
@@ -669,6 +700,7 @@ Widget featureItem(IconData icon, String title, String subtitle) {
   );
 }
 
+// Divider between feature items
 Widget verticalDivider() {
   return Container(
     height: 95,
@@ -694,7 +726,7 @@ Widget verticalDivider() {
 
           const SizedBox(height: 12),
 
-          /// الكارد الأول
+          /// first card 
           Container(
             padding: const EdgeInsets.all(12),
             decoration: cardStyle(const Color(0xFFf0f5f3),borderColor:Color(0xFFe6f0ee)),
@@ -747,7 +779,7 @@ Widget verticalDivider() {
 
           const SizedBox(height: 14),
 
-          /// الكارد الثاني
+          /// second card
          Container(
   padding: const EdgeInsets.symmetric(
     horizontal: 10,

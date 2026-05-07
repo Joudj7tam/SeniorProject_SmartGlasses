@@ -339,6 +339,9 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
       });
 
       _showSnack('Profile updated successfully');
+
+      Navigator.pop(context, true);
+      
     } on SocketException {
       if (!mounted) return;
       setState(() => _isSaving = false);

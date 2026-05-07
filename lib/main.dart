@@ -709,7 +709,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openProfileInfoPage() {
+ Future<void> _openProfileInfoPage() async {
     final formId = _activeProfileId;
 
     if (formId == null || formId.isEmpty) {
@@ -719,7 +719,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    Navigator.of(context).push(
+     final updated = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => EyeHealthProfilePage(
           mainAccountId: widget.mainAccountId,
@@ -728,6 +728,9 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+      if (updated == true) {
+    await _loadProfiles();
+  }
   }
 
   void _openSettingsPage() {
@@ -1089,7 +1092,7 @@ class _HomePageState extends State<HomePage> {
 
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
+                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1547,7 +1550,7 @@ class _HomePageState extends State<HomePage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withOpacity(0.25),
+            color: const Color(0xFF2EC4B6).withOpacity(0.15),
             blurRadius: 28,
             offset: const Offset(0, 16),
           ),
