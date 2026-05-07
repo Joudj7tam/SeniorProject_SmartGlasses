@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-// import 'pdf_report_service.dart';
+import 'pdf_report_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'success_popup.dart';
+import 'smart_bottom_nav.dart';
+import 'main.dart';
+import 'notifications_page.dart';
+import 'tips_page.dart';
+import 'settings_page.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -66,21 +71,17 @@ class ScatterChartPoint {
 }
 
 class ProgressPage extends StatefulWidget {
-  final Set<ProgressChartType> selectedForHome;
-  final ValueChanged<ProgressChartType> onToggleForHome;
   final String userId;
   final String firebaseUid;
   final String formId;
-  final VoidCallback onBackRequested;
+  final VoidCallback? onBackRequested;
 
   const ProgressPage({
     super.key,
-    required this.selectedForHome,
-    required this.onToggleForHome,
     required this.userId,
     required this.firebaseUid,
     required this.formId,
-    required this.onBackRequested,
+    this.onBackRequested,
   });
 
   @override
@@ -92,6 +93,217 @@ class _ProgressPageState extends State<ProgressPage> {
   ProgressChartType _active = ProgressChartType.blinkByTime;
   DateTime _selectedDate = DateTime.now();
   bool _isGeneratingPdf = false;
+
+  final Set<ProgressChartType> _selectedForHome = {};
+  bool _isUpdatingHomeCharts = false;
+
+  String _chartTypeToString(ProgressChartType type) {
+    switch (type) {
+      case ProgressChartType.blinkByTime:
+        return 'blinkByTime';
+      case ProgressChartType.alerts:
+        return 'alerts';
+      case ProgressChartType.blueLightScatter:
+        return 'blueLightScatter';
+    }
+  }
+
+  ProgressChartType? _chartTypeFromString(String value) {
+    switch (value) {
+      case 'blinkByTime':
+        return ProgressChartType.blinkByTime;
+      case 'alerts':
+        return ProgressChartType.alerts;
+      case 'blueLightScatter':
+        return ProgressChartType.blueLightScatter;
+      default:
+        return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHomeSelectedCharts();
+  }
+
+  Future<void> _loadHomeSelectedCharts() async {
+    if (widget.formId.isEmpty) return;
+
+    try {
+      final uri =
+          Uri.parse(
+            '$backendBaseUrl/api/eye-health-form/get-home-selected-charts',
+          ).replace(
+            queryParameters: {
+              'form_id': widget.formId,
+              'main_account_id': widget.userId,
+            },
+          );
+
+      final res = await http.get(uri);
+
+      if (res.statusCode != 200) {
+        throw 'Failed to load home charts (code: ${res.statusCode})';
+      }
+
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final charts = (data['home_selected_charts'] as List?) ?? [];
+
+      final loadedCharts = charts
+          .map((e) => _chartTypeFromString(e.toString()))
+          .whereType<ProgressChartType>()
+          .toSet();
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedForHome
+          ..clear()
+          ..addAll(loadedCharts);
+      });
+    } catch (e) {
+      debugPrint('Load home charts error: $e');
+    }
+  }
+
+  Future<void> _updateHomeSelectedChartsInBackend() async {
+    if (widget.formId.isEmpty) return;
+
+    final chartStrings = _selectedForHome.map(_chartTypeToString).toList();
+
+    final uri = Uri.parse(
+      '$backendBaseUrl/api/eye-health-form/update-home-selected-charts/${widget.formId}',
+    ).replace(queryParameters: {'main_account_id': widget.userId});
+
+    final res = await http.put(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(chartStrings),
+    );
+
+    if (res.statusCode != 200) {
+      throw 'Failed to update home charts (code: ${res.statusCode}) ${res.body}';
+    }
+  }
+
+  Future<void> _toggleChartForHome(ProgressChartType chart) async {
+    if (_isUpdatingHomeCharts) return;
+
+    final previousCharts = Set<ProgressChartType>.from(_selectedForHome);
+
+    setState(() {
+      _isUpdatingHomeCharts = true;
+
+      if (_selectedForHome.contains(chart)) {
+        _selectedForHome.remove(chart);
+      } else {
+        _selectedForHome.add(chart);
+      }
+    });
+
+    try {
+      await _updateHomeSelectedChartsInBackend();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _selectedForHome.contains(chart)
+                ? 'Added to Home'
+                : 'Removed from Home',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _selectedForHome
+          ..clear()
+          ..addAll(previousCharts);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update home charts: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isUpdatingHomeCharts = false;
+      });
+    }
+  }
+
+  void _goHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomePage(
+          mainAccountId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+        ),
+      ),
+    );
+  }
+
+  void _goSettings() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsPage(
+          mainAccountId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+
+          smartLightEnabled: true,
+          smartLightIntensity: 0.95,
+          smartLightColor: const Color(0xFF06D6A0),
+          onSmartLightToggle: (_) {},
+          glassesLink: ValueNotifier({
+            'user_id': null,
+            'form_id': null,
+            'name': null,
+            'deviceId': null,
+          }),
+          onRequestLink: () {},
+          activeFormId: widget.formId,
+        ),
+      ),
+    );
+  }
+
+  void _goProgress() {
+    // Already on Progress page
+  }
+
+  void _goAlerts() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(
+          userId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+          formId: widget.formId,
+        ),
+      ),
+    );
+  }
+
+  void _goTips() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipsPage(
+          mainAccountId: widget.userId,
+          firebaseUid: widget.firebaseUid,
+          formId: widget.formId,
+        ),
+      ),
+    );
+  }
 
   Future<void> _pickFilterDate() async {
     final picked = await showDatePicker(
@@ -157,41 +369,37 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   Future<void> _generatePdfReport() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PDF report feature is currently disabled')),
-    );
-    // if (widget.formId.isEmpty) {
-    //   ScaffoldMessenger.of(
-    //     context,
-    //   ).showSnackBar(const SnackBar(content: Text('No active profile found')));
-    //   return;
-    // }
+    if (widget.formId.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No active profile found')));
+      return;
+    }
 
-    // setState(() => _isGeneratingPdf = true);
+    setState(() => _isGeneratingPdf = true);
 
-    // try {
-    //   final path = await PdfReportService.generateAndSaveReport(
-    //     userId: widget.userId,
-    //     firebaseUid: widget.firebaseUid,
-    //     formId: widget.formId,
-    //     selectedDate: _selectedDateToApi(),
-    //     rangeType: _rangeTypeToApi(_range),
-    //   );
+    try {
+      final path = await PdfReportService.generateAndSaveReport(
+        userId: widget.userId,
+        firebaseUid: widget.firebaseUid,
+        formId: widget.formId,
+        selectedDate: _selectedDateToApi(),
+        rangeType: _rangeTypeToApi(_range),
+      );
 
-    //   if (!mounted) return;
+      if (!mounted) return;
+      await showSuccessPopup(context, 'PDF report saved successfully: $path');
+    } catch (e) {
+      if (!mounted) return;
 
-    //   await showSuccessPopup(context, 'PDF report saved successfully: $path');
-    // } catch (e) {
-    //   if (!mounted) return;
-
-    //   ScaffoldMessenger.of(
-    //     context,
-    //   ).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
-    // } finally {
-    //   if (mounted) {
-    //     setState(() => _isGeneratingPdf = false);
-    //   }
-    // }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -259,376 +467,407 @@ class _ProgressPageState extends State<ProgressPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isSelected = widget.selectedForHome.contains(_active);
+    final bool isSelected = _selectedForHome.contains(_active);
 
     final double chartCardHeight = _active == ProgressChartType.blinkByTime
         ? 520
         : 500;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_pageTop, Color(0xFFF6F3EE), _pageBottom],
-          stops: [0.0, 0.55, 1.0],
-        ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F3EE),
+      extendBody: true,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: 2,
+        onTap: _goProgress,
       ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 125),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: widget.onBackRequested,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.22),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.35),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 18,
-                        color: _textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Progress',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: _textPrimary,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Padding(
-                padding: EdgeInsets.only(left: 48),
-                child: Text(
-                  'Charts preview .',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
 
-              // Chart picker
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _chip('Blink by Time', ProgressChartType.blinkByTime),
-                  _chip('Alerts', ProgressChartType.alerts),
-                  _chip('Blue Light', ProgressChartType.blueLightScatter),
-                ],
-              ),
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: 2,
+        onHomeTap: _goHome,
+        onSettingsTap: _goSettings,
+        onProgressTap: _goProgress,
+        onAlertsTap: _goAlerts,
+        onTipsTap: _goTips,
+      ),
 
-              const SizedBox(height: 16),
-
-              InkWell(
-                onTap: _pickFilterDate,
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  decoration: _softCardDecoration(),
-                  child: Row(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [_pageTop, Color(0xFFF6F3EE), _pageBottom],
+            stops: [0.0, 0.55, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 125),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 46,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: _mint.withOpacity(0.10),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.calendar_month_rounded,
-                          color: _mint,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Date Filter',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: _textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _selectedDateLabel(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: _textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _active == ProgressChartType.blinkByTime
-                                  ? 'Selected day'
-                                  : _range == TimeRange.daily
-                                  ? 'Selected day'
-                                  : _range == TimeRange.weekly
-                                  ? 'Selected week anchor date'
-                                  : _range == TimeRange.monthly
-                                  ? 'Selected month'
-                                  : 'Selected year',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: _textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: _textPrimary,
-                        size: 26,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              if (_active != ProgressChartType.blinkByTime) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _cardBg,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _softBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Time Range:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: _textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<TimeRange>(
-                          value: _range,
-                          dropdownColor: _cardBg,
-                          borderRadius: BorderRadius.circular(18),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: _textSecondary,
-                          ),
-                          style: const TextStyle(
-                            color: _textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: TimeRange.daily,
-                              child: Text('Daily'),
-                            ),
-                            DropdownMenuItem(
-                              value: TimeRange.weekly,
-                              child: Text('Weekly'),
-                            ),
-                            DropdownMenuItem(
-                              value: TimeRange.monthly,
-                              child: Text('Monthly'),
-                            ),
-                            DropdownMenuItem(
-                              value: TimeRange.yearly,
-                              child: Text('Yearly'),
-                            ),
-                          ],
-                          onChanged: (v) => setState(() => _range = v!),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 18),
-
-              SizedBox(
-                height: chartCardHeight,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                  decoration: _softCardDecoration(),
-                  child: _buildActiveChart(),
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // Select for home (Toggle)
-              SizedBox(
-                width: double.infinity,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isSelected ? Colors.grey.shade700 : _orange)
-                            .withOpacity(0.28),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: isSelected
-                          ? Colors.grey.shade700
-                          : _orange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: () => widget.onToggleForHome(_active),
-                    icon: Icon(
-                      isSelected
-                          ? Icons.remove_circle_outline
-                          : Icons.home_outlined,
-                    ),
-                    label: Text(
-                      isSelected ? 'Remove from Home' : 'Add to Home',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white, width: 4),
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Color(0xFFFFB25E), Color(0xFF6FD3C8)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _mint.withOpacity(0.25),
-                      blurRadius: 28,
-                      offset: const Offset(0, 16),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(22),
-                    onTap: _isGeneratingPdf ? null : _generatePdfReport,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(22),
+                          onTap: widget.onBackRequested,
+                          child: Container(
+                            width: 46,
+                            height: 46,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.32),
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white.withOpacity(0.28),
+                              shape: BoxShape.circle,
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.45),
                               ),
                             ),
-                            child: _isGeneratingPdf
-                                ? const Padding(
-                                    padding: EdgeInsets.all(13),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.picture_as_pdf_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _isGeneratingPdf
-                                      ? 'Generating PDF...'
-                                      : 'Download PDF Report',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Create a summary based on your progress charts.',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 21,
+                              color: _textPrimary,
                             ),
                           ),
-                        ],
+                        ),
+                      ),
+
+                      const Center(
+                        child: Text(
+                          'Progress',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: _textPrimary,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 0),
+                const Center(
+                  child: Text(
+                    'Charts preview ',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Chart picker
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _chip('Blink by Time', ProgressChartType.blinkByTime),
+                    _chip('Alerts', ProgressChartType.alerts),
+                    _chip('Blue Light', ProgressChartType.blueLightScatter),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                InkWell(
+                  onTap: _pickFilterDate,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: _softCardDecoration(),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: _mint.withOpacity(0.10),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.calendar_month_rounded,
+                            color: _mint,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Date Filter',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: _textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _selectedDateLabel(),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _active == ProgressChartType.blinkByTime
+                                    ? 'Selected day'
+                                    : _range == TimeRange.daily
+                                    ? 'Selected day'
+                                    : _range == TimeRange.weekly
+                                    ? 'Selected week anchor date'
+                                    : _range == TimeRange.monthly
+                                    ? 'Selected month'
+                                    : 'Selected year',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: _textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: _textPrimary,
+                          size: 26,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (_active != ProgressChartType.blinkByTime) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _cardBg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _softBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Time Range:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<TimeRange>(
+                            value: _range,
+                            dropdownColor: _cardBg,
+                            borderRadius: BorderRadius.circular(18),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: _textSecondary,
+                            ),
+                            style: const TextStyle(
+                              color: _textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: TimeRange.daily,
+                                child: Text('Daily'),
+                              ),
+                              DropdownMenuItem(
+                                value: TimeRange.weekly,
+                                child: Text('Weekly'),
+                              ),
+                              DropdownMenuItem(
+                                value: TimeRange.monthly,
+                                child: Text('Monthly'),
+                              ),
+                              DropdownMenuItem(
+                                value: TimeRange.yearly,
+                                child: Text('Yearly'),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _range = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  height: chartCardHeight,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                    decoration: _softCardDecoration(),
+                    child: _buildActiveChart(),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // Select for home (Toggle)
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isSelected ? Colors.grey.shade700 : _orange)
+                              .withOpacity(0.28),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: isSelected
+                            ? Colors.grey.shade700
+                            : _orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      onPressed: _isUpdatingHomeCharts
+                          ? null
+                          : () => _toggleChartForHome(_active),
+                      icon: Icon(
+                        isSelected
+                            ? Icons.remove_circle_outline
+                            : Icons.home_outlined,
+                      ),
+                      label: Text(
+                        isSelected ? 'Remove from Home' : 'Add to Home',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 14),
+
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: Colors.white, width: 4),
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0xFFFFB25E), Color(0xFF6FD3C8)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _mint.withOpacity(0.25),
+                        blurRadius: 28,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: _isGeneratingPdf ? null : _generatePdfReport,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.32),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.45),
+                                ),
+                              ),
+                              child: _isGeneratingPdf
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(13),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.picture_as_pdf_rounded,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _isGeneratingPdf
+                                        ? 'Generating PDF...'
+                                        : 'Download PDF Report',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Create a summary based on your progress charts.',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      height: 1.25,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -870,12 +1109,9 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
   }
 
   double _calculateMaxY(List<ChartPoint> data) {
-    if (data.isEmpty) return 5;
-
+    if (data.isEmpty) return 10;
     final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final roundedMax = maxValue.ceil();
-
-    return roundedMax < 5 ? 5 : (roundedMax + 1).toDouble();
+    return maxValue < 10 ? 10 : maxValue + 2;
   }
 
   Color _statusColor(double blinkPerMin) {
@@ -972,7 +1208,7 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
                       topTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false),
                       ),
-                      leftTitles: AxisTitles(
+                      leftTitles: const AxisTitles(
                         axisNameWidget: const Padding(
                           padding: EdgeInsets.only(bottom: 6),
                           child: Text(
@@ -1204,7 +1440,7 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: true,
-                      horizontalInterval: 1,
+                      horizontalInterval: maxY <= 5 ? 1 : (maxY / 5),
                       getDrawingHorizontalLine: (value) {
                         return FlLine(
                           color: const Color(0xFFE7DBCF),

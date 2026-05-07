@@ -1,3 +1,6 @@
+/// TipsPage:
+/// Displays eye care tips, latest news, and protection guidance.
+/// Includes sections for daily tips, news carousel, and feature highlights.
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -21,11 +24,43 @@ class TipsPage extends StatelessWidget {
     required this.formId,
   });
 
+  void _openProgress(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+          userId: mainAccountId,
+          firebaseUid: firebaseUid,
+          formId: formId,
+          onBackRequested: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TipsPage(
+                  mainAccountId: mainAccountId,
+                  firebaseUid: firebaseUid,
+                  formId: formId,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: 4,
+        onTap: () => _openProgress(context),
+      ),
+
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -42,7 +77,7 @@ class TipsPage extends StatelessWidget {
                 SizedBox(height: 18),
                 HeaderSection(),
                 SizedBox(height: 18),
-                SearchBar(),
+                TipsSearchBar(),
                 SizedBox(height: 28),
                 DailyTipCard(),
                 SizedBox(height: 24),
@@ -51,7 +86,7 @@ class TipsPage extends StatelessWidget {
                 ProtectionSection(),
                 SizedBox(height: 24),
                 AboutSection(),
-                SizedBox(height: 100),
+                SizedBox(height: 150),
               ],
             ),
           ),
@@ -59,77 +94,68 @@ class TipsPage extends StatelessWidget {
       ),
       bottomNavigationBar: SmartBottomNav(
         selectedIndex: 4,
-        onItemTap: (index) {
-          if (index == 4) return;
 
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => HomePage(
-                  mainAccountId: mainAccountId,
-                  firebaseUid: firebaseUid,
-                ),
+        onHomeTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomePage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
               ),
-            );
-          }
+            ),
+          );
+        },
 
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SettingsPage(
-                  mainAccountId: mainAccountId,
-                  smartLightEnabled: true,
-                  smartLightIntensity: 0.95,
-                  smartLightColor: const Color(0xFF06D6A0),
-                  onSmartLightToggle: (_) {},
-                  glassesLink: ValueNotifier({
-                    'user_id': null,
-                    'form_id': null,
-                    'name': null,
-                    'deviceId': null,
-                  }),
-                  onRequestLink: () {},
-                  activeFormId: formId,
-                ),
-              ),
-            );
-          }
+        onSettingsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SettingsPage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
 
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProgressPage(
-                  selectedForHome: {},
-                  onToggleForHome: (_) {},
-                  userId: mainAccountId,
-                  firebaseUid: firebaseUid,
-                  formId: formId,
-                  onBackRequested: () {
-                    Navigator.pop(context);
-                  },
-                ),
+                smartLightEnabled: true,
+                smartLightIntensity: 0.95,
+                smartLightColor: const Color(0xFF06D6A0),
+                onSmartLightToggle: (_) {},
+                glassesLink: ValueNotifier({
+                  'user_id': null,
+                  'form_id': null,
+                  'name': null,
+                  'deviceId': null,
+                }),
+                onRequestLink: () {},
+                activeFormId: formId,
               ),
-            );
-          }
+            ),
+          );
+        },
 
-          if (index == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    NotificationsPage(userId: mainAccountId, formId: formId),
+        onProgressTap: () => _openProgress(context),
+
+        onAlertsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NotificationsPage(
+                userId: mainAccountId,
+                firebaseUid: firebaseUid,
+                formId: formId,
               ),
-            );
-          }
+            ),
+          );
+        },
+
+        onTipsTap: () {
+          // Already on Tips page
         },
       ),
     );
   }
 }
 
+// Shared card style used across the page
 BoxDecoration cardStyle(Color color, {Color? borderColor}) {
   return BoxDecoration(
     color: color,
@@ -141,41 +167,88 @@ BoxDecoration cardStyle(Color color, {Color? borderColor}) {
   );
 }
 
+/// Header section:
+/// Shows page title and quick description
+
 class HeaderSection extends StatelessWidget {
   const HeaderSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            height: 54,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  "Tips & News",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.28),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.45),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 21,
+                        color: Color(0xFF5B4636),
+                      ),
+                    ),
+                  ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  "Learn, protect, and improve your eye health",
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+
+                const Center(
+                  child: Text(
+                    "Tips  & News",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF3E2E25),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.notifications_none, size: 28),
+
+          const SizedBox(height: 8),
+
+          const Center(
+            child: Text(
+              "Learn, protect, and improve your eye health",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class SearchBar extends StatelessWidget {
-  const SearchBar({super.key});
+/// Search bar:
+/// Allows users to search tips, news, and content
+
+class TipsSearchBar extends StatelessWidget {
+  const TipsSearchBar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +273,9 @@ class SearchBar extends StatelessWidget {
     );
   }
 }
+
+/// Daily tip card:
+/// Displays a quick eye-care tip for users
 
 class DailyTipCard extends StatelessWidget {
   const DailyTipCard({super.key});
@@ -265,6 +341,10 @@ class DailyTipCard extends StatelessWidget {
   }
 }
 
+/// Latest news section:
+/// Fetches and displays eye health news using News API
+/// Includes auto-sliding carousel
+
 class LatestNewsSection extends StatefulWidget {
   const LatestNewsSection({super.key});
 
@@ -287,6 +367,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     _newsFuture = fetchEyeNews();
   }
 
+  // Fetch news articles from API
   Future<List<dynamic>> fetchEyeNews() async {
     final url = Uri.parse(
       "https://newsapi.org/v2/everything?q=eye%20health%20OR%20digital%20eye%20strain%20OR%20blue%20light&language=en&pageSize=5&apiKey=$apiKey",
@@ -302,6 +383,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     }
   }
 
+  // Start auto sliding between news cards
   void startAutoSlide(int length) {
     if (timer != null) return;
 
@@ -467,6 +549,9 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
   }
 }
 
+/// Protection section:
+/// Shows simple actions to protect eye health
+
 class ProtectionSection extends StatelessWidget {
   const ProtectionSection({super.key});
 
@@ -540,6 +625,8 @@ class ProtectionSection extends StatelessWidget {
   }
 }
 
+/// Reusable card:
+/// Displays an icon, title, and short description
 class ProtectCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -602,8 +689,12 @@ class ProtectCard extends StatelessWidget {
   }
 }
 
+/// About section:
+/// Explains app features and benefits
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
+
+  // Feature item widget used inside About section
   Widget featureItem(IconData icon, String title, String subtitle) {
     return Expanded(
       child: Padding(
@@ -645,6 +736,7 @@ class AboutSection extends StatelessWidget {
     );
   }
 
+  // Divider between feature items
   Widget verticalDivider() {
     return Container(
       height: 95,
@@ -668,7 +760,7 @@ class AboutSection extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          /// الكارد الأول
+          /// first card
           Container(
             padding: const EdgeInsets.all(12),
             decoration: cardStyle(
@@ -724,7 +816,7 @@ class AboutSection extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          /// الكارد الثاني
+          /// second card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
             decoration: cardStyle(
