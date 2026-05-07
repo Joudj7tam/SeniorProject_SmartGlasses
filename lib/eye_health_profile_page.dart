@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'success_popup.dart';
 
 /// UI-only page to display all eye health form info (dummy data for now).
 /// Later 'll replace the dummy data with API response from backend.
@@ -89,11 +90,7 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
     try {
       final formUri = Uri.parse(
         '$backendBaseUrl/api/eye-health-form/get/${widget.formId}',
-      ).replace(
-        queryParameters: {
-          'main_account_id': widget.mainAccountId,
-        },
-      );
+      ).replace(queryParameters: {'main_account_id': widget.mainAccountId});
 
       final userUri = Uri.parse(
         '$backendBaseUrl/api/users/${widget.firebaseUid}',
@@ -135,6 +132,7 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
       });
     }
   }
+
   void _enterEditMode() {
     final form = _formData;
     final user = _userData;
@@ -167,7 +165,9 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
     _surgeryDetailsController.text = surgeryText;
 
     _screenTimeHours = form.screenTimeHours.toDouble().clamp(0, 16);
-    _lighting = form.lightingConditions.isEmpty ? null : form.lightingConditions;
+    _lighting = form.lightingConditions.isEmpty
+        ? null
+        : form.lightingConditions;
 
     _sleepHours = form.sleepHours.toDouble().clamp(0, 12);
     _diet = (form.diet == null || form.diet!.isEmpty) ? null : form.diet;
@@ -274,9 +274,7 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
         '$backendBaseUrl/api/eye-health-form/update/${widget.formId}',
       ).replace(queryParameters: {'main_account_id': widget.mainAccountId});
 
-      final userPayload = {
-        'phone': _phoneController.text.trim(),
-      };
+      final userPayload = {'phone': _phoneController.text.trim()};
 
       final formPayload = {
         'full_name': _fullNameController.text.trim(),
@@ -286,8 +284,9 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
         'chronic_diseases': chronicDiseases,
         'uses_glasses': _visionAid == 'Glasses',
         'uses_contact_lenses': _visionAid == 'Contact Lenses',
-        'eye_surgery_history':
-            _hadSurgery ? _surgeryDetailsController.text.trim() : null,
+        'eye_surgery_history': _hadSurgery
+            ? _surgeryDetailsController.text.trim()
+            : null,
         'screen_time_hours': _screenTimeHours.round(),
         'lighting_conditions': _lighting,
         'sleep_hours': _sleepHours.round(),
@@ -338,7 +337,7 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
         _isSaving = false;
       });
 
-      _showSnack('Profile updated successfully');
+      await showSuccessPopup(context, 'Profile updated successfully');
     } on SocketException {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -367,10 +366,11 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
+
   @override
   Widget build(BuildContext context) {
     final form = _formData;
@@ -384,14 +384,14 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
         ),
         title: Text(_isEditMode ? 'Edit Profile' : 'Profile Information'),
         actions: [
-           Padding(
+          Padding(
             padding: const EdgeInsets.only(right: 10),
             child: FilledButton.icon(
               onPressed: _isLoading || _isSaving
                   ? null
                   : _isEditMode
-                      ? _cancelEditMode
-                      : _enterEditMode,
+                  ? _cancelEditMode
+                  : _enterEditMode,
               icon: Icon(
                 _isEditMode ? Icons.close_rounded : Icons.edit_outlined,
               ),
@@ -404,18 +404,16 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? _ErrorView(
-                    message: _error!,
-                    onRetry: _fetchAllData,
-                  )
-                : form == null || user == null
-                    ? const Center(child: Text('No profile data found'))
-                    : _isEditMode
-                        ? _buildEditBody()
-                        : _buildViewBody(form, user),
+            ? _ErrorView(message: _error!, onRetry: _fetchAllData)
+            : form == null || user == null
+            ? const Center(child: Text('No profile data found'))
+            : _isEditMode
+            ? _buildEditBody()
+            : _buildViewBody(form, user),
       ),
     );
   }
+
   Widget _buildViewBody(EyeHealthFormViewData form, UserAccountViewData user) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
@@ -425,7 +423,8 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
 
         _SectionTitle(title: 'Account Information'),
         const SizedBox(height: 10),
-          _InfoGrid(items: [
+        _InfoGrid(
+          items: [
             _InfoItem(
               icon: Icons.person_outline,
               title: 'Full Name',
@@ -446,47 +445,51 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
               title: 'Profile Status',
               value: form.isActive ? 'Active' : 'Inactive',
             ),
-          ]),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Personal Information'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
-              _InfoItem(
-                icon: Icons.badge_outlined,
-                title: 'Gender',
-                value: form.gender,
-                ),
-              _InfoItem(
-                icon: Icons.cake_outlined,
-                title: 'Date of Birth',
-                value: _fmtDate(form.dateOfBirth),
-                ),
-              _InfoItem(
-                icon: Icons.light_mode_outlined,
-                title: 'Smart Light',
-                value: form.smartLightEnabled ? 'Enabled' : 'Disabled',
-              ),                           
-          ]),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Previous Eye Conditions'),
-          const SizedBox(height: 10),
-          _ChipsWrap(
-            chips: form.previousEyeConditions.isEmpty
-                ? const ['None']
-                : form.previousEyeConditions.map(_humanize).toList(),
-          ),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Chronic Diseases'),
-          const SizedBox(height: 10),
-          _ChipsWrap(
-            chips: form.chronicDiseases.isEmpty
-                ? const ['None']
-                : form.chronicDiseases.map(_humanize).toList(),
-          ),
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Vision Aids'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
+          ],
+        ),
+        const SizedBox(height: 18),
+        _SectionTitle(title: 'Personal Information'),
+        const SizedBox(height: 10),
+        _InfoGrid(
+          items: [
+            _InfoItem(
+              icon: Icons.badge_outlined,
+              title: 'Gender',
+              value: form.gender,
+            ),
+            _InfoItem(
+              icon: Icons.cake_outlined,
+              title: 'Date of Birth',
+              value: _fmtDate(form.dateOfBirth),
+            ),
+            _InfoItem(
+              icon: Icons.light_mode_outlined,
+              title: 'Smart Light',
+              value: form.smartLightEnabled ? 'Enabled' : 'Disabled',
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _SectionTitle(title: 'Previous Eye Conditions'),
+        const SizedBox(height: 10),
+        _ChipsWrap(
+          chips: form.previousEyeConditions.isEmpty
+              ? const ['None']
+              : form.previousEyeConditions.map(_humanize).toList(),
+        ),
+        const SizedBox(height: 18),
+        _SectionTitle(title: 'Chronic Diseases'),
+        const SizedBox(height: 10),
+        _ChipsWrap(
+          chips: form.chronicDiseases.isEmpty
+              ? const ['None']
+              : form.chronicDiseases.map(_humanize).toList(),
+        ),
+        const SizedBox(height: 18),
+        _SectionTitle(title: 'Vision Aids'),
+        const SizedBox(height: 10),
+        _InfoGrid(
+          items: [
             _InfoItem(
               icon: Icons.remove_red_eye_outlined,
               title: 'Uses Glasses',
@@ -497,72 +500,78 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
               title: 'Uses Contact Lenses',
               value: form.usesContactLenses ? 'Yes' : 'No',
             ),
-          ]),
-          const SizedBox(height: 18),
+          ],
+        ),
+        const SizedBox(height: 18),
 
-          _SectionTitle(title: 'Eye Surgery History'),
-          const SizedBox(height: 10),
-          _BigNoteCard(
-            icon: Icons.medical_information_outlined,
-            title: 'History',
-            text: (form.eyeSurgeryHistory == null ||
-                    form.eyeSurgeryHistory!.trim().isEmpty)
-                ? 'No surgeries reported.'
-                : form.eyeSurgeryHistory!.trim(),
-          ),
-          const SizedBox(height: 18),
+        _SectionTitle(title: 'Eye Surgery History'),
+        const SizedBox(height: 10),
+        _BigNoteCard(
+          icon: Icons.medical_information_outlined,
+          title: 'History',
+          text:
+              (form.eyeSurgeryHistory == null ||
+                  form.eyeSurgeryHistory!.trim().isEmpty)
+              ? 'No surgeries reported.'
+              : form.eyeSurgeryHistory!.trim(),
+        ),
+        const SizedBox(height: 18),
 
-          _SectionTitle(title: 'Daily Habits & Lifestyle'),
-          const SizedBox(height: 10),
-          _InfoGrid(items: [
-              _InfoItem(
-                icon: Icons.monitor_outlined,
-                title: 'Screen Time',
-                value: '${form.screenTimeHours} h/day',
-              ),
-              _InfoItem(
-                icon: Icons.lightbulb_outline,
-                title: 'Lighting',
-                value: form.lightingConditions,
-              ),
-              _InfoItem(
-                  icon: Icons.bedtime_outlined,
-                  title: 'Sleep',
-                  value: '${form.sleepHours} h/night',
-              ),
-              _InfoItem(
-                              icon: Icons.restaurant_outlined,
-                              title: 'Diet',
-                              value: form.diet ?? '—',
-                            ),
-                          ]),
-                          const SizedBox(height: 18),
+        _SectionTitle(title: 'Daily Habits & Lifestyle'),
+        const SizedBox(height: 10),
+        _InfoGrid(
+          items: [
+            _InfoItem(
+              icon: Icons.monitor_outlined,
+              title: 'Screen Time',
+              value: '${form.screenTimeHours} h/day',
+            ),
+            _InfoItem(
+              icon: Icons.lightbulb_outline,
+              title: 'Lighting',
+              value: form.lightingConditions,
+            ),
+            _InfoItem(
+              icon: Icons.bedtime_outlined,
+              title: 'Sleep',
+              value: '${form.sleepHours} h/night',
+            ),
+            _InfoItem(
+              icon: Icons.restaurant_outlined,
+              title: 'Diet',
+              value: form.diet ?? '—',
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
 
-                          _SectionTitle(title: 'Current Eye Symptoms'),
-                          const SizedBox(height: 10),
-                          _ChipsWrap(
-                            chips: form.currentEyeSymptoms.isEmpty
-                                ? const ['None']
-                                : form.currentEyeSymptoms.map(_humanize).toList(),
-                          ),
-                          const SizedBox(height: 18),
+        _SectionTitle(title: 'Current Eye Symptoms'),
+        const SizedBox(height: 10),
+        _ChipsWrap(
+          chips: form.currentEyeSymptoms.isEmpty
+              ? const ['None']
+              : form.currentEyeSymptoms.map(_humanize).toList(),
+        ),
+        const SizedBox(height: 18),
 
-                          _SectionTitle(title: 'Record Metadata'),
-                          const SizedBox(height: 10),
-                          _InfoGrid(items: [
-                            _InfoItem(
-                              icon: Icons.calendar_month_outlined,
-                              title: 'Created At',
-                              value: _fmtDateTime(form.createdAt),
-                            ),
-                            _InfoItem(
-                              icon: Icons.update_outlined,
-                              title: 'Updated At',
-                              value: _fmtDateTime(form.updatedAt),
-                            ),
-                          ]),
-                        ],
-                      );
+        _SectionTitle(title: 'Record Metadata'),
+        const SizedBox(height: 10),
+        _InfoGrid(
+          items: [
+            _InfoItem(
+              icon: Icons.calendar_month_outlined,
+              title: 'Created At',
+              value: _fmtDateTime(form.createdAt),
+            ),
+            _InfoItem(
+              icon: Icons.update_outlined,
+              title: 'Updated At',
+              value: _fmtDateTime(form.updatedAt),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildEditBody() {
@@ -619,7 +628,9 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
                 labelText: 'Date of Birth',
                 border: OutlineInputBorder(),
               ),
-              child: Text(_editDob == null ? 'Select date' : _fmtDate(_editDob!)),
+              child: Text(
+                _editDob == null ? 'Select date' : _fmtDate(_editDob!),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -636,7 +647,9 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Smart Light'),
-            subtitle: const Text('Enable or disable smart light recommendations'),
+            subtitle: const Text(
+              'Enable or disable smart light recommendations',
+            ),
             value: _smartLightEnabled,
             onChanged: (v) => setState(() => _smartLightEnabled = v),
           ),
@@ -910,7 +923,7 @@ class UserAccountViewData {
   }
 }
 
-  class EyeHealthFormViewData {
+class EyeHealthFormViewData {
   final String fullName;
   final DateTime dateOfBirth;
   final String gender;
@@ -1001,10 +1014,7 @@ class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -1016,10 +1026,7 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline_rounded, size: 46),
             const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-            ),
+            Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: onRetry,
@@ -1047,9 +1054,7 @@ class _EditModeBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withOpacity(0.10),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.20),
-        ),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.20)),
       ),
       child: Row(
         children: [
@@ -1129,10 +1134,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-      ),
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
     );
   }
 }
@@ -1164,11 +1166,7 @@ class _InfoItem {
   final String title;
   final String value;
 
-  _InfoItem({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
+  _InfoItem({required this.icon, required this.title, required this.value});
 }
 
 class _InfoTile extends StatelessWidget {
@@ -1203,11 +1201,7 @@ class _InfoTile extends StatelessWidget {
               color: theme.colorScheme.primary.withOpacity(0.10),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              item.icon,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
+            child: Icon(item.icon, size: 18, color: theme.colorScheme.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1325,12 +1319,18 @@ class _HeaderCard extends StatelessWidget {
               children: [
                 Text(
                   data.fullName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   'Eye-Health Form Summary',
-                  style: TextStyle(color: Colors.black.withOpacity(0.55), fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.black.withOpacity(0.55),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),

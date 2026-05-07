@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:async';
+import 'success_popup.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -66,7 +67,6 @@ class SmartGlassesApp extends StatelessWidget {
   firebaseUid: 'testUID',
 ),*/
       home: const LoginPage(), //############################
-
       // home: const RegisterPage(), //############################
 
       /* home: HealthFormPage(
@@ -361,14 +361,11 @@ class _HomePageState extends State<HomePage> {
       await _updateHomeSelectedChartsInBackend();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _homeSelectedCharts.contains(chart)
-                ? 'Added to Home'
-                : 'Removed from Home',
-          ),
-        ),
+      await showSuccessPopup(
+        context,
+        _homeSelectedCharts.contains(chart)
+            ? 'Added to Home'
+            : 'Removed from Home',
       );
     } catch (e) {
       if (!mounted) return;
@@ -1057,7 +1054,13 @@ class _HomePageState extends State<HomePage> {
               selectedForHome: _homeSelectedCharts,
               onToggleForHome: _toggleChartForHome,
               userId: widget.mainAccountId,
+              firebaseUid: widget.firebaseUid,
               formId: _activeProfileId ?? '',
+              onBackRequested: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+              },
             )
           : Stack(
               children: [
@@ -1240,35 +1243,35 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
 
-    bottomNavigationBar: SmartBottomNav(
-    selectedIndex: _selectedIndex,
-    onItemTap: (index) {
-    if (index == 1) {
-      _openSettingsPage();
-      return;
-    }
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: _selectedIndex,
+        onItemTap: (index) {
+          if (index == 1) {
+            _openSettingsPage();
+            return;
+          }
 
-    if (index == 3) {
-      _openNotifications();
-      return;
-    }
+          if (index == 3) {
+            _openNotifications();
+            return;
+          }
 
-    if (index == 4) {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => TipsPage(
-        mainAccountId: widget.mainAccountId,
-        firebaseUid: widget.firebaseUid,
-        formId: _activeProfileId ?? '',
+          if (index == 4) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TipsPage(
+                  mainAccountId: widget.mainAccountId,
+                  firebaseUid: widget.firebaseUid,
+                  formId: _activeProfileId ?? '',
+                ),
+              ),
+            );
+            return;
+          }
+
+          _onItemTapped(index);
+        },
       ),
-    ),
-  );
-  return;
-}
-
-    _onItemTapped(index);
-  },
-    ),
     );
   }
 

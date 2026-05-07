@@ -162,17 +162,10 @@ def format_3hour_bucket_label(bucket_index: int):
     start_hour = bucket_index * 3
     end_hour = start_hour + 3
 
-    def to_12h(hour: int):
-        suffix = "AM" if hour < 12 or hour == 24 else "PM"
-        hour_12 = hour % 12
-        if hour_12 == 0:
-            hour_12 = 12
-        return f"{hour_12} {suffix}"
+    if end_hour > 24:
+        end_hour = 24
 
-    start_label = to_12h(start_hour)
-    end_label = to_12h(end_hour if end_hour < 24 else 24)
-
-    return f"{start_label} - {end_label}"
+    return f"{start_hour}-{end_hour}"
 
     
 
