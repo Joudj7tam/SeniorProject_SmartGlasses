@@ -73,8 +73,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+  String? _expandedId;
 
-  Color get _bgColor => const Color(0xFFFFF7EE);
   Color get _accent => const Color(0xFF2EC4B6);
 
   @override
@@ -255,6 +255,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   bool _isSelected(NotificationItem item) => _selectedIds.contains(item.id);
 
+  void _toggleExpand(String id) {
+    setState(() {
+      _expandedId = _expandedId == id ? null : id;
+    });
+  }
+
   // delete all selected item
   Future<void> _deleteSelected() async {
     if (_selectedIds.isEmpty) return;
@@ -372,16 +378,27 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFBF6), Color(0xFFFFF7EE), Color(0xFFFFE8C4)],
-            stops: [0.0, 0.62, 1.0],
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? [
+                    const Color(0xFF0D1B2A),
+                    const Color(0xFF1B2A3B),
+                    const Color(0xFF0D1B2A),
+                  ]
+                : [
+                    const Color(0xFFFFFBF6),
+                    const Color(0xFFFFF7EE),
+                    const Color(0xFFFFE8C4),
+                  ],
+            stops: const [0.0, 0.62, 1.0],
           ),
         ),
         child: SafeArea(
@@ -393,34 +410,32 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 32,
-                        color: Colors.black,
+                        color: cs.onSurface,
                       ),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Notifications',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black,
+                          color: cs.onSurface,
                           letterSpacing: -0.4,
                         ),
                       ),
                     ),
                     GestureDetector(
-                      onTap: _selectionMode
-                          ? _toggleSelectionMode
-                          : _toggleSelectionMode,
+                      onTap: _toggleSelectionMode,
                       child: Text(
                         _selectionMode ? 'Done' : 'Select',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: cs.onSurface.withValues(alpha: 0.75),
                         ),
                       ),
                     ),
@@ -448,8 +463,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       const Spacer(),
                       Text(
                         '${_selectedIds.length} selected',
-                        style: const TextStyle(
-                          color: Color(0xFF8F8880),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -473,13 +488,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
               height: 70,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFAF4),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(28),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 18,
                     offset: const Offset(0, -6),
                   ),
@@ -529,8 +544,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Text(
             _errorMessage!,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF6E6660),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -556,13 +571,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (_notifications.isEmpty) {
       return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 28),
-        children: const [
-          SizedBox(height: 150),
+        children: [
+          const SizedBox(height: 150),
           Center(
             child: Text(
               'No notifications yet.',
               style: TextStyle(
-                color: Color(0xFF8F8880),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -576,7 +591,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(10, 26, 10, 120),
       itemCount: _notifications.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 14),
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final item = _notifications[index];
         final selected = _isSelected(item);
@@ -588,6 +603,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               _toggleItemSelection(item);
             } else {
               _markNotificationRead(item);
+              _toggleExpand(item.id);
             }
           },
           child: _notificationCard(item, selected),
@@ -626,88 +642,139 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget _notificationCard(NotificationItem item, bool selected) {
     final style = _styleForNotification(item);
     final isMuted = item.isRead;
+    final isExpanded = _expandedId == item.id;
+    final cs = Theme.of(context).colorScheme;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(isMuted ? 0.76 : 0.94),
+        color: cs.surface.withValues(alpha: isMuted ? 0.76 : 0.94),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: selected ? _accent : style.borderColor,
-          width: selected ? 2 : 1.2,
+          color: selected
+              ? _accent
+              : isExpanded
+                  ? _accent.withValues(alpha: 0.55)
+                  : style.borderColor,
+          width: selected || isExpanded ? 1.8 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: style.shadowColor.withOpacity(isMuted ? 0.12 : 0.28),
-            blurRadius: 12,
+            color: style.shadowColor.withValues(
+              alpha: isMuted ? 0.10 : isExpanded ? 0.36 : 0.24,
+            ),
+            blurRadius: isExpanded ? 20 : 12,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_selectionMode) ...[
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              color: selected ? _accent : Colors.black26,
-              size: 24,
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: selected ? _accent : cs.onSurface.withValues(alpha: 0.26),
+                size: 24,
+              ),
             ),
             const SizedBox(width: 10),
           ],
 
+          // Icon circle
           Container(
-            width: 60,
-            height: 60,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: style.iconBg.withOpacity(isMuted ? 0.55 : 1),
+              color: style.iconBg.withValues(alpha: isMuted ? 0.55 : 1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               style.icon,
-              color: style.iconColor.withOpacity(isMuted ? 0.55 : 1),
-              size: 26,
+              color: style.iconColor.withValues(alpha: isMuted ? 0.55 : 1),
+              size: 24,
             ),
           ),
 
           const SizedBox(width: 12),
 
+          // Text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _cleanNotificationText(item.title),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: style.titleColor.withOpacity(isMuted ? 0.55 : 1),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
+                // Title + chevron row
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _cleanNotificationText(item.title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: style.titleColor
+                              .withValues(alpha: isMuted ? 0.55 : 1),
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    if (!_selectionMode) ...[
+                      const SizedBox(width: 6),
+                      AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 20,
+                          color: cs.onSurface.withValues(alpha: 0.38),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  item.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.black.withOpacity(isMuted ? 0.48 : 0.78),
-                    fontSize: 12,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+
                 const SizedBox(height: 5),
+
+                // Expandable message area
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  alignment: Alignment.topCenter,
+                  child: Text(
+                    item.message,
+                    maxLines: isExpanded ? null : 2,
+                    overflow: isExpanded
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: cs.onSurface
+                          .withValues(alpha: isMuted ? 0.48 : 0.80),
+                      fontSize: 12.5,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
                 Text(
                   _formatDateTime(item.createdAt),
                   style: TextStyle(
-                    color: Colors.black.withOpacity(isMuted ? 0.35 : 0.7),
-                    fontSize: 12.2,
+                    color: cs.onSurface
+                        .withValues(alpha: isMuted ? 0.30 : 0.55),
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -761,8 +828,8 @@ _NotificationVisual _styleForNotification(NotificationItem item) {
     icon: Icons.notifications_none_rounded,
     iconBg: Color(0xFFCBF3F0),
     iconColor: Color(0xFF2EC4B6),
-    titleColor: Color(0xFF2D2926),
-    borderColor: Color(0xFFECE3DA),
+    titleColor: Color(0xFF2EC4B6),
+    borderColor: Color(0xFFCBF3F0),
     shadowColor: Color(0xFF2EC4B6),
   );
 }

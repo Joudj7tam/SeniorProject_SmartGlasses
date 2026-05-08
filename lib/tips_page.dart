@@ -27,15 +27,13 @@ Widget build(BuildContext context) {
   extendBody: true,
   backgroundColor: Colors.transparent,
   body: Container(
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.center,
-        colors: [
-          Color(0xFF8DCAC3),
-          Color(0xFFEAF6F4),
-          Color(0xFFFFF8F0),
-        ],
+        colors: Theme.of(context).brightness == Brightness.dark
+            ? [Color(0xFF1A2E2C), Color(0xFF1A1A1A), Color(0xFF121212)]
+            : [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
         stops: [0.0, 0.50, 1.5],
       ),
     ),
@@ -149,8 +147,9 @@ class HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -163,20 +162,21 @@ class HeaderSection extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   "Learn, protect, and improve your eye health",
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.black54,
+                    color: cs.onSurface.withValues(alpha: 0.54),
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.notifications_none, size: 28),
+          Icon(Icons.notifications_none, size: 28, color: cs.onSurface),
         ],
       ),
     );
@@ -194,10 +194,11 @@ class SearchBar extends StatelessWidget {
         height: 38,
         child: TextField(
           decoration: InputDecoration(
-            hintText: "Search tips, news, and more..." ,   hintStyle: const TextStyle(fontSize: 15,color: Colors.grey,),
+            hintText: "Search tips, news, and more...",
+            hintStyle: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
             prefixIcon: const Icon(Icons.search),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Theme.of(context).cardColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
               borderSide: BorderSide.none,
@@ -214,55 +215,67 @@ class DailyTipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               "Daily Tip",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
             ),
           ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: cardStyle(const Color(0xFFf3f6f3), borderColor: const Color(0xFFD6EDEA)),
-            child: const Row(
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0xFF2EC4B6).withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
               children: [
                 CircleAvatar(
                   radius: 35,
-                  backgroundColor: Colors.white,
-                  child: Icon(
+                  backgroundColor: cs.surfaceContainerHighest,
+                  child: const Icon(
                     Icons.tips_and_updates,
-                    color: Colors.teal,
+                    color: Color(0xFF2EC4B6),
                     size: 36,
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "20-20-20 Rule",
                         style: TextStyle(
                           fontSize: 18,
-                          color: Colors.teal,
+                          color: Color(0xFF2EC4B6),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
                         "Every 20 minutes, look at something 20 feet away for 20 seconds.",
+                        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75)),
                       ),
                     ],
                   ),
                 ),
-                Icon(
+                const Icon(
                   Icons.access_time,
-                  color: Colors.teal,
+                  color: Color(0xFF2EC4B6),
                   size: 40,
                 ),
               ],
@@ -335,12 +348,14 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
         future: _newsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox(
+            return SizedBox(
               height: 190,
               child: Center(
                 child: Text(
                   "Loading latest news...",
-                  style: TextStyle(color: Colors.black45),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                  ),
                 ),
               ),
             );
@@ -356,18 +371,19 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
             startAutoSlide(newsList.length);
           });
 
+          final cs = Theme.of(context).colorScheme;
           return Column(
             children: [
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     "Latest News",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
                   ),
-                  Text(
+                  const Text(
                     "View all",
-                    style: TextStyle(color: Colors.teal),
+                    style: TextStyle(color: Color(0xFF2EC4B6)),
                   ),
                 ],
               ),
@@ -389,7 +405,11 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
 
                     return Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: cardStyle(const Color(0xFFfbf8f5)),
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFF2EC4B6).withValues(alpha: 0.15), width: 1.5),
+                      ),
                       child: Row(
                         children: [
                           ClipRRect(
@@ -413,9 +433,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                   article["title"] ?? "Eye Health News",
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
+                                    color: cs.onSurface,
                                   ),
                                 ),
 
@@ -426,10 +447,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                       "Read the latest updates about eye health.",
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     height: 1.3,
-                                    color: Colors.black54,
+                                    color: cs.onSurface.withValues(alpha: 0.54),
                                   ),
                                 ),
                               ],
@@ -455,8 +476,8 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                     height: 8,
                     decoration: BoxDecoration(
                       color: currentIndex == index
-                          ? Colors.teal
-                          : Colors.grey.shade300,
+                          ? const Color(0xFF2EC4B6)
+                          : cs.onSurface.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -481,8 +502,9 @@ class ProtectionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           Row(
@@ -490,16 +512,16 @@ class ProtectionSection extends StatelessWidget {
             children: [
               Text(
                 "How to Protect Your Eyes",
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
               ),
-              Text(
+              const Text(
                 "View all",
-                style: TextStyle(color: Colors.teal),
+                style: TextStyle(color: Color(0xFF2EC4B6)),
               ),
             ],
           ),
-          SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 12),
+          const Row(
             children: [
               Expanded(
                 child: SizedBox(
@@ -509,9 +531,7 @@ class ProtectionSection extends StatelessWidget {
                     title: "Take Regular Breaks",
                     description:
                         "Rest your eyes every 20 minutes to reduce strain.",
-                    color: Color(0xFFf4bb76),
-                    bgColor: Color(0xFFfcf4ef),
-                    borderColor: Color(0xFFefe3d6),
+                    iconColor: Color(0xFFf4bb76),
                   ),
                 ),
               ),
@@ -524,9 +544,7 @@ class ProtectionSection extends StatelessWidget {
                     title: "Stay Hydrated",
                     description:
                         "Drink enough water to keep your eyes moist.",
-                    color: Color(0xFF6bada0),
-                    bgColor: Color(0xFFf6f7f3),
-                    borderColor: Color(0xFFeaeeea),
+                    iconColor: Color(0xFF6bada0),
                   ),
                 ),
               ),
@@ -539,9 +557,7 @@ class ProtectionSection extends StatelessWidget {
                     title: "Good Lighting",
                     description:
                         "Use natural or soft lighting to reduce fatigue.",
-                    color: Color(0xFF1d4774),
-                    bgColor: Color(0xFFf7f5f3),
-                    borderColor: Color(0xFFe3e4e7),
+                    iconColor: Color(0xFF1d4774),
                   ),
                 ),
               ),
@@ -557,33 +573,37 @@ class ProtectCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final Color color;
-  final Color bgColor;
-  final Color borderColor;
+  final Color iconColor;
 
   const ProtectCard({
     super.key,
     required this.icon,
     required this.title,
     required this.description,
-    required this.color,
-    required this.bgColor,
-    required this.borderColor,
+    required this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8), 
-      decoration: cardStyle(bgColor,borderColor: borderColor),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
+          width: 1.5,
+        ),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start, 
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           const SizedBox(height: 6),
 
           CircleAvatar(
             radius: 28,
-            backgroundColor: color,
+            backgroundColor: iconColor,
             child: Icon(
               icon,
               color: Colors.white,
@@ -597,10 +617,11 @@ class ProtectCard extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
               height: 1.2,
+              color: cs.onSurface,
             ),
           ),
 
@@ -611,9 +632,10 @@ class ProtectCard extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               height: 1.25,
+              color: cs.onSurface.withValues(alpha: 0.65),
             ),
           ),
         ],
@@ -624,80 +646,84 @@ class ProtectCard extends StatelessWidget {
 
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
-Widget featureItem(IconData icon, String title, String subtitle) {
-  return Expanded(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: const Color(0xFF62C2B6),
-            size: 30,
-          ),
 
-          const SizedBox(height: 10),
-
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.bold,
-              height: 1.25,
+  Widget _featureItem(BuildContext context, IconData icon, String title, String subtitle) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF2EC4B6), size: 30),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                height: 1.25,
+                color: cs.onSurface,
+              ),
             ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 9.5,
-              height: 1.35,
-              color: Colors.black54,
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                height: 1.35,
+                color: cs.onSurface.withValues(alpha: 0.54),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget verticalDivider() {
-  return Container(
-    height: 95,
-    width: 1,
-    margin: const EdgeInsets.symmetric(horizontal: 4),
-    color: const Color(0xFFD6EDEA),
-  );
-}
+  Widget _verticalDivider(BuildContext context) {
+    return Container(
+      height: 95,
+      width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: const Color(0xFF2EC4B6).withValues(alpha: 0.2),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "About CLIPVIEW",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
+              color: cs.onSurface,
             ),
           ),
 
           const SizedBox(height: 12),
 
-          /// الكارد الأول
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: cardStyle(const Color(0xFFf0f5f3),borderColor:Color(0xFFe6f0ee)),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
+                width: 1.5,
+              ),
+            ),
             child: Row(
               children: [
                 ClipRRect(
@@ -712,7 +738,7 @@ Widget verticalDivider() {
 
                 const SizedBox(width: 12),
 
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -721,25 +747,26 @@ Widget verticalDivider() {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
+                          color: cs.onSurface,
                         ),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
                         "Learn how to use your device and app to improve your eye health every day.",
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,
-                          color: Colors.black54,
+                          color: cs.onSurface.withValues(alpha: 0.54),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: Color(0xFF8fb8b1),
+                  color: cs.onSurface.withValues(alpha: 0.4),
                 ),
               ],
             ),
@@ -747,48 +774,29 @@ Widget verticalDivider() {
 
           const SizedBox(height: 14),
 
-          /// الكارد الثاني
-         Container(
-  padding: const EdgeInsets.symmetric(
-    horizontal: 10,
-    vertical: 18,
-  ),
-  decoration: cardStyle(const Color(0xFFf0f5f3),borderColor:Color(0xFFe6f0ee)),
-  child: Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      featureItem(
-        Icons.verified_user_outlined,
-        "Privacy First",
-        "Camera-free by design",
-      ),
-
-      verticalDivider(),
-
-      featureItem(
-        Icons.attach_file,
-        "Clip-On Design",
-        "Easy to attach and use",
-      ),
-
-      verticalDivider(),
-
-      featureItem(
-        Icons.battery_full,
-        "Long Battery",
-        "All-day monitoring on a single charge",
-      ),
-
-      verticalDivider(),
-
-      featureItem(
-        Icons.bar_chart,
-        "Smart Insights",
-        "AI-powered personalization",
-      ),
-    ],
-  ),
-),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _featureItem(context, Icons.verified_user_outlined, "Privacy First", "Camera-free by design"),
+                _verticalDivider(context),
+                _featureItem(context, Icons.attach_file, "Clip-On Design", "Easy to attach and use"),
+                _verticalDivider(context),
+                _featureItem(context, Icons.battery_full, "Long Battery", "All-day monitoring on a single charge"),
+                _verticalDivider(context),
+                _featureItem(context, Icons.bar_chart, "Smart Insights", "AI-powered personalization"),
+              ],
+            ),
+          ),
         ],
       ),
     );

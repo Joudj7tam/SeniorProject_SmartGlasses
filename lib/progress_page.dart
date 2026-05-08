@@ -173,14 +173,21 @@ class _ProgressPageState extends State<ProgressPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Progress',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Charts preview .',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+              ),
             ),
             const SizedBox(height: 14),
 
@@ -207,16 +214,18 @@ class _ProgressPageState extends State<ProgressPage> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
                   ],
-                  border: Border.all(color: Colors.black12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -226,19 +235,20 @@ class _ProgressPageState extends State<ProgressPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Date Filter',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _selectedDateLabel(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black54,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -252,15 +262,18 @@ class _ProgressPageState extends State<ProgressPage> {
                                 : _range == TimeRange.monthly
                                 ? 'Selected month'
                                 : 'Selected year',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Colors.black45,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.keyboard_arrow_down_rounded),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ],
                 ),
               ),
@@ -309,11 +322,11 @@ class _ProgressPageState extends State<ProgressPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -331,7 +344,7 @@ class _ProgressPageState extends State<ProgressPage> {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isSelected
-                      ? Colors.grey.shade700
+                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)
                       : const Color(0xFFFF9F1C),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -366,7 +379,9 @@ class _ProgressPageState extends State<ProgressPage> {
       onSelected: (_) => setState(() => _active = type),
       labelStyle: TextStyle(
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        color: selected ? const Color(0xFF2EC4B6) : Colors.black87,
+        color: selected
+            ? const Color(0xFF2EC4B6)
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
       ),
     );
   }
@@ -518,10 +533,10 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
         final data = snapshot.data ?? [];
 
         if (data.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'No blink by time data available',
-              style: TextStyle(color: Colors.black54),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
           );
         }
@@ -531,14 +546,14 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Blink Rate by Time',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Shows average blink rate for each 3-hour period of the day.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -733,10 +748,10 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
         final alerts = snapshot.data ?? [];
 
         if (alerts.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'No alert data available',
-              style: TextStyle(color: Colors.black54),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
           );
         }
@@ -746,14 +761,14 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Alerts by Type',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Summarizes alert counts to highlight the most common issues.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -815,9 +830,9 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Loaded from database.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
           ],
         );
@@ -978,10 +993,10 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
         final data = snapshot.data ?? [];
 
         if (data.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'No blue light data available',
-              style: TextStyle(color: Colors.black54),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
           );
         }
@@ -993,14 +1008,14 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Blue Light Exposure',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(height: 6),
             Text(
               'Shows the relationship between lux and blue light ratio for the selected ${_rangeLabel(widget.range)} range.',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -1075,7 +1090,7 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
             const SizedBox(height: 8),
             Text(
               'Each dot represents one ${_rangeLabel(widget.range)} time bucket.',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
             ),
           ],
         );

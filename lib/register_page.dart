@@ -151,19 +151,17 @@ Widget build(BuildContext context) {
   final size = MediaQuery.of(context).size;
 
   return Scaffold(
-    backgroundColor: const Color(0xFFF8EFE5),
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     body: Stack(
       children: [
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFFBF6),
-                Color(0xFFF8EFE5),
-                Color(0xFFFFE7BF),
-              ],
+              colors: Theme.of(context).brightness == Brightness.dark
+                  ? [Color(0xFF0D1B2A), Color(0xFF1B2A3B), Color(0xFF0D1B2A)]
+                  : [Color(0xFFFFFBF6), Color(0xFFF8EFE5), Color(0xFFFFE7BF)],
               stops: [0.0, 0.55, 1.0],
             ),
           ),
@@ -479,7 +477,7 @@ Widget _inputField({
             )
           : null,
       filled: true,
-      fillColor: const Color(0xFFFFFAF4).withOpacity(0.88),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),

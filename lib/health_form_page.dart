@@ -829,7 +829,7 @@ Widget _switchCard({
           scale: 0.86,
           child: Switch(
             value: value,
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: const Color(0xFFEFAA4B),
             inactiveThumbColor: const Color(0xFF8C8176),
             inactiveTrackColor: const Color(0xFFF0E4D8),

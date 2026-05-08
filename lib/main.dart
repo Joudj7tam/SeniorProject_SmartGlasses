@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:provider/provider.dart';
 import 'eye_health_profile_page.dart';
 
 import 'notifications_page.dart';
@@ -12,6 +13,8 @@ import 'login_page.dart';
 import 'settings_page.dart';
 import 'progress_page.dart';
 import 'tips_page.dart';
+import 'theme_provider.dart';
+import 'app_theme.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -35,12 +38,14 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Firebase once at app startup.
   await Firebase.initializeApp();
-
-  // Register background handler before runApp.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  runApp(const SmartGlassesApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const SmartGlassesApp(),
+    ),
+  );
 }
 
 class SmartGlassesApp extends StatelessWidget {
@@ -48,32 +53,17 @@ class SmartGlassesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Smart Glasses',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFFFF7EE),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF9F1C),
-          primary: const Color(0xFFFF9F1C),
-          secondary: const Color(0xFF2EC4B6),
-        ),
-        useMaterial3: true,
-      ),
+      themeMode: themeProvider.themeMode,
 
-      /* home: HomePage(
-  mainAccountId: 'test123',
-  firebaseUid: 'testUID',
-),*/
-      home: const LoginPage(), //############################
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
 
-      // home: const RegisterPage(), //############################
-
-      /* home: HealthFormPage(
-  mainAccountId: 'test123',
-  firebaseUid: 'testUID',
-  goHomeAfterSave: false,
-),*/
+      home: const LoginPage(),
       routes: {'/login': (_) => const LoginPage()},
     );
   }
@@ -684,8 +674,8 @@ class _HomePageState extends State<HomePage> {
 
   Color _iconColor(int index) {
     return _selectedIndex == index
-        ? const Color(0xFF2EC4B6) // selected item
-        : Colors.black45;
+        ? const Color(0xFF2EC4B6)
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45);
   }
 
   String _greeting() {
@@ -1049,8 +1039,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8EFE5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
       body: _selectedIndex == 2
           ? ProgressPage(
@@ -1062,16 +1053,22 @@ class _HomePageState extends State<HomePage> {
           : Stack(
               children: [
                 Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF7FD1C9),
-                        Color(0xFFEAF4EC),
-                        Color(0xFFFFD08A),
-                      ],
-                      stops: [0.0, 0.55, 1.0],
+                      colors: isDark
+                          ? [
+                              const Color(0xFF0D1B2A),
+                              const Color(0xFF1B2A3B),
+                              const Color(0xFF0D1B2A),
+                            ]
+                          : [
+                              const Color(0xFF7FD1C9),
+                              const Color(0xFFEAF4EC),
+                              const Color(0xFFFFD08A),
+                            ],
+                      stops: const [0.0, 0.55, 1.0],
                     ),
                   ),
                 ),
@@ -1079,12 +1076,12 @@ class _HomePageState extends State<HomePage> {
                 Positioned(
                   top: -90,
                   left: -90,
-                  child: _homeSoftCircle(260, Colors.white, 0.18),
+                  child: _homeSoftCircle(260, isDark ? const Color(0xFF2EC4B6) : Colors.white, 0.08),
                 ),
                 Positioned(
                   bottom: 120,
                   right: -70,
-                  child: _homeSoftCircle(220, const Color(0xFFFFBF69), 0.22),
+                  child: _homeSoftCircle(220, const Color(0xFFFFBF69), isDark ? 0.10 : 0.22),
                 ),
 
                 SafeArea(
@@ -1102,12 +1099,10 @@ class _HomePageState extends State<HomePage> {
                                 width: 66,
                                 height: 66,
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFCBF3F0,
-                                  ).withOpacity(0.85),
+                                  color: const Color(0xFFCBF3F0).withValues(alpha: 0.85),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.55),
+                                    color: Colors.white.withValues(alpha: 0.55),
                                     width: 2,
                                   ),
                                 ),
@@ -1128,19 +1123,19 @@ class _HomePageState extends State<HomePage> {
                                 children: [
                                   Text(
                                     _greeting(),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 15,
-                                      color: Color(0xFF4D4540),
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
                                       fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
                                     _activeAccountName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 23,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF4D3732),
+                                      color: Theme.of(context).colorScheme.onSurface,
                                       letterSpacing: 0.5,
                                     ),
                                   ),
@@ -1208,13 +1203,13 @@ class _HomePageState extends State<HomePage> {
           border: Border.all(color: Colors.white, width: 8),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2EC4B6).withOpacity(0.32),
+              color: const Color(0xFF2EC4B6).withValues(alpha: 0.32),
               blurRadius: 28,
               spreadRadius: 2,
               offset: const Offset(0, 12),
             ),
             BoxShadow(
-              color: const Color(0xFFFFBF69).withOpacity(0.18),
+              color: const Color(0xFFFFBF69).withValues(alpha: 0.18),
               blurRadius: 35,
               spreadRadius: 5,
               offset: const Offset(0, 18),
@@ -1277,7 +1272,7 @@ class _HomePageState extends State<HomePage> {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withOpacity(opacity),
+        color: color.withValues(alpha: opacity),
         shape: BoxShape.circle,
       ),
     );
@@ -1291,7 +1286,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           GestureDetector(
             onTap: _toggleQuickActions,
-            child: Container(color: Colors.black.withOpacity(0.25)),
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
           // close button
           Positioned(
@@ -1301,9 +1296,9 @@ class _HomePageState extends State<HomePage> {
               heroTag: 'close_actions',
               mini: true,
               shape: const CircleBorder(),
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: _toggleQuickActions,
-              child: const Icon(Icons.close, color: Colors.black87),
+              child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
           // الدوائر الثلاثة
@@ -1381,13 +1376,15 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 SizedBox(height: 14),
-                Text(
-                  'Go to Progress and select charts to show here.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF4D4540),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                Builder(
+                  builder: (context) => Text(
+                    'Go to Progress and select charts to show here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -1463,12 +1460,12 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF4F2), // لون أخضر فاتح ناعم
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFBFE3DF), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withOpacity(0.15),
+            color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -1476,12 +1473,11 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
-          // 🔹 أيقونة اللمبة
           Container(
             width: 70,
             height: 70,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8FCAC3),
+            decoration: const BoxDecoration(
+              color: Color(0xFF8FCAC3),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1493,12 +1489,11 @@ class _HomePageState extends State<HomePage> {
 
           const SizedBox(width: 16),
 
-          // 🔹 النص
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Eye Care Tip',
                   style: TextStyle(
                     fontSize: 18,
@@ -1506,13 +1501,13 @@ class _HomePageState extends State<HomePage> {
                     color: Color(0xFF6AAFA7),
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   'Follow the 20-20-20 rule: Every 20 minutes,\nlook at something 20 feet away for 20 seconds.',
                   style: TextStyle(
                     fontSize: 11.5,
                     height: 1.25,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1523,7 +1518,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
 
           Image.asset(
-            'assets/images/phone_20.png', // 👈 عدل الاسم إذا مختلف
+            'assets/images/phone_20.png',
             width: 90,
             height: 90,
             fit: BoxFit.contain,
@@ -1547,7 +1542,7 @@ class _HomePageState extends State<HomePage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withOpacity(0.25),
+            color: const Color(0xFF2EC4B6).withValues(alpha: 0.25),
             blurRadius: 28,
             offset: const Offset(0, 16),
           ),
@@ -1572,9 +1567,9 @@ class _HomePageState extends State<HomePage> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.32),
+                    color: Colors.white.withValues(alpha: 0.32),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withOpacity(0.45)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
                   ),
                   child: const Icon(
                     Icons.auto_graph_rounded,
@@ -1634,11 +1629,11 @@ class _SensorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF4).withOpacity(0.93),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.18),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 22,
             spreadRadius: -8,
             offset: const Offset(0, 14),
@@ -1650,19 +1645,19 @@ class _SensorCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF2D2926),
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           if (subtitle.isNotEmpty) ...[
             const SizedBox(height: 5),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF8F8880),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                 fontWeight: FontWeight.w500,
               ),
             ),

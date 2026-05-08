@@ -10,19 +10,19 @@ class SmartBottomNav extends StatelessWidget {
     required this.onItemTap,
   });
 
-  Color _iconColor(int index) {
+  Color _iconColor(BuildContext context, int index) {
     return selectedIndex == index
-        ? const Color(0xFF2EC4B6)
-        : const Color(0xFF8A8580);
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
   }
 
-  TextStyle _labelStyle(int index) {
+  TextStyle _labelStyle(BuildContext context, int index) {
     final selected = selectedIndex == index;
     return TextStyle(
       fontSize: 12,
       height: 1,
       fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-      color: _iconColor(index),
+      color: _iconColor(context, index),
     );
   }
 
@@ -32,7 +32,7 @@ class SmartBottomNav extends StatelessWidget {
       shape: const CircularNotchedRectangle(),
       notchMargin: 10,
       elevation: 0,
-      color: Colors.white.withOpacity(0.96),
+      color: Theme.of(context).colorScheme.surface,
       child: SizedBox(
         height: 78,
         child: Row(
@@ -43,11 +43,13 @@ class SmartBottomNav extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _navItem(
+                    context: context,
                     index: 0,
                     icon: Icons.home_outlined,
                     label: 'Home',
                   ),
                   _navItem(
+                    context: context,
                     index: 1,
                     icon: Icons.settings_outlined,
                     label: 'Settings',
@@ -62,7 +64,7 @@ class SmartBottomNav extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 45),
                 child: Text(
                   'Progress',
-                  style: _labelStyle(2),
+                  style: _labelStyle(context, 2),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -74,11 +76,13 @@ class SmartBottomNav extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _navItem(
+                    context: context,
                     index: 3,
                     icon: Icons.notifications_none_rounded,
                     label: 'Alerts',
                   ),
                   _navItem(
+                    context: context,
                     index: 4,
                     icon: Icons.lightbulb_outline_rounded,
                     label: 'Tips',
@@ -93,6 +97,7 @@ class SmartBottomNav extends StatelessWidget {
   }
 
   Widget _navItem({
+    required BuildContext context,
     required int index,
     required IconData icon,
     required String label,
@@ -107,7 +112,7 @@ class SmartBottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFFCBF3F0).withOpacity(0.45)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),
@@ -116,11 +121,11 @@ class SmartBottomNav extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: _iconColor(index),
+              color: _iconColor(context, index),
               size: selected ? 28 : 25,
             ),
             const SizedBox(height: 4),
-            Text(label, style: _labelStyle(index)),
+            Text(label, style: _labelStyle(context, index)),
           ],
         ),
       ),
