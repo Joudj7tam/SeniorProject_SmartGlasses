@@ -7,6 +7,7 @@ import 'dart:io';
 import 'main.dart';
 import 'register_page.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'app_theme.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -149,22 +150,25 @@ class _LoginPageState extends State<LoginPage> {
  @override
 Widget build(BuildContext context) {
   final size = MediaQuery.of(context).size;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
 
   return Scaffold(
-    backgroundColor: const Color(0xFFF8EFE5),
+    backgroundColor: isDark ? kDarkBg1 : const Color(0xFFF8EFE5),
     body: Stack(
       children: [
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFFBF6),
-                Color(0xFFF8EFE5),
-                Color(0xFFFFE7BF),
-              ],
-              stops: [0.0, 0.55, 1.0],
+              colors: isDark
+                  ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                  : const [
+                      Color(0xFFFFFBF6),
+                      Color(0xFFF8EFE5),
+                      Color(0xFFFFE7BF),
+                    ],
+              stops: const [0.0, 0.55, 1.0],
             ),
           ),
         ),
@@ -172,43 +176,43 @@ Widget build(BuildContext context) {
         Positioned(
           top: -90,
           left: -110,
-          child: _outlineCircle(300),
+          child: _outlineCircle(300, isDark: isDark),
         ),
         Positioned(
           top: -125,
           right: -70,
-          child: _outlineCircle(230),
+          child: _outlineCircle(230, isDark: isDark),
         ),
 
         Positioned(
           top: 52,
           left: 58,
-          child: _circle(18, const Color(0xFFEFAA4B), opacity: 0.95),
+          child: _circle(18, isDark ? kDarkAccent : const Color(0xFFEFAA4B), opacity: isDark ? 0.55 : 0.95),
         ),
         Positioned(
           top: 34,
           right: 130,
-          child: _circle(42, const Color(0xFF2E9EA0), opacity: 0.95),
+          child: _circle(42, const Color(0xFF2E9EA0), opacity: isDark ? 0.35 : 0.95),
         ),
         Positioned(
           top: 125,
           right: 68,
-          child: _circle(38, const Color(0xFFEFAA4B), opacity: 0.95),
+          child: _circle(38, isDark ? kDarkBlue : const Color(0xFFEFAA4B), opacity: isDark ? 0.40 : 0.95),
         ),
         Positioned(
           bottom: size.height * 0.18,
           left: -36,
-          child: _softCircle(150, const Color(0xFFEFAA4B), 0.20),
+          child: _softCircle(150, isDark ? kDarkAccent : const Color(0xFFEFAA4B), isDark ? 0.07 : 0.20),
         ),
         Positioned(
           bottom: -80,
           right: -65,
-          child: _softCircle(210, const Color(0xFFEFAA4B), 0.15),
+          child: _softCircle(210, isDark ? kDarkBlue : const Color(0xFFEFAA4B), isDark ? 0.06 : 0.15),
         ),
         Positioned(
           top: size.height * 0.48,
           right: -18,
-          child: _circle(42, const Color(0xFF2E9EA0), opacity: 0.90),
+          child: _circle(42, const Color(0xFF2E9EA0), opacity: isDark ? 0.25 : 0.90),
         ),
 
         SafeArea(
@@ -221,22 +225,26 @@ Widget build(BuildContext context) {
                 constraints: const BoxConstraints(maxWidth: 380),
                 padding: const EdgeInsets.fromLTRB(26, 28, 26, 28),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.62),
+                  color: isDark
+                      ? kDarkCard.withOpacity(0.92)
+                      : Colors.white.withOpacity(0.62),
                   borderRadius: BorderRadius.circular(34),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.78),
+                    color: isDark
+                        ? kDarkBorder
+                        : Colors.white.withOpacity(0.78),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
                       blurRadius: 26,
                       spreadRadius: -8,
                       offset: const Offset(0, 16),
                     ),
                   ],
                 ),
-                child: _buildLoginCard(),
+                child: _buildLoginCard(isDark: isDark),
               ),
             ),
           ),
@@ -246,7 +254,7 @@ Widget build(BuildContext context) {
   );
 }
 
-Widget _buildLoginCard() {
+Widget _buildLoginCard({bool isDark = false}) {
   return Form(
     key: _formKey,
     child: Column(
@@ -260,10 +268,7 @@ Widget _buildLoginCard() {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF2E9EA0),
-                Color(0xFF43B8B8),
-              ],
+              colors: [Color(0xFF2E9EA0), Color(0xFF43B8B8)],
             ),
             boxShadow: [
               BoxShadow(
@@ -273,32 +278,28 @@ Widget _buildLoginCard() {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.remove_red_eye_outlined,
-            color: Colors.white,
-            size: 34,
-          ),
+          child: const Icon(Icons.remove_red_eye_outlined, color: Colors.white, size: 34),
         ),
 
         const SizedBox(height: 20),
 
-        const Text(
+        Text(
           'Welcome Back',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
-            color: Colors.black,
+            color: isDark ? kDarkText : Colors.black,
             letterSpacing: -0.6,
           ),
         ),
 
         const SizedBox(height: 7),
 
-        const Text(
+        Text(
           'Login to continue your eye-health journey',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF8F8880),
+            color: isDark ? kDarkMuted : const Color(0xFF8F8880),
             fontSize: 13.5,
             fontWeight: FontWeight.w500,
             height: 1.3,
@@ -370,10 +371,10 @@ Widget _buildLoginCard() {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
+            Text(
               "Don't have an account? ",
               style: TextStyle(
-                color: Color(0xFF8F8880),
+                color: isDark ? kDarkMuted : const Color(0xFF8F8880),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -409,46 +410,46 @@ Widget _inputField({
   VoidCallback? toggleObscure,
   String? Function(String?)? validator,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final iconColor = isDark ? kDarkMuted : const Color(0xFF9B9690);
+
   return TextFormField(
     controller: controller,
     validator: validator,
     obscureText: obscure,
     cursorColor: const Color(0xFF2E9EA0),
-    style: const TextStyle(
-      color: Colors.black,
+    style: TextStyle(
+      color: isDark ? kDarkText : Colors.black,
       fontSize: 15.5,
       fontWeight: FontWeight.w600,
     ),
     decoration: InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(
-        color: Color(0xFF9B9690),
+      labelStyle: TextStyle(
+        color: isDark ? kDarkMuted : const Color(0xFF9B9690),
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
-      prefixIcon: Icon(
-        icon,
-        color: const Color(0xFF9B9690),
-        size: 21,
-      ),
+      prefixIcon: Icon(icon, color: iconColor, size: 21),
       suffixIcon: isPassword
           ? IconButton(
               onPressed: toggleObscure,
               icon: Icon(
-                obscure
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                color: const Color(0xFF9B9690),
+                obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                color: iconColor,
                 size: 21,
               ),
             )
           : null,
       filled: true,
-      fillColor: const Color(0xFFFFFAF4).withOpacity(0.88),
+      fillColor: isDark ? kDarkCardElev : const Color(0xFFFFFAF4).withOpacity(0.88),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: const BorderSide(color: Color(0xFFE4DDD4), width: 1),
+        borderSide: BorderSide(
+          color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+          width: 1,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
@@ -485,14 +486,16 @@ Widget _circle(double size, Color color, {double opacity = 1}) {
   );
 }
 
-Widget _outlineCircle(double size) {
+Widget _outlineCircle(double size, {bool isDark = false}) {
   return Container(
     width: size,
     height: size,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       border: Border.all(
-        color: Colors.black.withOpacity(0.12),
+        color: isDark
+            ? kDarkBorder.withOpacity(0.35)
+            : Colors.black.withOpacity(0.12),
         width: 1,
       ),
     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 
 class SmartBottomNav extends StatelessWidget {
   final int selectedIndex;
@@ -19,19 +20,19 @@ class SmartBottomNav extends StatelessWidget {
     required this.onTipsTap,
   });
 
-  Color _iconColor(int index) {
+  Color _iconColor(int index, bool isDark) {
     return selectedIndex == index
         ? const Color(0xFF2EC4B6)
-        : const Color(0xFF8A8580);
+        : (isDark ? kDarkMuted : const Color(0xFF8A8580));
   }
 
-  TextStyle _labelStyle(int index) {
+  TextStyle _labelStyle(int index, bool isDark) {
     final selected = selectedIndex == index;
     return TextStyle(
       fontSize: 12,
       height: 1,
       fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-      color: _iconColor(index),
+      color: _iconColor(index, isDark),
     );
   }
 
@@ -57,11 +58,14 @@ class SmartBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = isDark ? const Color(0xFF0F2035) : Colors.white.withOpacity(0.96);
+
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 7,
       elevation: 0,
-      color: Colors.white.withOpacity(0.96),
+      color: navBg,
       child: SizedBox(
         height: 78,
         child: Row(
@@ -71,16 +75,8 @@ class SmartBottomNav extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _navItem(
-                    index: 0,
-                    icon: Icons.home_outlined,
-                    label: 'Home',
-                  ),
-                  _navItem(
-                    index: 1,
-                    icon: Icons.settings_outlined,
-                    label: 'Settings',
-                  ),
+                  _navItem(index: 0, icon: Icons.home_outlined, label: 'Home', isDark: isDark),
+                  _navItem(index: 1, icon: Icons.settings_outlined, label: 'Settings', isDark: isDark),
                 ],
               ),
             ),
@@ -94,7 +90,7 @@ class SmartBottomNav extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 45),
                   child: Text(
                     'Progress',
-                    style: _labelStyle(2),
+                    style: _labelStyle(2, isDark),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -106,16 +102,8 @@ class SmartBottomNav extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _navItem(
-                    index: 3,
-                    icon: Icons.notifications_none_rounded,
-                    label: 'Alerts',
-                  ),
-                  _navItem(
-                    index: 4,
-                    icon: Icons.lightbulb_outline_rounded,
-                    label: 'Tips',
-                  ),
+                  _navItem(index: 3, icon: Icons.notifications_none_rounded, label: 'Alerts', isDark: isDark),
+                  _navItem(index: 4, icon: Icons.lightbulb_outline_rounded, label: 'Tips', isDark: isDark),
                 ],
               ),
             ),
@@ -129,6 +117,7 @@ class SmartBottomNav extends StatelessWidget {
     required int index,
     required IconData icon,
     required String label,
+    required bool isDark,
   }) {
     final selected = selectedIndex == index;
 
@@ -140,20 +129,18 @@ class SmartBottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFFCBF3F0).withOpacity(0.45)
+              ? (isDark
+                  ? kDarkAccentSoft
+                  : const Color(0xFFCBF3F0).withOpacity(0.45))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: _iconColor(index),
-              size: selected ? 28 : 25,
-            ),
+            Icon(icon, color: _iconColor(index, isDark), size: selected ? 28 : 25),
             const SizedBox(height: 4),
-            Text(label, style: _labelStyle(index)),
+            Text(label, style: _labelStyle(index, isDark)),
           ],
         ),
       ),
@@ -173,37 +160,32 @@ class SmartProgressFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Transform.translate(
-      offset: const Offset(0, 12), 
+      offset: const Offset(0, 12),
       child: Container(
         width: 72,
         height: 72,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFE9FFFC),
-              Color(0xFFBFF3EE),
-            ],
+            colors: isDark
+                ? const [Color(0xFF0D2A38), Color(0xFF1A3D50)]
+                : const [Color(0xFFE9FFFC), Color(0xFFBFF3EE)],
           ),
           border: Border.all(
-            color: Colors.white,
+            color: isDark ? kDarkBorder : Colors.white,
             width: 6,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2EC4B6).withOpacity(0.28),
+              color: const Color(0xFF2EC4B6).withOpacity(isDark ? 0.18 : 0.28),
               blurRadius: 22,
               spreadRadius: 1,
               offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: const Color(0xFFFFBF69).withOpacity(0.14),
-              blurRadius: 26,
-              spreadRadius: 3,
-              offset: const Offset(0, 12),
             ),
           ],
         ),
@@ -218,7 +200,7 @@ class SmartProgressFab extends StatelessWidget {
                 Icons.trending_up_rounded,
                 color: selectedIndex == 2
                     ? const Color(0xFF2EC4B6)
-                    : const Color(0xFF7C746E),
+                    : (isDark ? kDarkMuted : const Color(0xFF7C746E)),
                 size: 34,
               ),
             ),

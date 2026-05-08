@@ -9,6 +9,7 @@ import 'tips_page.dart';
 import 'main.dart';
 import 'progress_page.dart';
 import 'settings_page.dart';
+import 'app_theme.dart';
 
 /// Base URL for the backend API.
 ///
@@ -81,8 +82,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+  final Set<String> _expandedIds = {};
 
-  Color get _bgColor => const Color(0xFFFFF7EE);
+  void _toggleExpand(String id) {
+    setState(() {
+      if (_expandedIds.contains(id)) {
+        _expandedIds.remove(id);
+      } else {
+        _expandedIds.add(id);
+      }
+    });
+  }
+
   Color get _accent => const Color(0xFF2EC4B6);
 
 void _goHome() {
@@ -459,8 +470,10 @@ void _goTips() {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: isDark ? kDarkBg1 : const Color(0xFFFFF7EE),
       extendBody: true,
 
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -472,12 +485,14 @@ void _goTips() {
         ),
 
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFBF6), Color(0xFFFFF7EE), Color(0xFFFFE8C4)],
-            stops: [0.0, 0.62, 1.0],
+            colors: isDark
+                ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                : const [Color(0xFFFFFBF6), Color(0xFFFFF7EE), Color(0xFFFFE8C4)],
+            stops: const [0.0, 0.62, 1.0],
           ),
         ),
         child: SafeArea(
@@ -494,49 +509,47 @@ InkWell(
     width: 46,
     height: 46,
     decoration: BoxDecoration(
-      color: const Color(0xFFFFFCF8).withOpacity(0.92),
+      color: isDark ? kDarkCardElev : const Color(0xFFFFFCF8).withOpacity(0.92),
       shape: BoxShape.circle,
       border: Border.all(
-        color: const Color(0xFFEADCCD),
+        color: isDark ? kDarkBorder : const Color(0xFFEADCCD),
         width: 1.2,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.08),
+          color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
           blurRadius: 12,
           offset: const Offset(0, 5),
         ),
       ],
     ),
-    child: const Icon(
+    child: Icon(
       Icons.arrow_back_ios_new_rounded,
       size: 21,
-      color: Color(0xFF3E2E25),
+      color: isDark ? kDarkText : const Color(0xFF3E2E25),
     ),
   ),
 ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Notifications',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF3E2E25),
+                          color: isDark ? kDarkText : const Color(0xFF3E2E25),
                           letterSpacing: -0.4,
                         ),
                       ),
                     ),
                     GestureDetector(
-                      onTap: _selectionMode
-                          ? _toggleSelectionMode
-                          : _toggleSelectionMode,
+                      onTap: _toggleSelectionMode,
                       child: Text(
                         _selectionMode ? 'Done' : 'Select',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: isDark ? kDarkMuted : Colors.black87,
                         ),
                       ),
                     ),
@@ -585,17 +598,18 @@ InkWell(
         ),
       ),
       bottomNavigationBar: _selectionMode
-    ? Container(
+    ? Builder(builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
         height: 70,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFAF4),
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(28),
-          ),
+          color: isDark ? kDarkCard : const Color(0xFFFFFAF4),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: isDark ? Border(top: BorderSide(color: kDarkBorder)) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withOpacity(isDark ? 0.30 : 0.08),
               blurRadius: 18,
               offset: const Offset(0, -6),
             ),
@@ -620,7 +634,8 @@ InkWell(
             ),
           ],
         ),
-      )
+      );
+      })
     : SmartBottomNav(
         selectedIndex: 3,
         onHomeTap: _goHome,
@@ -709,16 +724,19 @@ InkWell(
         final item = _notifications[index];
         final selected = _isSelected(item);
 
+        final isExpanded = _expandedIds.contains(item.id);
+
         final tile = InkWell(
           borderRadius: BorderRadius.circular(26),
           onTap: () {
             if (_selectionMode) {
               _toggleItemSelection(item);
             } else {
+              _toggleExpand(item.id);
               _markNotificationRead(item);
             }
           },
-          child: _notificationCard(item, selected),
+          child: _notificationCard(item, selected, isExpanded),
         );
 
         if (_selectionMode) return tile;
@@ -751,38 +769,52 @@ InkWell(
     );
   }
 
-  Widget _notificationCard(NotificationItem item, bool selected) {
+  Widget _notificationCard(NotificationItem item, bool selected, bool isExpanded) {
     final style = _styleForNotification(item);
     final isMuted = item.isRead;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardBg = isDark
+        ? (isMuted ? kDarkCard : kDarkCardElev)
+        : Colors.white.withOpacity(isMuted ? 0.76 : 0.94);
+    final msgColor = isDark
+        ? (isMuted ? kDarkMuted : kDarkText)
+        : Colors.black.withOpacity(isMuted ? 0.48 : 0.78);
+    final dateColor = isDark
+        ? kDarkMuted
+        : Colors.black.withOpacity(isMuted ? 0.35 : 0.70);
+    final chevronColor = isDark ? kDarkMuted : Colors.black38;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(isMuted ? 0.76 : 0.94),
+        color: cardBg,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: selected ? _accent : style.borderColor,
+          color: selected ? _accent : (isDark ? kDarkBorder : style.borderColor),
           width: selected ? 2 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: style.shadowColor.withOpacity(isMuted ? 0.12 : 0.28),
+            color: style.shadowColor.withOpacity(isMuted ? 0.08 : (isDark ? 0.18 : 0.28)),
             blurRadius: 12,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_selectionMode) ...[
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              color: selected ? _accent : Colors.black26,
-              size: 24,
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                color: selected ? _accent : (isDark ? kDarkMuted : Colors.black26),
+                size: 24,
+              ),
             ),
             const SizedBox(width: 10),
           ],
@@ -812,36 +844,57 @@ InkWell(
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: style.titleColor.withOpacity(isMuted ? 0.55 : 1),
+                    color: isDark
+                        ? (isMuted ? kDarkMuted : kDarkText)
+                        : style.titleColor.withOpacity(isMuted ? 0.55 : 1),
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  item.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.black.withOpacity(isMuted ? 0.48 : 0.78),
-                    fontSize: 12,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  _formatDateTime(item.createdAt),
-                  style: TextStyle(
-                    color: Colors.black.withOpacity(isMuted ? 0.35 : 0.7),
-                    fontSize: 12.2,
-                    fontWeight: FontWeight.w500,
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item.message,
+                        maxLines: isExpanded ? null : 2,
+                        overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: msgColor,
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _formatDateTime(item.createdAt),
+                        style: TextStyle(
+                          color: dateColor,
+                          fontSize: 12.2,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+
+          if (!_selectionMode) ...[
+            const SizedBox(width: 6),
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0.0,
+              duration: const Duration(milliseconds: 220),
+              child: Icon(Icons.keyboard_arrow_down_rounded, color: chevronColor, size: 20),
+            ),
+          ],
         ],
       ),
     );

@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'smart_bottom_nav.dart';
 import 'dart:async';
+import 'app_theme.dart';
 
 import 'main.dart';
 import 'settings_page.dart';
@@ -52,9 +53,11 @@ class TipsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       extendBody: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDark ? kDarkBg1 : Colors.transparent,
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: SmartProgressFab(
@@ -63,12 +66,14 @@ class TipsPage extends StatelessWidget {
       ),
 
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.center,
-            colors: [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
-            stops: [0.0, 0.50, 1.5],
+            colors: isDark
+                ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                : const [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
+            stops: const [0.0, 0.50, 1.5],
           ),
         ),
         child: SafeArea(
@@ -157,12 +162,12 @@ class TipsPage extends StatelessWidget {
 }
 
 // Shared card style used across the page
-BoxDecoration cardStyle(Color color, {Color? borderColor}) {
+BoxDecoration cardStyle(Color color, {Color? borderColor, bool isDark = false}) {
   return BoxDecoration(
-    color: color,
+    color: isDark ? kDarkCard : color,
     borderRadius: BorderRadius.circular(24),
     border: Border.all(
-      color: borderColor ?? const Color(0xFFf4efea), // default
+      color: isDark ? kDarkBorder : (borderColor ?? const Color(0xFFf4efea)),
       width: 1.5,
     ),
   );
@@ -176,6 +181,8 @@ class HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Column(
@@ -195,29 +202,33 @@ class HeaderSection extends StatelessWidget {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.28),
+                        color: isDark
+                            ? kDarkCardElev
+                            : Colors.white.withOpacity(0.28),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.45),
+                          color: isDark
+                              ? kDarkBorder
+                              : Colors.white.withOpacity(0.45),
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 21,
-                        color: Color(0xFF5B4636),
+                        color: isDark ? kDarkText : const Color(0xFF5B4636),
                       ),
                     ),
                   ),
                 ),
 
-                const Center(
+                Center(
                   child: Text(
                     "Tips  & News",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF3E2E25),
+                      color: isDark ? kDarkText : const Color(0xFF3E2E25),
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -228,13 +239,13 @@ class HeaderSection extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          const Center(
+          Center(
             child: Text(
               "Learn, protect, and improve your eye health",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.black54,
+                color: isDark ? kDarkMuted : Colors.black54,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -253,20 +264,31 @@ class TipsSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
         height: 38,
         child: TextField(
+          style: TextStyle(color: isDark ? kDarkText : Colors.black87),
           decoration: InputDecoration(
             hintText: "Search tips, news, and more...",
-            hintStyle: const TextStyle(fontSize: 15, color: Colors.grey),
-            prefixIcon: const Icon(Icons.search),
+            hintStyle: TextStyle(fontSize: 15, color: isDark ? kDarkMuted : Colors.grey),
+            prefixIcon: Icon(Icons.search, color: isDark ? kDarkMuted : Colors.grey),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDark ? kDarkCard : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: BorderSide.none,
+              borderSide: isDark
+                  ? const BorderSide(color: kDarkBorder)
+                  : BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: isDark
+                  ? const BorderSide(color: kDarkBorder)
+                  : BorderSide.none,
             ),
           ),
         ),
@@ -283,15 +305,20 @@ class DailyTipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               "Daily Tip",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? kDarkText : Colors.black87,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -300,39 +327,33 @@ class DailyTipCard extends StatelessWidget {
             decoration: cardStyle(
               const Color(0xFFf3f6f3),
               borderColor: const Color(0xFFD6EDEA),
+              isDark: isDark,
             ),
-            child: const Row(
+            child: Row(
               children: [
                 CircleAvatar(
                   radius: 35,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.tips_and_updates,
-                    color: Colors.teal,
-                    size: 36,
-                  ),
+                  backgroundColor: isDark ? kDarkCardElev : Colors.white,
+                  child: const Icon(Icons.tips_and_updates, color: Colors.teal, size: 36),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "20-20-20 Rule",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.teal,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.teal, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
                         "Every 20 minutes, look at something 20 feet away for 20 seconds.",
+                        style: TextStyle(color: isDark ? kDarkMuted : Colors.black87),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.access_time, color: Colors.teal, size: 40),
+                const Icon(Icons.access_time, color: Colors.teal, size: 40),
               ],
             ),
           ),
@@ -432,16 +453,20 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
             startAutoSlide(newsList.length);
           });
 
+          final isDark2 = Theme.of(context).brightness == Brightness.dark;
           return Column(
             children: [
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     "Latest News",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark2 ? kDarkText : Colors.black87,
+                    ),
                   ),
-                  Text("View all", style: TextStyle(color: Colors.teal)),
+                  const Text("View all", style: TextStyle(color: Colors.teal)),
                 ],
               ),
 
@@ -459,10 +484,11 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                   },
                   itemBuilder: (context, index) {
                     final article = newsList[index];
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
 
                     return Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: cardStyle(const Color(0xFFfbf8f5)),
+                      decoration: cardStyle(const Color(0xFFfbf8f5), isDark: isDark),
                       child: Row(
                         children: [
                           ClipRRect(
@@ -486,9 +512,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                   article["title"] ?? "Eye Health News",
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
+                                    color: isDark ? kDarkText : Colors.black87,
                                   ),
                                 ),
 
@@ -499,10 +526,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                       "Read the latest updates about eye health.",
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     height: 1.3,
-                                    color: Colors.black54,
+                                    color: isDark ? kDarkMuted : Colors.black54,
                                   ),
                                 ),
                               ],
@@ -529,7 +556,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                     decoration: BoxDecoration(
                       color: currentIndex == index
                           ? Colors.teal
-                          : Colors.grey.shade300,
+                          : (isDark2 ? kDarkBorder : Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -558,8 +585,10 @@ class ProtectionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           Row(
@@ -567,9 +596,12 @@ class ProtectionSection extends StatelessWidget {
             children: [
               Text(
                 "How to Protect Your Eyes",
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? kDarkText : Colors.black87,
+                ),
               ),
-              Text("View all", style: TextStyle(color: Colors.teal)),
+              const Text("View all", style: TextStyle(color: Colors.teal)),
             ],
           ),
           SizedBox(height: 12),
@@ -648,9 +680,11 @@ class ProtectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-      decoration: cardStyle(bgColor, borderColor: borderColor),
+      decoration: cardStyle(bgColor, borderColor: borderColor, isDark: isDark),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
@@ -668,10 +702,11 @@ class ProtectCard extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
               height: 1.2,
+              color: isDark ? kDarkText : Colors.black87,
             ),
           ),
 
@@ -682,7 +717,11 @@ class ProtectCard extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, height: 1.25),
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.25,
+              color: isDark ? kDarkMuted : Colors.black54,
+            ),
           ),
         ],
       ),
@@ -696,7 +735,7 @@ class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
 
   // Feature item widget used inside About section
-  Widget featureItem(IconData icon, String title, String subtitle) {
+  Widget featureItem(IconData icon, String title, String subtitle, {bool isDark = false}) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -711,10 +750,11 @@ class AboutSection extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               maxLines: 2,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.bold,
                 height: 1.25,
+                color: isDark ? kDarkText : Colors.black87,
               ),
             ),
 
@@ -725,10 +765,10 @@ class AboutSection extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9.5,
                 height: 1.35,
-                color: Colors.black54,
+                color: isDark ? kDarkMuted : Colors.black54,
               ),
             ),
           ],
@@ -737,36 +777,41 @@ class AboutSection extends StatelessWidget {
     );
   }
 
-  // Divider between feature items
-  Widget verticalDivider() {
+  Widget verticalDivider({bool isDark = false}) {
     return Container(
       height: 95,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: const Color(0xFFD6EDEA),
+      color: isDark ? kDarkBorder : const Color(0xFFD6EDEA),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "About CLIPVIEW",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? kDarkText : Colors.black87,
+            ),
           ),
 
           const SizedBox(height: 12),
 
-          /// first card
           Container(
             padding: const EdgeInsets.all(12),
             decoration: cardStyle(
               const Color(0xFFf0f5f3),
-              borderColor: Color(0xFFe6f0ee),
+              borderColor: const Color(0xFFe6f0ee),
+              isDark: isDark,
             ),
             child: Row(
               children: [
@@ -782,7 +827,7 @@ class AboutSection extends StatelessWidget {
 
                 const SizedBox(width: 12),
 
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -791,71 +836,46 @@ class AboutSection extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
+                          color: isDark ? kDarkText : Colors.black87,
                         ),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
                         "Learn how to use your device and app to improve your eye health every day.",
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,
-                          color: Colors.black54,
+                          color: isDark ? kDarkMuted : Colors.black54,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Color(0xFF8fb8b1),
-                ),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8fb8b1)),
               ],
             ),
           ),
 
           const SizedBox(height: 14),
 
-          /// second card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
             decoration: cardStyle(
               const Color(0xFFf0f5f3),
-              borderColor: Color(0xFFe6f0ee),
+              borderColor: const Color(0xFFe6f0ee),
+              isDark: isDark,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                featureItem(
-                  Icons.verified_user_outlined,
-                  "Privacy First",
-                  "Camera-free by design",
-                ),
-
-                verticalDivider(),
-
-                featureItem(
-                  Icons.attach_file,
-                  "Clip-On Design",
-                  "Easy to attach and use",
-                ),
-
-                verticalDivider(),
-
-                featureItem(
-                  Icons.battery_full,
-                  "Long Battery",
-                  "All-day monitoring on a single charge",
-                ),
-
-                verticalDivider(),
-
-                featureItem(
-                  Icons.bar_chart,
-                  "Smart Insights",
-                  "AI-powered personalization",
-                ),
+                featureItem(Icons.verified_user_outlined, "Privacy First", "Camera-free by design", isDark: isDark),
+                verticalDivider(isDark: isDark),
+                featureItem(Icons.attach_file, "Clip-On Design", "Easy to attach and use", isDark: isDark),
+                verticalDivider(isDark: isDark),
+                featureItem(Icons.battery_full, "Long Battery", "All-day monitoring on a single charge", isDark: isDark),
+                verticalDivider(isDark: isDark),
+                featureItem(Icons.bar_chart, "Smart Insights", "AI-powered personalization", isDark: isDark),
               ],
             ),
           ),

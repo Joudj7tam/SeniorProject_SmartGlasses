@@ -13,6 +13,7 @@ import 'settings_page.dart';
 import 'progress_page.dart';
 import 'tips_page.dart';
 import 'pdf_report_service.dart';
+import 'app_theme.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -61,32 +62,26 @@ class SmartGlassesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Smart Glasses',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFFFF7EE),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF9F1C),
-          primary: const Color(0xFFFF9F1C),
-          secondary: const Color(0xFF2EC4B6),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, themeMode, child) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Smart Glasses',
+        theme: ThemeData(
+          scaffoldBackgroundColor: const Color(0xFFFFF7EE),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFFF9F1C),
+            primary: const Color(0xFFFF9F1C),
+            secondary: const Color(0xFF2EC4B6),
+          ),
+          useMaterial3: true,
         ),
-        useMaterial3: true,
+        darkTheme: buildDarkTheme(),
+        themeMode: themeMode,
+
+        home: const LoginPage(),
+        routes: {'/login': (_) => const LoginPage()},
       ),
-
-      /* home: HomePage(
-  mainAccountId: 'test123',
-  firebaseUid: 'testUID',
-),*/
-      home: const LoginPage(), //############################
-      // home: const RegisterPage(), //############################
-
-      /* home: HealthFormPage(
-  mainAccountId: 'test123',
-  firebaseUid: 'testUID',
-  goHomeAfterSave: false,
-),*/
-      routes: {'/login': (_) => const LoginPage()},
     );
   }
 }
@@ -589,7 +584,6 @@ class _HomePageState extends State<HomePage> {
   // للحالة حق قائمة الأكشنات العلوية
   bool _showQuickActions = false;
   bool _wifiOn = true;
-  bool _isDarkMode = false;
 
   // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
@@ -832,14 +826,6 @@ class _HomePageState extends State<HomePage> {
   void _toggleWifi() {
     setState(() {
       _wifiOn = !_wifiOn;
-    });
-  }
-
-  /// UI-only mode toggle. If you later implement real theming,
-  /// connect it to MaterialApp.themeMode.
-  void _toggleMode() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
     });
   }
 
@@ -1530,22 +1516,26 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8EFE5),
+      backgroundColor: isDark ? kDarkBg1 : const Color(0xFFF8EFE5),
       extendBody: true,
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF7FD1C9),
-                  Color(0xFFEAF4EC),
-                  Color(0xFFFFD08A),
-                ],
-                stops: [0.0, 0.55, 1.0],
+                colors: isDark
+                    ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                    : const [
+                        Color(0xFF7FD1C9),
+                        Color(0xFFEAF4EC),
+                        Color(0xFFFFD08A),
+                      ],
+                stops: const [0.0, 0.55, 1.0],
               ),
             ),
           ),
@@ -1553,12 +1543,20 @@ class _HomePageState extends State<HomePage> {
           Positioned(
             top: -90,
             left: -90,
-            child: _homeSoftCircle(260, Colors.white, 0.18),
+            child: _homeSoftCircle(
+              260,
+              isDark ? kDarkAccent : Colors.white,
+              isDark ? 0.06 : 0.18,
+            ),
           ),
           Positioned(
             bottom: 120,
             right: -70,
-            child: _homeSoftCircle(220, const Color(0xFFFFBF69), 0.22),
+            child: _homeSoftCircle(
+              220,
+              isDark ? kDarkBlue : const Color(0xFFFFBF69),
+              isDark ? 0.08 : 0.22,
+            ),
           ),
 
           SafeArea(
@@ -1576,10 +1574,14 @@ class _HomePageState extends State<HomePage> {
                           width: 66,
                           height: 66,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFCBF3F0).withOpacity(0.85),
+                            color: isDark
+                                ? kDarkAccentSoft
+                                : const Color(0xFFCBF3F0).withOpacity(0.85),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.55),
+                              color: isDark
+                                  ? kDarkBorder
+                                  : Colors.white.withOpacity(0.55),
                               width: 2,
                             ),
                           ),
@@ -1600,19 +1602,23 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Text(
                               _greeting(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
-                                color: Color(0xFF4D4540),
+                                color: isDark
+                                    ? kDarkMuted
+                                    : const Color(0xFF4D4540),
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _activeAccountName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 23,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF4D3732),
+                                color: isDark
+                                    ? kDarkText
+                                    : const Color(0xFF4D3732),
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -1625,14 +1631,14 @@ class _HomePageState extends State<HomePage> {
                       IconButton(
                         onPressed: _openNotifications,
                         icon: const Icon(Icons.notifications_rounded),
-                        color: Colors.white,
+                        color: isDark ? kDarkText : Colors.white,
                         iconSize: 27,
                       ),
 
                       IconButton(
                         onPressed: _toggleQuickActions,
                         icon: const Icon(Icons.add_circle_rounded),
-                        color: Colors.white,
+                        color: isDark ? kDarkText : Colors.white,
                         iconSize: 30,
                       ),
                     ],
@@ -1754,16 +1760,6 @@ class _HomePageState extends State<HomePage> {
                     label: 'Wi-Fi',
                     onTap: _toggleWifi,
                   ),
-                  const SizedBox(height: 12),
-                  // Mode
-                  Transform.translate(
-                    offset: const Offset(8, 0),
-                    child: _QuickActionBubble(
-                      icon: _isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                      label: 'Mode',
-                      onTap: _toggleMode,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1875,16 +1871,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyTipCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF4F2), // لون أخضر فاتح ناعم
+        color: isDark ? kDarkCard : const Color(0xFFEAF4F2),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFBFE3DF), width: 1.5),
+        border: Border.all(
+          color: isDark ? kDarkBorder : const Color(0xFFBFE3DF),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withOpacity(0.15),
+            color: const Color(0xFF2EC4B6).withOpacity(isDark ? 0.10 : 0.15),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -1892,12 +1893,11 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
-          // 🔹 أيقونة اللمبة
           Container(
             width: 70,
             height: 70,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8FCAC3),
+            decoration: const BoxDecoration(
+              color: Color(0xFF8FCAC3),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1909,12 +1909,11 @@ class _HomePageState extends State<HomePage> {
 
           const SizedBox(width: 16),
 
-          // 🔹 النص
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Eye Care Tip',
                   style: TextStyle(
                     fontSize: 18,
@@ -1922,13 +1921,13 @@ class _HomePageState extends State<HomePage> {
                     color: Color(0xFF6AAFA7),
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   'Follow the 20-20-20 rule: Every 20 minutes,\nlook at something 20 feet away for 20 seconds.',
                   style: TextStyle(
                     fontSize: 11.5,
                     height: 1.25,
-                    color: Colors.black87,
+                    color: isDark ? kDarkMuted : Colors.black87,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1939,7 +1938,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
 
           Image.asset(
-            'assets/images/phone_20.png', // 👈 عدل الاسم إذا مختلف
+            'assets/images/phone_20.png',
             width: 90,
             height: 90,
             fit: BoxFit.contain,
@@ -2101,15 +2100,24 @@ class _SensorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF4).withOpacity(0.93),
+        color: isDark
+            ? kDarkCard
+            : const Color(0xFFFFFAF4).withOpacity(0.93),
         borderRadius: BorderRadius.circular(18),
+        border: isDark
+            ? Border.all(color: kDarkBorder, width: 1)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.18),
+            color: isDark
+                ? Colors.black.withOpacity(0.35)
+                : Colors.black.withOpacity(0.18),
             blurRadius: 22,
             spreadRadius: -8,
             offset: const Offset(0, 14),
@@ -2121,19 +2129,19 @@ class _SensorCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF2D2926),
+              color: isDark ? kDarkText : const Color(0xFF2D2926),
             ),
           ),
           if (subtitle.isNotEmpty) ...[
             const SizedBox(height: 5),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF8F8880),
+                color: isDark ? kDarkMuted : const Color(0xFF8F8880),
                 fontWeight: FontWeight.w500,
               ),
             ),

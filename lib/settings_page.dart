@@ -12,6 +12,7 @@ import 'notifications_page.dart';
 import 'tips_page.dart';
 
 import 'success_popup.dart';
+import 'app_theme.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -199,15 +200,20 @@ void _goTips() {
   BoxDecoration _softCardDecoration({
   Color color = _settingsCard,
   Gradient? gradient,
+  bool isDark = false,
 }) {
   return BoxDecoration(
-    color: gradient == null ? color : null,
+    color: gradient == null ? (isDark ? kDarkCard : color) : null,
     gradient: gradient,
     borderRadius: BorderRadius.circular(24),
-    border: Border.all(color: Colors.white.withOpacity(0.85)),
+    border: Border.all(
+      color: isDark ? kDarkBorder : Colors.white.withOpacity(0.85),
+    ),
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFFBE9360).withOpacity(0.12),
+        color: isDark
+            ? Colors.black.withOpacity(0.30)
+            : const Color(0xFFBE9360).withOpacity(0.12),
         blurRadius: 18,
         offset: const Offset(0, 10),
       ),
@@ -701,7 +707,7 @@ void _goTips() {
     await showSuccessPopup(context, 'Device deleted successfully');
   }
 
-  Widget _buildGlassesLinkSection() {
+  Widget _buildGlassesLinkSection({bool isDark = false}) {
   return ValueListenableBuilder<Map<String, String?>>(
     valueListenable: widget.glassesLink,
     builder: (context, link, _) {
@@ -727,7 +733,7 @@ void _goTips() {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(18),
-        decoration: _softCardDecoration(),
+        decoration: _softCardDecoration(isDark: isDark),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -737,17 +743,17 @@ void _goTips() {
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: _settingsBlueSoft,
+                    color: isDark ? kDarkBlueSoft : _settingsBlueSoft,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.remove_red_eye_outlined,
-                    color: _settingsBlue,
+                    color: isDark ? kDarkBlue : _settingsBlue,
                     size: 26,
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -756,15 +762,15 @@ void _goTips() {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
-                          color: _settingsText,
+                          color: isDark ? kDarkText : _settingsText,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         'Add, name, and choose the device you want to link.',
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: _settingsMuted,
+                          color: isDark ? kDarkMuted : _settingsMuted,
                           height: 1.35,
                         ),
                       ),
@@ -780,25 +786,21 @@ void _goTips() {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF8F0),
+                color: isDark ? kDarkCardElev : const Color(0xFFFFF8F0),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.link_rounded,
-                    color: _settingsBlue,
-                    size: 20,
-                  ),
+                  Icon(Icons.link_rounded, color: isDark ? kDarkBlue : _settingsBlue, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       subtitleText,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
-                        color: _settingsText,
+                        color: isDark ? kDarkText : _settingsText,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -813,27 +815,23 @@ void _goTips() {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF8F0),
+                color: isDark ? kDarkCardElev : const Color(0xFFFFF8F0),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.power_settings_new_rounded,
-                    color: _settingsOrange,
-                    size: 20,
-                  ),
+                  const Icon(Icons.power_settings_new_rounded, color: _settingsOrange, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Device Power',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: _settingsText,
+                            color: isDark ? kDarkText : _settingsText,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -841,9 +839,9 @@ void _goTips() {
                           isDeviceLinked
                               ? 'Control ${linkedDeviceName ?? 'linked device'}'
                               : 'No linked device to control',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: _settingsMuted,
+                            color: isDark ? kDarkMuted : _settingsMuted,
                           ),
                         ),
                       ],
@@ -864,12 +862,12 @@ void _goTips() {
 
             const SizedBox(height: 18),
 
-            const Text(
+            Text(
               'Choose Device',
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: _settingsText,
+                color: isDark ? kDarkText : _settingsText,
               ),
             ),
             const SizedBox(height: 10),
@@ -877,9 +875,9 @@ void _goTips() {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF8F0),
+                color: isDark ? kDarkCardElev : const Color(0xFFFFF8F0),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: _settingsBorder),
+                border: Border.all(color: isDark ? kDarkBorder : _settingsBorder),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -1184,19 +1182,84 @@ void _goTips() {
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildDarkModeSection({bool isDark = false}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _softCardDecoration(isDark: isDark),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark ? kDarkAccentSoft : _settingsOrangeSoft,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              color: isDark ? kDarkAccent : _settingsOrange,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dark Mode',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? kDarkText : _settingsText,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isDark ? 'Dark theme enabled' : 'Light theme enabled',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? kDarkMuted : _settingsMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: appThemeMode,
+            builder: (context, themeMode, _) {
+              return Switch(
+                value: themeMode == ThemeMode.dark,
+                activeThumbColor: _settingsMint,
+                onChanged: (value) {
+                  appThemeMode.value =
+                      value ? ThemeMode.dark : ThemeMode.light;
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton({bool isDark = false}) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.62),
+        color: isDark
+            ? kDarkCard
+            : Colors.white.withOpacity(0.62),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: Colors.white.withOpacity(0.75),
+          color: isDark ? kDarkBorder : Colors.white.withOpacity(0.75),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFBE9360).withOpacity(0.10),
+            color: isDark
+                ? Colors.black.withOpacity(0.25)
+                : const Color(0xFFBE9360).withOpacity(0.10),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -1244,8 +1307,10 @@ void _goTips() {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-  backgroundColor: _settingsBgMid,
+  backgroundColor: isDark ? kDarkBg1 : _settingsBgMid,
   extendBody: true,
 
   floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -1264,16 +1329,14 @@ void _goTips() {
   ),
 
   body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              _settingsBgTop,
-              _settingsBgMid,
-              _settingsBgBottom,
-            ],
-            stops: [0.0, 0.55, 1.0],
+            colors: isDark
+                ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                : const [_settingsBgTop, _settingsBgMid, _settingsBgBottom],
+            stops: const [0.0, 0.55, 1.0],
           ),
         ),
         child: Stack(
@@ -1285,7 +1348,9 @@ void _goTips() {
                 width: 220,
                 height: 220,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.10),
+                  color: isDark
+                      ? kDarkAccent.withOpacity(0.04)
+                      : Colors.white.withOpacity(0.10),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1297,7 +1362,9 @@ void _goTips() {
                 width: 170,
                 height: 170,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFE6B8).withOpacity(0.28),
+                  color: isDark
+                      ? kDarkBlue.withOpacity(0.06)
+                      : const Color(0xFFFFE6B8).withOpacity(0.28),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1321,29 +1388,31 @@ void _goTips() {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.28),
+              color: isDark
+                  ? kDarkCardElev
+                  : Colors.white.withOpacity(0.28),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withOpacity(0.45),
+                color: isDark ? kDarkBorder : Colors.white.withOpacity(0.45),
               ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.arrow_back_ios_new_rounded,
               size: 21,
-              color: _settingsText,
+              color: isDark ? kDarkText : _settingsText,
             ),
           ),
         ),
       ),
 
-      const Center(
+      Center(
         child: Text(
           'Settings',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
-            color: _settingsText,
+            color: isDark ? kDarkText : _settingsText,
             letterSpacing: -0.5,
           ),
         ),
@@ -1361,11 +1430,13 @@ void _goTips() {
     ),
     child: Column(
       children: [
-        _buildGlassesLinkSection(),
+        _buildGlassesLinkSection(isDark: isDark),
         const SizedBox(height: 16),
-        _buildSmartLightSection(),
+        _buildSmartLightSection(isDark: isDark),
         const SizedBox(height: 16),
-        _buildLogoutButton(),
+        _buildDarkModeSection(isDark: isDark),
+        const SizedBox(height: 16),
+        _buildLogoutButton(isDark: isDark),
       ],
     ),
   ),
@@ -1383,29 +1454,26 @@ void _goTips() {
 
   // ================= Smart-Light Section =================
 
-  Widget _buildSmartLightSection() {
+  Widget _buildSmartLightSection({bool isDark = false}) {
   return Column(
     children: [
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: _softCardDecoration(),
+        decoration: _softCardDecoration(isDark: isDark),
         child: Row(
           children: [
             Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: _settingsMintSoft,
+                color: isDark ? kDarkAccentSoft : _settingsMintSoft,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
-                Icons.lightbulb_outline,
-                color: _settingsMint,
-              ),
+              child: const Icon(Icons.lightbulb_outline, color: _settingsMint),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1414,13 +1482,16 @@ void _goTips() {
                     style: TextStyle(
                       fontSize: 15.5,
                       fontWeight: FontWeight.w800,
-                      color: _settingsText,
+                      color: isDark ? kDarkText : _settingsText,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'Enable or disable ambient smart lighting.',
-                    style: TextStyle(fontSize: 12.5, color: _settingsMuted),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: isDark ? kDarkMuted : _settingsMuted,
+                    ),
                   ),
                 ],
               ),
@@ -1460,19 +1531,19 @@ void _goTips() {
 
       if (_smartLightEnabled) ...[
         const SizedBox(height: 12),
-        _buildSmartLightReadOnlyControlsCard(),
+        _buildSmartLightReadOnlyControlsCard(isDark: isDark),
       ],
     ],
   );
 }
 
-  Widget _buildSmartLightReadOnlyControlsCard() {
+  Widget _buildSmartLightReadOnlyControlsCard({bool isDark = false}) {
   final intensityPercent = (widget.smartLightIntensity * 100).round();
 
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.all(16),
-    decoration: _softCardDecoration(
+    decoration: _softCardDecoration(isDark: isDark,
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -1506,20 +1577,20 @@ void _goTips() {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Light Controls',
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
-                      color: _settingsText,
+                      color: isDark ? kDarkText : _settingsText,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Intensity: $intensityPercent%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: _settingsMuted,
+                      color: isDark ? kDarkMuted : _settingsMuted,
                     ),
                   ),
                 ],
@@ -1528,7 +1599,9 @@ void _goTips() {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.70),
+                color: isDark
+                    ? kDarkCardElev
+                    : Colors.white.withOpacity(0.70),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
