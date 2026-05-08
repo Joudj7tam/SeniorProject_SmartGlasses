@@ -1,6 +1,7 @@
 /// TipsPage:
 /// Displays eye care tips, latest news, and protection guidance.
 /// Includes sections for daily tips, news carousel, and feature highlights.
+library;
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;

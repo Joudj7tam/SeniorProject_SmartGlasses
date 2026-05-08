@@ -910,7 +910,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     Switch(
                       value: _powerOn,
-                      activeColor: _settingsOrange,
+                      activeThumbColor: _settingsOrange,
                       onChanged: (!isDeviceLinked || _isPowerLoading)
                           ? null
                           : (value) async {
@@ -1492,7 +1492,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               Switch(
                 value: _smartLightEnabled,
-                activeColor: _settingsMint,
+                activeThumbColor: _settingsMint,
                 onChanged: (v) async {
                   setState(() => _smartLightEnabled = v);
 
