@@ -242,32 +242,43 @@ void _goTips() {
     showDialog(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: _settingsCard,
+          backgroundColor: isDark ? kDarkCard : _settingsCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text(
+          title: Text(
             'Add New Device',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: _settingsText,
+              color: isDark ? kDarkText : _settingsText,
             ),
           ),
           content: TextField(
             controller: _deviceNameController,
             autofocus: true,
+            style: TextStyle(color: isDark ? kDarkText : _settingsText),
             decoration: InputDecoration(
               hintText: 'Enter a unique device name',
+              hintStyle: TextStyle(color: isDark ? kDarkMuted : const Color(0xFFAAA08A)),
               filled: true,
-              fillColor: const Color(0xFFFFF8F0),
+              fillColor: isDark ? kDarkCardElev : const Color(0xFFFFF8F0),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 14,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
+                borderSide: isDark ? const BorderSide(color: kDarkBorder) : BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: isDark ? const BorderSide(color: kDarkBorder) : BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: isDark ? kDarkAccent : _settingsMint, width: 1.4),
               ),
             ),
           ),

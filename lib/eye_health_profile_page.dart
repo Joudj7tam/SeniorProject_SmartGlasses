@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'success_popup.dart';
+import 'app_theme.dart';
 
 /// UI-only page to display all eye health form info (dummy data for now).
 /// Later 'll replace the dummy data with API response from backend.
@@ -385,20 +386,19 @@ class _EyeHealthProfilePageState extends State<EyeHealthProfilePage> {
 Widget build(BuildContext context) {
   final form = _formData;
   final user = _userData;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
 
   return Scaffold(
-    backgroundColor: _profileCream,
+    backgroundColor: isDark ? kDarkBg1 : _profileCream,
     body: Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFB75E),
-            Color(0xFFFFF4E6),
-            _profileCream,
-          ],
-          stops: [0.0, 0.28, 1.0],
+          colors: isDark
+              ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+              : const [Color(0xFFFFB75E), Color(0xFFFFF4E6), _profileCream],
+          stops: const [0.0, 0.28, 1.0],
         ),
       ),
       child: Stack(
@@ -410,7 +410,9 @@ Widget build(BuildContext context) {
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
+                color: isDark
+                    ? kDarkAccent.withOpacity(0.05)
+                    : Colors.white.withOpacity(0.18),
                 shape: BoxShape.circle,
               ),
             ),
@@ -422,7 +424,9 @@ Widget build(BuildContext context) {
               width: 110,
               height: 110,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.14),
+                color: isDark
+                    ? kDarkBlue.withOpacity(0.06)
+                    : Colors.white.withOpacity(0.14),
                 shape: BoxShape.circle,
               ),
             ),
@@ -441,16 +445,20 @@ Widget build(BuildContext context) {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.30),
+                            color: isDark
+                                ? kDarkCardElev
+                                : Colors.white.withOpacity(0.30),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.45),
+                              color: isDark
+                                  ? kDarkBorder
+                                  : Colors.white.withOpacity(0.45),
                             ),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_back_ios_new_rounded,
                             size: 18,
-                            color: _profileText,
+                            color: isDark ? kDarkText : _profileText,
                           ),
                         ),
                       ),
@@ -458,10 +466,10 @@ Widget build(BuildContext context) {
                       Expanded(
                         child: Text(
                           _isEditMode ? 'Edit Profile' : 'Profile Information',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: _profileText,
+                            color: isDark ? kDarkText : _profileText,
                           ),
                         ),
                       ),
@@ -943,14 +951,16 @@ Widget build(BuildContext context) {
     required double value,
     required ValueChanged<double> onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? kDarkCard : Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: isDark ? Border.all(color: kDarkBorder) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(isDark ? 0.20 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -961,10 +971,18 @@ Widget build(BuildContext context) {
         children: [
           Row(
             children: [
-              Expanded(child: Text(title)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(color: isDark ? kDarkText : Colors.black87),
+                ),
+              ),
               Text(
                 valueLabel,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? kDarkMuted : Colors.black87,
+                ),
               ),
             ],
           ),
@@ -974,6 +992,8 @@ Widget build(BuildContext context) {
             max: max,
             divisions: (max - min).round(),
             label: valueLabel,
+            activeColor: isDark ? kDarkAccent : _profileOrange,
+            inactiveColor: isDark ? kDarkBorder : null,
             onChanged: _isSaving ? null : onChanged,
           ),
         ],
@@ -1228,14 +1248,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w900,
-            color: _profileText,
+            color: isDark ? kDarkText : _profileText,
           ),
         ),
         const SizedBox(width: 8),
@@ -1289,15 +1310,20 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: _profileCard,
+        color: isDark ? kDarkCard : _profileCard,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(0.85)),
+        border: Border.all(
+          color: isDark ? kDarkBorder : Colors.white.withOpacity(0.85),
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB88956).withOpacity(0.10),
+            color: isDark
+                ? Colors.black.withOpacity(0.25)
+                : const Color(0xFFB88956).withOpacity(0.10),
             blurRadius: 12,
             offset: const Offset(0, 7),
           ),
@@ -1310,14 +1336,10 @@ class _InfoTile extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF2E2),
+              color: isDark ? kDarkOrangeSoft : const Color(0xFFFFF2E2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              item.icon,
-              size: 18,
-              color: _profileOrange,
-            ),
+            child: Icon(item.icon, size: 18, color: _profileOrange),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -1328,9 +1350,9 @@ class _InfoTile extends StatelessWidget {
                   item.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
-                    color: _profileMuted,
+                    color: isDark ? kDarkMuted : _profileMuted,
                     fontWeight: FontWeight.w600,
                     height: 1.15,
                   ),
@@ -1340,10 +1362,10 @@ class _InfoTile extends StatelessWidget {
                   item.value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w900,
-                    color: _profileText,
+                    color: isDark ? kDarkText : _profileText,
                     height: 1.15,
                   ),
                 ),
@@ -1401,23 +1423,27 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 92,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            Color(0xFFFFE4BB),
-            Color(0xFFEAF3DD),
-            Color(0xFFCFF3EE),
-          ],
+          colors: isDark
+              ? const [kDarkCard, kDarkCardElev]
+              : const [Color(0xFFFFE4BB), Color(0xFFEAF3DD), Color(0xFFCFF3EE)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(0.65), width: 1.4),
+        border: Border.all(
+          color: isDark ? kDarkBorder : Colors.white.withOpacity(0.65),
+          width: 1.4,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB88956).withOpacity(0.18),
+            color: isDark
+                ? Colors.black.withOpacity(0.30)
+                : const Color(0xFFB88956).withOpacity(0.18),
             blurRadius: 18,
             offset: const Offset(0, 9),
           ),
@@ -1476,17 +1502,17 @@ class _HeaderCard extends StatelessWidget {
                         data.fullName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w900,
-                          color: _profileText,
+                          color: isDark ? kDarkText : _profileText,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Eye-Health Form Summary',
                         style: TextStyle(
-                          color: _profileMuted,
+                          color: isDark ? kDarkMuted : _profileMuted,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1511,26 +1537,28 @@ class _ChipsWrap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Wrap(
       spacing: 9,
       runSpacing: 9,
       children: chips
-          .map(
-            (t) => Container(
+          .map((t) {
+            final isNone = t.toLowerCase() == 'none';
+            return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: t.toLowerCase() == 'none'
-                    ? _profileCard
-                    : _profileMintLight.withOpacity(0.80),
+                color: isNone
+                    ? (isDark ? kDarkCard : _profileCard)
+                    : (isDark ? kDarkAccentSoft : _profileMintLight.withOpacity(0.80)),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: t.toLowerCase() == 'none'
-                      ? _profileBorder
-                      : _profileMint.withOpacity(0.22),
+                  color: isNone
+                      ? (isDark ? kDarkBorder : _profileBorder)
+                      : (isDark ? kDarkAccent.withOpacity(0.30) : _profileMint.withOpacity(0.22)),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB88956).withOpacity(0.08),
+                    color: Colors.black.withOpacity(isDark ? 0.15 : 0.06),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -1540,12 +1568,10 @@ class _ChipsWrap extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    t.toLowerCase() == 'none'
-                        ? Icons.remove_rounded
-                        : Icons.remove_red_eye_outlined,
+                    isNone ? Icons.remove_rounded : Icons.remove_red_eye_outlined,
                     size: 14,
-                    color: t.toLowerCase() == 'none'
-                        ? _profileMuted
+                    color: isNone
+                        ? (isDark ? kDarkMuted : _profileMuted)
                         : _profileMint,
                   ),
                   const SizedBox(width: 6),
@@ -1554,15 +1580,15 @@ class _ChipsWrap extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-                      color: t.toLowerCase() == 'none'
-                          ? _profileMuted
-                          : _profileText,
+                      color: isNone
+                          ? (isDark ? kDarkMuted : _profileMuted)
+                          : (isDark ? kDarkText : _profileText),
                     ),
                   ),
                 ],
               ),
-            ),
-          )
+            );
+          })
           .toList(),
     );
   }
@@ -1581,22 +1607,24 @@ class _BigNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            _profileCard,
-            Color(0xFFE5FAF7),
-          ],
+          colors: isDark
+              ? const [kDarkCard, kDarkCardElev]
+              : const [_profileCard, Color(0xFFE5FAF7)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(0.9)),
+        border: Border.all(
+          color: isDark ? kDarkBorder : Colors.white.withOpacity(0.9),
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB88956).withOpacity(0.10),
+            color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
             blurRadius: 14,
             offset: const Offset(0, 7),
           ),
@@ -1610,7 +1638,7 @@ class _BigNoteCard extends StatelessWidget {
             child: Icon(
               Icons.remove_red_eye_outlined,
               size: 58,
-              color: _profileMint.withOpacity(0.16),
+              color: _profileMint.withOpacity(isDark ? 0.10 : 0.16),
             ),
           ),
           Row(
@@ -1620,7 +1648,7 @@ class _BigNoteCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: _profileMintLight,
+                  color: isDark ? kDarkAccentSoft : _profileMintLight,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: _profileMint, size: 22),
@@ -1632,17 +1660,17 @@ class _BigNoteCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w900,
-                        color: _profileText,
+                        color: isDark ? kDarkText : _profileText,
                         fontSize: 13.5,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       text,
-                      style: const TextStyle(
-                        color: _profileMuted,
+                      style: TextStyle(
+                        color: isDark ? kDarkMuted : _profileMuted,
                         height: 1.35,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'main.dart';
+import 'app_theme.dart';
 
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
@@ -238,21 +239,21 @@ class _HealthFormPageState extends State<HealthFormPage> {
 
   @override
 Widget build(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   return Scaffold(
-    backgroundColor: const Color(0xFFF8EFE5),
+    backgroundColor: isDark ? kDarkBg1 : const Color(0xFFF8EFE5),
     body: Stack(
       children: [
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFFBF6),
-                Color(0xFFF8EFE5),
-                Color(0xFFFFE7BF),
-              ],
-              stops: [0.0, 0.55, 1.0],
+              colors: isDark
+                  ? const [kDarkBg1, kDarkBg2, kDarkBg3]
+                  : const [Color(0xFFFFFBF6), Color(0xFFF8EFE5), Color(0xFFFFE7BF)],
+              stops: const [0.0, 0.55, 1.0],
             ),
           ),
         ),
@@ -260,17 +261,17 @@ Widget build(BuildContext context) {
         Positioned(
           top: -90,
           right: -80,
-          child: _softCircle(210, const Color(0xFF2E9EA0), 0.08),
+          child: _softCircle(210, isDark ? kDarkAccent : const Color(0xFF2E9EA0), isDark ? 0.04 : 0.08),
         ),
         Positioned(
           top: 170,
           left: -120,
-          child: _softCircle(260, const Color(0xFFEFAA4B), 0.10),
+          child: _softCircle(260, isDark ? kDarkBlue : const Color(0xFFEFAA4B), isDark ? 0.05 : 0.10),
         ),
         Positioned(
           bottom: -80,
           right: -60,
-          child: _softCircle(220, const Color(0xFFEFAA4B), 0.14),
+          child: _softCircle(220, isDark ? kDarkOrange : const Color(0xFFEFAA4B), isDark ? 0.06 : 0.14),
         ),
 
         SafeArea(
@@ -514,6 +515,7 @@ Widget build(BuildContext context) {
 }
 
 Widget _header() {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return Row(
     children: [
       GestureDetector(
@@ -522,25 +524,27 @@ Widget _header() {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.75),
+            color: isDark ? kDarkCardElev : Colors.white.withOpacity(0.75),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE7DED4)),
+            border: Border.all(
+              color: isDark ? kDarkBorder : const Color(0xFFE7DED4),
+            ),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 20,
-            color: Colors.black,
+            color: isDark ? kDarkText : Colors.black,
           ),
         ),
       ),
       const SizedBox(width: 12),
-      const Expanded(
+      Expanded(
         child: Text(
           'Eye-Health Form',
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w900,
-            color: Colors.black,
+            color: isDark ? kDarkText : Colors.black,
             letterSpacing: -0.6,
           ),
         ),
@@ -621,20 +625,21 @@ Widget _sectionCard({
   required String title,
   required List<Widget> children,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return Container(
     width: double.infinity,
     margin: const EdgeInsets.only(bottom: 18),
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.62),
+      color: isDark ? kDarkCard : Colors.white.withOpacity(0.62),
       borderRadius: BorderRadius.circular(30),
       border: Border.all(
-        color: Colors.white.withOpacity(0.75),
+        color: isDark ? kDarkBorder : Colors.white.withOpacity(0.75),
         width: 1.2,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.045),
+          color: Colors.black.withOpacity(isDark ? 0.25 : 0.045),
           blurRadius: 18,
           offset: const Offset(0, 10),
         ),
@@ -649,7 +654,9 @@ Widget _sectionCard({
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFEFAA4B).withOpacity(0.18),
+                color: isDark
+                    ? kDarkOrangeSoft
+                    : const Color(0xFFEFAA4B).withOpacity(0.18),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: const Color(0xFFEFAA4B), size: 21),
@@ -658,10 +665,10 @@ Widget _sectionCard({
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
-                  color: Colors.black,
+                  color: isDark ? kDarkText : Colors.black,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -676,24 +683,27 @@ Widget _sectionCard({
 }
 
 InputDecoration _roundedDecoration({String? label, IconData? icon}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final iconColor = isDark ? kDarkMuted : const Color(0xFF9B9690);
   return InputDecoration(
     labelText: label,
     floatingLabelBehavior:
         label == null ? FloatingLabelBehavior.never : FloatingLabelBehavior.auto,
-    labelStyle: const TextStyle(
-      color: Color(0xFF9B9690),
+    labelStyle: TextStyle(
+      color: isDark ? kDarkMuted : const Color(0xFF9B9690),
       fontSize: 12,
       fontWeight: FontWeight.w500,
     ),
-    prefixIcon: icon == null
-        ? null
-        : Icon(icon, color: const Color(0xFF9B9690), size: 21),
+    prefixIcon: icon == null ? null : Icon(icon, color: iconColor, size: 21),
     filled: true,
-    fillColor: const Color(0xFFFFFAF4).withOpacity(0.88),
+    fillColor: isDark ? kDarkCardElev : const Color(0xFFFFFAF4).withOpacity(0.88),
     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
-      borderSide: const BorderSide(color: Color(0xFFE4DDD4), width: 1),
+      borderSide: BorderSide(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
@@ -701,7 +711,10 @@ InputDecoration _roundedDecoration({String? label, IconData? icon}) {
     ),
     disabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
-      borderSide: const BorderSide(color: Color(0xFFE8E0D7), width: 1),
+      borderSide: BorderSide(
+        color: isDark ? kDarkBorder.withOpacity(0.5) : const Color(0xFFE8E0D7),
+        width: 1,
+      ),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
@@ -722,6 +735,7 @@ Widget _roundedTextField({
   bool enabled = true,
   int maxLines = 1,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return TextFormField(
     controller: controller,
     validator: validator,
@@ -729,20 +743,24 @@ Widget _roundedTextField({
     maxLines: maxLines,
     cursorColor: const Color(0xFF2E9EA0),
     style: TextStyle(
-      color: enabled ? Colors.black : const Color(0xFFB8B0A8),
+      color: enabled
+          ? (isDark ? kDarkText : Colors.black)
+          : (isDark ? kDarkMuted : const Color(0xFFB8B0A8)),
       fontSize: 15.5,
       fontWeight: FontWeight.w600,
     ),
     decoration: _roundedDecoration(icon: icon).copyWith(
       hintText: hint,
-      hintStyle: const TextStyle(
-        color: Color(0xFFAAA39B),
+      hintStyle: TextStyle(
+        color: isDark ? kDarkMuted : const Color(0xFFAAA39B),
         fontSize: 15.5,
         fontWeight: FontWeight.w500,
       ),
-      fillColor: enabled
-          ? const Color(0xFFFFFAF4).withOpacity(0.88)
-          : const Color(0xFFFFFAF4).withOpacity(0.48),
+      fillColor: isDark
+          ? (enabled ? kDarkCardElev : kDarkCard)
+          : (enabled
+              ? const Color(0xFFFFFAF4).withOpacity(0.88)
+              : const Color(0xFFFFFAF4).withOpacity(0.48)),
     ),
   );
 }
@@ -755,6 +773,7 @@ Widget _dropdownField({
   required ValueChanged<String?> onChanged,
   IconData? icon,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return InputDecorator(
     decoration: _roundedDecoration(label: label, icon: icon),
     child: DropdownButtonHideUnderline(
@@ -762,22 +781,22 @@ Widget _dropdownField({
         value: value,
         hint: Text(
           hint,
-          style: const TextStyle(
-            color: Color(0xFFAAA39B),
+          style: TextStyle(
+            color: isDark ? kDarkMuted : const Color(0xFFAAA39B),
             fontSize: 15.5,
             fontWeight: FontWeight.w600,
           ),
         ),
-        icon: const Icon(
+        icon: Icon(
           Icons.keyboard_arrow_down_rounded,
-          color: Color(0xFF9B9690),
+          color: isDark ? kDarkMuted : const Color(0xFF9B9690),
           size: 24,
         ),
         isExpanded: true,
-        dropdownColor: const Color(0xFFFFFAF4),
+        dropdownColor: isDark ? kDarkCard : const Color(0xFFFFFAF4),
         borderRadius: BorderRadius.circular(20),
-        style: const TextStyle(
-          color: Colors.black,
+        style: TextStyle(
+          color: isDark ? kDarkText : Colors.black,
           fontSize: 15.5,
           fontWeight: FontWeight.w600,
         ),
@@ -800,26 +819,30 @@ Widget _switchCard({
   required bool value,
   required ValueChanged<bool> onChanged,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFFAF4).withOpacity(0.88),
+      color: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: const Color(0xFFE4DDD4), width: 1),
+      border: Border.all(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
     ),
     child: Row(
       children: [
-        const Icon(
+        Icon(
           Icons.healing_outlined,
-          color: Color(0xFF9B9690),
+          color: isDark ? kDarkMuted : const Color(0xFF9B9690),
           size: 22,
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF8F8880),
+            style: TextStyle(
+              color: isDark ? kDarkMuted : const Color(0xFF8F8880),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -831,8 +854,8 @@ Widget _switchCard({
             value: value,
             activeThumbColor: Colors.white,
             activeTrackColor: const Color(0xFFEFAA4B),
-            inactiveThumbColor: const Color(0xFF8C8176),
-            inactiveTrackColor: const Color(0xFFF0E4D8),
+            inactiveThumbColor: isDark ? kDarkMuted : const Color(0xFF8C8176),
+            inactiveTrackColor: isDark ? kDarkBorder : const Color(0xFFF0E4D8),
             onChanged: onChanged,
           ),
         ),
@@ -850,11 +873,14 @@ Widget _chipRow({required List<Widget> children}) {
 }
 
 Widget _boolChip(String label, bool value, ValueChanged<bool> onChanged) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return FilterChip(
     label: Text(
       value ? '✓ $label' : label,
       style: TextStyle(
-        color: value ? Colors.black : const Color(0xFF3C3630),
+        color: value
+            ? (isDark ? kDarkText : Colors.black)
+            : (isDark ? kDarkMuted : const Color(0xFF3C3630)),
         fontSize: 14.5,
         fontWeight: value ? FontWeight.w800 : FontWeight.w600,
       ),
@@ -862,10 +888,12 @@ Widget _boolChip(String label, bool value, ValueChanged<bool> onChanged) {
     selected: value,
     showCheckmark: false,
     onSelected: onChanged,
-    backgroundColor: const Color(0xFFFFFAF4).withOpacity(0.88),
-    selectedColor: const Color(0xFFF5CE94),
+    backgroundColor: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
+    selectedColor: isDark ? kDarkOrangeSoft : const Color(0xFFF5CE94),
     side: BorderSide(
-      color: value ? const Color(0xFFEFAA4B) : const Color(0xFFE4DDD4),
+      color: value
+          ? const Color(0xFFEFAA4B)
+          : (isDark ? kDarkBorder : const Color(0xFFE4DDD4)),
       width: value ? 1.2 : 1,
     ),
     shape: RoundedRectangleBorder(
@@ -886,12 +914,16 @@ Widget _sliderCard({
   required double value,
   required ValueChanged<double> onChanged,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return Container(
     padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFFAF4).withOpacity(0.88),
+      color: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: const Color(0xFFE4DDD4), width: 1),
+      border: Border.all(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
     ),
     child: Column(
       children: [
@@ -901,14 +933,12 @@ Widget _sliderCard({
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: const Color(0xFF2E9EA0).withOpacity(0.12),
+                color: isDark
+                    ? kDarkAccentSoft
+                    : const Color(0xFF2E9EA0).withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.tune_rounded,
-                color: Color(0xFF2E9EA0),
-                size: 18,
-              ),
+              child: const Icon(Icons.tune_rounded, color: Color(0xFF2E9EA0), size: 18),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -917,16 +947,16 @@ Widget _sliderCard({
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.black,
+                    style: TextStyle(
+                      color: isDark ? kDarkText : Colors.black,
                       fontSize: 15.5,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF9B9690),
+                    style: TextStyle(
+                      color: isDark ? kDarkMuted : const Color(0xFF9B9690),
                       fontSize: 12.5,
                       fontWeight: FontWeight.w500,
                     ),
@@ -937,13 +967,15 @@ Widget _sliderCard({
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFAA4B).withOpacity(0.18),
+                color: isDark
+                    ? kDarkOrangeSoft
+                    : const Color(0xFFEFAA4B).withOpacity(0.18),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 valueLabel,
-                style: const TextStyle(
-                  color: Color(0xFFB66F12),
+                style: TextStyle(
+                  color: isDark ? kDarkOrange : const Color(0xFFB66F12),
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -955,7 +987,7 @@ Widget _sliderCard({
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: const Color(0xFFEFAA4B),
-            inactiveTrackColor: const Color(0xFFE0D8CF),
+            inactiveTrackColor: isDark ? kDarkBorder : const Color(0xFFE0D8CF),
             thumbColor: const Color(0xFFEFAA4B),
             overlayColor: const Color(0xFFEFAA4B).withOpacity(0.15),
             trackHeight: 6,
@@ -963,7 +995,7 @@ Widget _sliderCard({
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 1.3),
             activeTickMarkColor: const Color(0xFFFFD8A2),
-            inactiveTickMarkColor: const Color(0xFFCFC8BF),
+            inactiveTickMarkColor: isDark ? kDarkBorder : const Color(0xFFCFC8BF),
           ),
           child: Slider(
             value: value,

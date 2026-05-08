@@ -837,12 +837,13 @@ class _HomePageState extends State<HomePage> {
       barrierColor: Colors.black.withOpacity(0.35),
       builder: (ctx) {
         final sheetHeight = MediaQuery.of(ctx).size.height * 0.72;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
         return Container(
           height: sheetHeight,
-          decoration: const BoxDecoration(
-            color: _sheetCream,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+          decoration: BoxDecoration(
+            color: isDark ? kDarkCard : _sheetCream,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
           ),
           child: Stack(
             children: [
@@ -853,7 +854,9 @@ class _HomePageState extends State<HomePage> {
                   width: 150,
                   height: 150,
                   decoration: BoxDecoration(
-                    color: _sheetMint.withOpacity(0.10),
+                    color: isDark
+                        ? kDarkAccent.withOpacity(0.05)
+                        : _sheetMint.withOpacity(0.10),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -865,7 +868,9 @@ class _HomePageState extends State<HomePage> {
                   width: 145,
                   height: 145,
                   decoration: BoxDecoration(
-                    color: _sheetOrange.withOpacity(0.12),
+                    color: isDark
+                        ? kDarkOrange.withOpacity(0.06)
+                        : _sheetOrange.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -880,7 +885,9 @@ class _HomePageState extends State<HomePage> {
                         width: 44,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: _sheetText.withOpacity(0.35),
+                          color: isDark
+                              ? kDarkBorder
+                              : _sheetText.withOpacity(0.35),
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -892,7 +899,7 @@ class _HomePageState extends State<HomePage> {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: _sheetMintSoft,
+                              color: isDark ? kDarkAccentSoft : _sheetMintSoft,
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: const Icon(
@@ -902,7 +909,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -911,15 +918,15 @@ class _HomePageState extends State<HomePage> {
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w900,
-                                    color: _sheetText,
+                                    color: isDark ? kDarkText : _sheetText,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
                                   'Switch between your eye-health profiles.',
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: _sheetMuted,
+                                    color: isDark ? kDarkMuted : _sheetMuted,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -940,30 +947,27 @@ class _HomePageState extends State<HomePage> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
-                                    color: _sheetCard,
+                                    color: isDark ? kDarkCardElev : _sheetCard,
                                     borderRadius: BorderRadius.circular(22),
-                                    border: Border.all(color: _sheetBorder),
+                                    border: Border.all(
+                                      color: isDark ? kDarkBorder : _sheetBorder,
+                                    ),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'No profiles available',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: _sheetMuted,
+                                      color: isDark ? kDarkMuted : _sheetMuted,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
 
                               ...List.generate(_profiles.length, (i) {
-                                final name = (_profiles[i]['full_name'] ?? '')
-                                    .toString();
-                                final isActive =
-                                    _profiles[i]['is_active'] == true;
-                                final formId = (_profiles[i]['id'] ?? '')
-                                    .toString();
-                                final isMain =
-                                    (_mainFormId != null &&
-                                    formId == _mainFormId);
+                                final name = (_profiles[i]['full_name'] ?? '').toString();
+                                final isActive = _profiles[i]['is_active'] == true;
+                                final formId = (_profiles[i]['id'] ?? '').toString();
+                                final isMain = (_mainFormId != null && formId == _mainFormId);
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
@@ -971,61 +975,45 @@ class _HomePageState extends State<HomePage> {
                                     borderRadius: BorderRadius.circular(24),
                                     onTap: () async {
                                       try {
-                                        final formId =
-                                            (_profiles[i]['id'] ?? '')
-                                                .toString();
-
-                                        final uri =
-                                            Uri.parse(
-                                              '$backendBaseUrl/api/eye-health-form/switch',
-                                            ).replace(
-                                              queryParameters: {
-                                                'main_account_id':
-                                                    widget.mainAccountId,
-                                                'form_id': formId,
-                                              },
-                                            );
-
+                                        final formId = (_profiles[i]['id'] ?? '').toString();
+                                        final uri = Uri.parse(
+                                          '$backendBaseUrl/api/eye-health-form/switch',
+                                        ).replace(queryParameters: {
+                                          'main_account_id': widget.mainAccountId,
+                                          'form_id': formId,
+                                        });
                                         final res = await http.post(uri);
-
                                         if (res.statusCode != 200) {
                                           throw 'Switch failed (code: ${res.statusCode})';
                                         }
-
                                         await _loadProfiles();
                                         if (ctx.mounted) Navigator.pop(ctx);
                                       } catch (e) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
+                                        ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(content: Text(e.toString())),
                                         );
                                       }
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
+                                      duration: const Duration(milliseconds: 180),
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
                                         color: isActive
-                                            ? _sheetMintSoft.withOpacity(0.82)
-                                            : _sheetCard,
+                                            ? (isDark ? kDarkAccentSoft : _sheetMintSoft.withOpacity(0.82))
+                                            : (isDark ? kDarkCardElev : _sheetCard),
                                         borderRadius: BorderRadius.circular(24),
                                         border: Border.all(
                                           color: isActive
                                               ? _sheetMint.withOpacity(0.45)
-                                              : Colors.white.withOpacity(0.90),
+                                              : (isDark ? kDarkBorder : Colors.white.withOpacity(0.90)),
                                           width: isActive ? 1.4 : 1,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
                                             color: isActive
-                                                ? _sheetMint.withOpacity(0.18)
-                                                : const Color(
-                                                    0xFFB88956,
-                                                  ).withOpacity(0.10),
+                                                ? _sheetMint.withOpacity(isDark ? 0.12 : 0.18)
+                                                : Colors.black.withOpacity(isDark ? 0.20 : 0.06),
                                             blurRadius: 16,
                                             offset: const Offset(0, 8),
                                           ),
@@ -1042,27 +1030,22 @@ class _HomePageState extends State<HomePage> {
                                                 begin: Alignment.topLeft,
                                                 end: Alignment.bottomRight,
                                                 colors: isActive
-                                                    ? const [
-                                                        Color(0xFFBDF3EE),
-                                                        Color(0xFFEFFFFC),
-                                                      ]
-                                                    : const [
-                                                        Color(0xFFFFE7C2),
-                                                        Color(0xFFFFF8EF),
-                                                      ],
+                                                    ? (isDark
+                                                        ? const [Color(0xFF0D2A38), Color(0xFF1A3D50)]
+                                                        : const [Color(0xFFBDF3EE), Color(0xFFEFFFFC)])
+                                                    : (isDark
+                                                        ? const [Color(0xFF2A1F0E), Color(0xFF1E1A0E)]
+                                                        : const [Color(0xFFFFE7C2), Color(0xFFFFF8EF)]),
                                               ),
                                               border: Border.all(
-                                                color: Colors.white,
+                                                color: isDark ? kDarkBorder : Colors.white,
                                                 width: 3,
                                               ),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: isActive
-                                                      ? _sheetMint.withOpacity(
-                                                          0.20,
-                                                        )
-                                                      : _sheetOrange
-                                                            .withOpacity(0.14),
+                                                      ? _sheetMint.withOpacity(0.20)
+                                                      : _sheetOrange.withOpacity(0.14),
                                                   blurRadius: 12,
                                                   offset: const Offset(0, 5),
                                                 ),
@@ -1070,13 +1053,9 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                             child: Center(
                                               child: Text(
-                                                name.isNotEmpty
-                                                    ? name[0].toUpperCase()
-                                                    : '?',
+                                                name.isNotEmpty ? name[0].toUpperCase() : '?',
                                                 style: TextStyle(
-                                                  color: isActive
-                                                      ? _sheetMint
-                                                      : _sheetOrange,
+                                                  color: isActive ? _sheetMint : _sheetOrange,
                                                   fontSize: 20,
                                                   fontWeight: FontWeight.w900,
                                                 ),
@@ -1087,76 +1066,44 @@ class _HomePageState extends State<HomePage> {
 
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  name.isEmpty
-                                                      ? 'Unnamed profile'
-                                                      : name,
+                                                  name.isEmpty ? 'Unnamed profile' : name,
                                                   maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w800,
-                                                    color: _sheetText,
+                                                    color: isDark ? kDarkText : _sheetText,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 5),
                                                 Row(
                                                   children: [
                                                     Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 9,
-                                                            vertical: 5,
-                                                          ),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                                                       decoration: BoxDecoration(
                                                         color: isActive
-                                                            ? _sheetMint
-                                                                  .withOpacity(
-                                                                    0.16,
-                                                                  )
-                                                            : _sheetOrangeSoft
-                                                                  .withOpacity(
-                                                                    0.75,
-                                                                  ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              999,
-                                                            ),
+                                                            ? _sheetMint.withOpacity(0.16)
+                                                            : (isDark ? kDarkOrangeSoft : _sheetOrangeSoft.withOpacity(0.75)),
+                                                        borderRadius: BorderRadius.circular(999),
                                                       ),
                                                       child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
+                                                        mainAxisSize: MainAxisSize.min,
                                                         children: [
                                                           Icon(
-                                                            isActive
-                                                                ? Icons
-                                                                      .check_circle_outline
-                                                                : Icons
-                                                                      .touch_app_outlined,
+                                                            isActive ? Icons.check_circle_outline : Icons.touch_app_outlined,
                                                             size: 13,
-                                                            color: isActive
-                                                                ? _sheetMint
-                                                                : _sheetOrange,
+                                                            color: isActive ? _sheetMint : _sheetOrange,
                                                           ),
-                                                          const SizedBox(
-                                                            width: 4,
-                                                          ),
+                                                          const SizedBox(width: 4),
                                                           Text(
-                                                            isActive
-                                                                ? 'Active'
-                                                                : 'Tap to switch',
+                                                            isActive ? 'Active' : 'Tap to switch',
                                                             style: TextStyle(
                                                               fontSize: 11,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w800,
-                                                              color: isActive
-                                                                  ? _sheetMint
-                                                                  : _sheetOrange,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: isActive ? _sheetMint : _sheetOrange,
                                                             ),
                                                           ),
                                                         ],
@@ -1165,26 +1112,16 @@ class _HomePageState extends State<HomePage> {
                                                     if (isMain) ...[
                                                       const SizedBox(width: 7),
                                                       Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 8,
-                                                              vertical: 5,
-                                                            ),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.white
-                                                              .withOpacity(
-                                                                0.75,
-                                                              ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                999,
-                                                              ),
+                                                          color: isDark ? kDarkCard : Colors.white.withOpacity(0.75),
+                                                          borderRadius: BorderRadius.circular(999),
                                                         ),
-                                                        child: const Text(
+                                                        child: Text(
                                                           'Main',
                                                           style: TextStyle(
                                                             fontSize: 11,
-                                                            color: _sheetMuted,
+                                                            color: isDark ? kDarkMuted : _sheetMuted,
                                                             fontWeight:
                                                                 FontWeight.w800,
                                                           ),
@@ -1205,18 +1142,19 @@ class _HomePageState extends State<HomePage> {
                                                   width: 38,
                                                   height: 38,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withOpacity(0.85),
+                                                    color: isDark
+                                                        ? kDarkCardElev
+                                                        : Colors.white.withOpacity(0.85),
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
-                                                      color: _sheetBorder,
+                                                      color: isDark ? kDarkBorder : _sheetBorder,
                                                     ),
                                                   ),
                                                   child: IconButton(
                                                     padding: EdgeInsets.zero,
-                                                    icon: const Icon(
+                                                    icon: Icon(
                                                       Icons.swap_horiz_rounded,
-                                                      color: _sheetText,
+                                                      color: isDark ? kDarkText : _sheetText,
                                                       size: 22,
                                                     ),
                                                     onPressed: () async {
@@ -1316,12 +1254,10 @@ class _HomePageState extends State<HomePage> {
                                       color: _sheetOrange.withOpacity(0.38),
                                       width: 1.4,
                                     ),
-                                    backgroundColor: Colors.white.withOpacity(
-                                      0.45,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
+                                    backgroundColor: isDark
+                                        ? kDarkOrangeSoft
+                                        : Colors.white.withOpacity(0.45),
+                                    padding: const EdgeInsets.symmetric(vertical: 15),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -1352,12 +1288,8 @@ class _HomePageState extends State<HomePage> {
                                   onPressed: () =>
                                       _confirmDeleteMainAccount(ctx),
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    backgroundColor: Colors.red.withOpacity(
-                                      0.045,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    backgroundColor: Colors.red.withOpacity(isDark ? 0.12 : 0.045),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
