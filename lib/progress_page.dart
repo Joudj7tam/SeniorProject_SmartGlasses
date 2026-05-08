@@ -29,10 +29,10 @@ BoxDecoration _softCardDecoration({Color? color}) {
   return BoxDecoration(
     color: color ?? _cardBg,
     borderRadius: BorderRadius.circular(26),
-    border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 1.2),
+    border: Border.all(color: Colors.white.withOpacity(0.85), width: 1.2),
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFFB88956).withValues(alpha: 0.12),
+        color: const Color(0xFFB88956).withOpacity(0.12),
         blurRadius: 22,
         offset: const Offset(0, 12),
       ),
@@ -208,9 +208,14 @@ class _ProgressPageState extends State<ProgressPage> {
 
       if (!mounted) return;
 
-      await showSuccessPopup(
-        context,
-        _selectedForHome.contains(chart) ? 'Added to Home' : 'Removed from Home',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _selectedForHome.contains(chart)
+                ? 'Added to Home'
+                : 'Removed from Home',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -252,6 +257,7 @@ class _ProgressPageState extends State<ProgressPage> {
         builder: (_) => SettingsPage(
           mainAccountId: widget.userId,
           firebaseUid: widget.firebaseUid,
+
           smartLightEnabled: true,
           smartLightIntensity: 0.95,
           smartLightColor: const Color(0xFF06D6A0),
@@ -402,8 +408,18 @@ class _ProgressPageState extends State<ProgressPage> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }
@@ -423,6 +439,30 @@ class _ProgressPageState extends State<ProgressPage> {
       case TimeRange.yearly:
         return '${_selectedDate.year}';
     }
+  }
+
+  Future<List<ChartPoint>> _fetchAlertCount() async {
+    final uri = Uri.parse('$backendBaseUrl/api/notifications/alert-count')
+        .replace(
+          queryParameters: {
+            'user_id': widget.userId,
+            'form_id': widget.formId,
+            'range_type': _rangeTypeToApi(_range),
+          },
+        );
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to load alert count: ${res.statusCode}');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = (decoded['data'] as List? ?? [])
+        .map((e) => ChartPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    return data;
   }
 
   @override
@@ -481,10 +521,10 @@ class _ProgressPageState extends State<ProgressPage> {
                             width: 46,
                             height: 46,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.28),
+                              color: Colors.white.withOpacity(0.28),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.45),
+                                color: Colors.white.withOpacity(0.45),
                               ),
                             ),
                             child: const Icon(
@@ -495,6 +535,7 @@ class _ProgressPageState extends State<ProgressPage> {
                           ),
                         ),
                       ),
+
                       const Center(
                         child: Text(
                           'Progress',
@@ -510,11 +551,10 @@ class _ProgressPageState extends State<ProgressPage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 0),
                 const Center(
                   child: Text(
-                    'Charts preview',
+                    'Charts preview ',
                     style: TextStyle(
                       fontSize: 14,
                       color: _textSecondary,
@@ -524,6 +564,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 ),
                 const SizedBox(height: 16),
 
+                // Chart picker
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -552,7 +593,7 @@ class _ProgressPageState extends State<ProgressPage> {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: _mint.withValues(alpha: 0.10),
+                            color: _mint.withOpacity(0.10),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -689,6 +730,7 @@ class _ProgressPageState extends State<ProgressPage> {
 
                 const SizedBox(height: 18),
 
+                // Select for home (Toggle)
                 SizedBox(
                   width: double.infinity,
                   child: DecoratedBox(
@@ -697,7 +739,7 @@ class _ProgressPageState extends State<ProgressPage> {
                       boxShadow: [
                         BoxShadow(
                           color: (isSelected ? Colors.grey.shade700 : _orange)
-                              .withValues(alpha: 0.28),
+                              .withOpacity(0.28),
                           blurRadius: 16,
                           offset: const Offset(0, 8),
                         ),
@@ -748,7 +790,7 @@ class _ProgressPageState extends State<ProgressPage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _mint.withValues(alpha: 0.25),
+                        color: _mint.withOpacity(0.25),
                         blurRadius: 28,
                         offset: const Offset(0, 16),
                       ),
@@ -770,10 +812,10 @@ class _ProgressPageState extends State<ProgressPage> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.32),
+                                color: Colors.white.withOpacity(0.32),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.45),
+                                  color: Colors.white.withOpacity(0.45),
                                 ),
                               ),
                               child: _isGeneratingPdf
@@ -851,7 +893,7 @@ class _ProgressPageState extends State<ProgressPage> {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _mint.withValues(alpha: 0.12),
+                    color: _mint.withOpacity(0.12),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
@@ -949,10 +991,10 @@ class _EmptyChartState extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFFFFCF8),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.90)),
+          border: Border.all(color: Colors.white.withOpacity(0.90)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFB88956).withValues(alpha: 0.10),
+              color: const Color(0xFFB88956).withOpacity(0.10),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1000,6 +1042,11 @@ class _EmptyChartState extends StatelessWidget {
     );
   }
 }
+
+/* =========================
+   Chart 1: Bar chart
+   Blink rate per 4 hours (colored by status)
+   ========================= */
 
 class BlinkByTimeBarChart extends StatefulWidget {
   final String userId;
@@ -1098,7 +1145,8 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
           return const _EmptyChartState(
             icon: Icons.show_chart_rounded,
             title: 'No blink data yet',
-            message: 'Blink rate data will appear here once readings are available for the selected day.',
+            message:
+                'Blink rate data will appear here once readings are available for the selected day.',
             accentColor: _mint,
           );
         }
@@ -1227,10 +1275,10 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
               ),
             ),
             const SizedBox(height: 12),
-            const Wrap(
+            Wrap(
               spacing: 16,
               runSpacing: 10,
-              children: [
+              children: const [
                 _LegendDot(color: Color(0xFF2EC4B6), text: 'Normal'),
                 _LegendDot(color: Color(0xFFFF9F1C), text: 'Moderate'),
                 _LegendDot(color: Color(0xFFE63946), text: 'Danger'),
@@ -1242,6 +1290,18 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
     );
   }
 }
+
+Color _statusColor(int blinkPerMin) {
+  // مثال منطقي بسيط (عدّليه لاحقًا حسب قياسكم)
+  if (blinkPerMin >= 15) return const Color(0xFF2EC4B6); // طبيعي
+  if (blinkPerMin >= 10) return const Color(0xFFFF9F1C); // متوسط
+  return const Color(0xFFE63946); // خطر
+}
+
+/* =========================
+   Chart 2: Bar chart
+   Alerts count by type (3 types dummy)
+   ========================= */
 
 class AlertsBarChart extends StatefulWidget {
   final TimeRange range;
@@ -1351,7 +1411,8 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
           return const _EmptyChartState(
             icon: Icons.notifications_none_rounded,
             title: 'No alerts yet',
-            message: 'No alerts were recorded for the selected time range. Your alert summary will appear here once data is available.',
+            message:
+                'No alerts were recorded for the selected time range. Your alert summary will appear here once data is available.',
             accentColor: _orange,
           );
         }
@@ -1409,7 +1470,10 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                           reservedSize: 34,
                           interval: 1,
                           getTitlesWidget: (value, meta) {
-                            if (value % 1 != 0) return const SizedBox();
+                            if (value % 1 != 0) {
+                              return const SizedBox();
+                            }
+
                             return Text(
                               value.toInt().toString(),
                               style: const TextStyle(
@@ -1443,7 +1507,10 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                               return const SizedBox();
                             }
 
-                            final displayLabel = alerts[i].label.replaceAll('_', '\n');
+                            final displayLabel = alerts[i].label.replaceAll(
+                              '_',
+                              '\n',
+                            );
 
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
@@ -1493,6 +1560,17 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
     );
   }
 }
+
+class _AlertBucket {
+  final String label;
+  final int count;
+  _AlertBucket(this.label, this.count);
+}
+
+/* =========================
+   Chart 3: scatterplot chart
+   BlueLight 
+   ========================= */
 
 class BlueLightScatterChart extends StatefulWidget {
   final TimeRange range;
@@ -1638,7 +1716,8 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
           return const _EmptyChartState(
             icon: Icons.light_mode_outlined,
             title: 'No blue light data yet',
-            message: 'Blue light exposure points will appear here when readings are available for the selected range.',
+            message:
+                'Blue light exposure points will appear here when readings are available for the selected range.',
             accentColor: _mint,
           );
         }

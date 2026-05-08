@@ -49,7 +49,7 @@ from led_controller import (
 # =========================================================
 
 # Current working device from MongoDB / app notifications:
-DEVICE_ID = "DEV_1778089439148"
+DEVICE_ID = "DEV_1777598211477"
 
 # LED controller IP from Magic Home / controller app:
 LED_CONTROLLER_IP = "192.168.100.34"

@@ -52,7 +52,6 @@ class TipsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
@@ -64,41 +63,31 @@ class TipsPage extends StatelessWidget {
       ),
 
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.center,
-            colors: isDark
-                ? [
-                    const Color(0xFF1A2E2C),
-                    const Color(0xFF1A1A1A),
-                    const Color(0xFF121212),
-                  ]
-                : [
-                    const Color(0xFF8DCAC3),
-                    const Color(0xFFEAF6F4),
-                    const Color(0xFFFFF8F0),
-                  ],
-            stops: const [0.0, 0.50, 1.5],
+            colors: [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
+            stops: [0.0, 0.50, 1.5],
           ),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
             child: Column(
-              children: [
-                const SizedBox(height: 18),
-                const HeaderSection(),
-                const SizedBox(height: 18),
-                const TipsSearchBar(),
-                const SizedBox(height: 28),
-                const DailyTipCard(),
-                const SizedBox(height: 24),
-                const LatestNewsSection(),
-                const SizedBox(height: 24),
-                const ProtectionSection(),
-                const SizedBox(height: 24),
-                const AboutSection(),
-                const SizedBox(height: 150),
+              children: const [
+                SizedBox(height: 18),
+                HeaderSection(),
+                SizedBox(height: 18),
+                TipsSearchBar(),
+                SizedBox(height: 28),
+                DailyTipCard(),
+                SizedBox(height: 24),
+                LatestNewsSection(),
+                SizedBox(height: 24),
+                ProtectionSection(),
+                SizedBox(height: 24),
+                AboutSection(),
+                SizedBox(height: 150),
               ],
             ),
           ),
@@ -126,6 +115,7 @@ class TipsPage extends StatelessWidget {
               builder: (_) => SettingsPage(
                 mainAccountId: mainAccountId,
                 firebaseUid: firebaseUid,
+
                 smartLightEnabled: true,
                 smartLightIntensity: 0.95,
                 smartLightColor: const Color(0xFF06D6A0),
@@ -172,19 +162,20 @@ BoxDecoration cardStyle(Color color, {Color? borderColor}) {
     color: color,
     borderRadius: BorderRadius.circular(24),
     border: Border.all(
-      color: borderColor ?? const Color(0xFFf4efea),
+      color: borderColor ?? const Color(0xFFf4efea), // default
       width: 1.5,
     ),
   );
 }
 
-/// Header section: shows page title and quick description
+/// Header section:
+/// Shows page title and quick description
+
 class HeaderSection extends StatelessWidget {
   const HeaderSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Column(
@@ -204,28 +195,29 @@ class HeaderSection extends StatelessWidget {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.28),
+                        color: Colors.white.withOpacity(0.28),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.45),
+                          color: Colors.white.withOpacity(0.45),
                         ),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 21,
-                        color: cs.onSurface,
+                        color: Color(0xFF5B4636),
                       ),
                     ),
                   ),
                 ),
-                Center(
+
+                const Center(
                   child: Text(
-                    "Tips & News",
+                    "Tips  & News",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w900,
-                      color: cs.onSurface,
+                      color: Color(0xFF3E2E25),
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -233,14 +225,16 @@ class HeaderSection extends StatelessWidget {
               ],
             ),
           ),
+
           const SizedBox(height: 8),
-          Center(
+
+          const Center(
             child: Text(
               "Learn, protect, and improve your eye health",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: cs.onSurface.withValues(alpha: 0.54),
+                color: Colors.black54,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -251,7 +245,9 @@ class HeaderSection extends StatelessWidget {
   }
 }
 
-/// Search bar: allows users to search tips, news, and content
+/// Search bar:
+/// Allows users to search tips, news, and content
+
 class TipsSearchBar extends StatelessWidget {
   const TipsSearchBar({super.key});
 
@@ -264,13 +260,10 @@ class TipsSearchBar extends StatelessWidget {
         child: TextField(
           decoration: InputDecoration(
             hintText: "Search tips, news, and more...",
-            hintStyle: TextStyle(
-              fontSize: 15,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
+            hintStyle: const TextStyle(fontSize: 15, color: Colors.grey),
             prefixIcon: const Icon(Icons.search),
             filled: true,
-            fillColor: Theme.of(context).cardColor,
+            fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
               borderSide: BorderSide.none,
@@ -282,77 +275,64 @@ class TipsSearchBar extends StatelessWidget {
   }
 }
 
-/// Daily tip card: displays a quick eye-care tip for users
+/// Daily tip card:
+/// Displays a quick eye-care tip for users
+
 class DailyTipCard extends StatelessWidget {
   const DailyTipCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          Align(
+          const Align(
             alignment: Alignment.centerLeft,
             child: Text(
               "Daily Tip",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: cs.onSurface,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFF2EC4B6).withValues(alpha: 0.3),
-                width: 1.5,
-              ),
+            decoration: cardStyle(
+              const Color(0xFFf3f6f3),
+              borderColor: const Color(0xFFD6EDEA),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 CircleAvatar(
                   radius: 35,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  child: const Icon(
+                  backgroundColor: Colors.white,
+                  child: Icon(
                     Icons.tips_and_updates,
-                    color: Color(0xFF2EC4B6),
+                    color: Colors.teal,
                     size: 36,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "20-20-20 Rule",
                         style: TextStyle(
                           fontSize: 18,
-                          color: Color(0xFF2EC4B6),
+                          color: Colors.teal,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         "Every 20 minutes, look at something 20 feet away for 20 seconds.",
-                        style: TextStyle(
-                          color: cs.onSurface.withValues(alpha: 0.75),
-                        ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.access_time,
-                  color: Color(0xFF2EC4B6),
-                  size: 40,
-                ),
+                Icon(Icons.access_time, color: Colors.teal, size: 40),
               ],
             ),
           ),
@@ -362,7 +342,10 @@ class DailyTipCard extends StatelessWidget {
   }
 }
 
-/// Latest news section: fetches and displays eye health news with auto-sliding carousel
+/// Latest news section:
+/// Fetches and displays eye health news using News API
+/// Includes auto-sliding carousel
+
 class LatestNewsSection extends StatefulWidget {
   const LatestNewsSection({super.key});
 
@@ -385,6 +368,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     _newsFuture = fetchEyeNews();
   }
 
+  // Fetch news articles from API
   Future<List<dynamic>> fetchEyeNews() async {
     final url = Uri.parse(
       "https://newsapi.org/v2/everything?q=eye%20health%20OR%20digital%20eye%20strain%20OR%20blue%20light&language=en&pageSize=5&apiKey=$apiKey",
@@ -400,6 +384,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     }
   }
 
+  // Start auto sliding between news cards
   void startAutoSlide(int length) {
     if (timer != null) return;
 
@@ -424,20 +409,20 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
         future: _newsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return SizedBox(
+            return const SizedBox(
               height: 190,
               child: Center(
                 child: Text(
                   "Loading latest news...",
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-                  ),
+                  style: TextStyle(color: Colors.black45),
                 ),
               ),
             );
           }
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              snapshot.data!.isEmpty) {
             return const SizedBox();
           }
 
@@ -447,20 +432,16 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
             startAutoSlide(newsList.length);
           });
 
-          final cs = Theme.of(context).colorScheme;
           return Column(
             children: [
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     "Latest News",
-                    style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const Text(
-                    "View all",
-                    style: TextStyle(color: Color(0xFF2EC4B6)),
-                  ),
+                  Text("View all", style: TextStyle(color: Colors.teal)),
                 ],
               ),
 
@@ -481,14 +462,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
 
                     return Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
-                          width: 1.5,
-                        ),
-                      ),
+                      decoration: cardStyle(const Color(0xFFfbf8f5)),
                       child: Row(
                         children: [
                           ClipRRect(
@@ -512,10 +486,9 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                   article["title"] ?? "Eye Health News",
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
-                                    color: cs.onSurface,
                                   ),
                                 ),
 
@@ -526,10 +499,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                                       "Read the latest updates about eye health.",
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     height: 1.3,
-                                    color: cs.onSurface.withValues(alpha: 0.54),
+                                    color: Colors.black54,
                                   ),
                                 ),
                               ],
@@ -555,8 +528,8 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                     height: 8,
                     decoration: BoxDecoration(
                       color: currentIndex == index
-                          ? const Color(0xFF2EC4B6)
-                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                          ? Colors.teal
+                          : Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -577,15 +550,16 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
   }
 }
 
-/// Protection section: shows simple actions to protect eye health
+/// Protection section:
+/// Shows simple actions to protect eye health
+
 class ProtectionSection extends StatelessWidget {
   const ProtectionSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           Row(
@@ -593,16 +567,13 @@ class ProtectionSection extends StatelessWidget {
             children: [
               Text(
                 "How to Protect Your Eyes",
-                style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text(
-                "View all",
-                style: TextStyle(color: Color(0xFF2EC4B6)),
-              ),
+              Text("View all", style: TextStyle(color: Colors.teal)),
             ],
           ),
-          const SizedBox(height: 12),
-          const Row(
+          SizedBox(height: 12),
+          Row(
             children: [
               Expanded(
                 child: SizedBox(
@@ -610,8 +581,11 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.airline_seat_recline_extra,
                     title: "Take Regular Breaks",
-                    description: "Rest your eyes every 20 minutes to reduce strain.",
-                    iconColor: Color(0xFFf4bb76),
+                    description:
+                        "Rest your eyes every 20 minutes to reduce strain.",
+                    color: Color(0xFFf4bb76),
+                    bgColor: Color(0xFFfcf4ef),
+                    borderColor: Color(0xFFefe3d6),
                   ),
                 ),
               ),
@@ -623,7 +597,9 @@ class ProtectionSection extends StatelessWidget {
                     icon: Icons.water_drop,
                     title: "Stay Hydrated",
                     description: "Drink enough water to keep your eyes moist.",
-                    iconColor: Color(0xFF6bada0),
+                    color: Color(0xFF6bada0),
+                    bgColor: Color(0xFFf6f7f3),
+                    borderColor: Color(0xFFeaeeea),
                   ),
                 ),
               ),
@@ -634,8 +610,11 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.lightbulb,
                     title: "Good Lighting",
-                    description: "Use natural or soft lighting to reduce fatigue.",
-                    iconColor: Color(0xFF1d4774),
+                    description:
+                        "Use natural or soft lighting to reduce fatigue.",
+                    color: Color(0xFF1d4774),
+                    bgColor: Color(0xFFf7f5f3),
+                    borderColor: Color(0xFFe3e4e7),
                   ),
                 ),
               ),
@@ -647,34 +626,31 @@ class ProtectionSection extends StatelessWidget {
   }
 }
 
-/// Reusable card: displays an icon, title, and short description
+/// Reusable card:
+/// Displays an icon, title, and short description
 class ProtectCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final Color iconColor;
+  final Color color;
+  final Color bgColor;
+  final Color borderColor;
 
   const ProtectCard({
     super.key,
     required this.icon,
     required this.title,
     required this.description,
-    required this.iconColor,
+    required this.color,
+    required this.bgColor,
+    required this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
-          width: 1.5,
-        ),
-      ),
+      decoration: cardStyle(bgColor, borderColor: borderColor),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
@@ -682,7 +658,7 @@ class ProtectCard extends StatelessWidget {
 
           CircleAvatar(
             radius: 28,
-            backgroundColor: iconColor,
+            backgroundColor: color,
             child: Icon(icon, color: Colors.white, size: 26),
           ),
 
@@ -692,11 +668,10 @@ class ProtectCard extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
               height: 1.2,
-              color: cs.onSurface,
             ),
           ),
 
@@ -707,11 +682,7 @@ class ProtectCard extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.25,
-              color: cs.onSurface.withValues(alpha: 0.65),
-            ),
+            style: const TextStyle(fontSize: 11, height: 1.25),
           ),
         ],
       ),
@@ -719,41 +690,45 @@ class ProtectCard extends StatelessWidget {
   }
 }
 
-/// About section: explains app features and benefits
+/// About section:
+/// Explains app features and benefits
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
 
-  Widget _featureItem(BuildContext context, IconData icon, String title, String subtitle) {
-    final cs = Theme.of(context).colorScheme;
+  // Feature item widget used inside About section
+  Widget featureItem(IconData icon, String title, String subtitle) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFF2EC4B6), size: 30),
+            Icon(icon, color: const Color(0xFF62C2B6), size: 30),
+
             const SizedBox(height: 10),
+
             Text(
               title,
               textAlign: TextAlign.center,
               maxLines: 2,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.bold,
                 height: 1.25,
-                color: cs.onSurface,
               ),
             ),
+
             const SizedBox(height: 6),
+
             Text(
               subtitle,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 9.5,
                 height: 1.35,
-                color: cs.onSurface.withValues(alpha: 0.54),
+                color: Colors.black54,
               ),
             ),
           ],
@@ -762,43 +737,36 @@ class AboutSection extends StatelessWidget {
     );
   }
 
-  Widget _verticalDivider(BuildContext context) {
+  // Divider between feature items
+  Widget verticalDivider() {
     return Container(
       height: 95,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: const Color(0xFF2EC4B6).withValues(alpha: 0.2),
+      color: const Color(0xFFD6EDEA),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             "About CLIPVIEW",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: cs.onSurface,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
 
           const SizedBox(height: 12),
 
+          /// first card
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
-                width: 1.5,
-              ),
+            decoration: cardStyle(
+              const Color(0xFFf0f5f3),
+              borderColor: Color(0xFFe6f0ee),
             ),
             child: Row(
               children: [
@@ -814,7 +782,7 @@ class AboutSection extends StatelessWidget {
 
                 const SizedBox(width: 12),
 
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -823,26 +791,25 @@ class AboutSection extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: cs.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         "Learn how to use your device and app to improve your eye health every day.",
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,
-                          color: cs.onSurface.withValues(alpha: 0.54),
+                          color: Colors.black54,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                Icon(
+                const Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: cs.onSurface.withValues(alpha: 0.4),
+                  color: Color(0xFF8fb8b1),
                 ),
               ],
             ),
@@ -850,26 +817,45 @@ class AboutSection extends StatelessWidget {
 
           const SizedBox(height: 14),
 
+          /// second card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
-                width: 1.5,
-              ),
+            decoration: cardStyle(
+              const Color(0xFFf0f5f3),
+              borderColor: Color(0xFFe6f0ee),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _featureItem(context, Icons.verified_user_outlined, "Privacy First", "Camera-free by design"),
-                _verticalDivider(context),
-                _featureItem(context, Icons.attach_file, "Clip-On Design", "Easy to attach and use"),
-                _verticalDivider(context),
-                _featureItem(context, Icons.battery_full, "Long Battery", "All-day monitoring on a single charge"),
-                _verticalDivider(context),
-                _featureItem(context, Icons.bar_chart, "Smart Insights", "AI-powered personalization"),
+                featureItem(
+                  Icons.verified_user_outlined,
+                  "Privacy First",
+                  "Camera-free by design",
+                ),
+
+                verticalDivider(),
+
+                featureItem(
+                  Icons.attach_file,
+                  "Clip-On Design",
+                  "Easy to attach and use",
+                ),
+
+                verticalDivider(),
+
+                featureItem(
+                  Icons.battery_full,
+                  "Long Battery",
+                  "All-day monitoring on a single charge",
+                ),
+
+                verticalDivider(),
+
+                featureItem(
+                  Icons.bar_chart,
+                  "Smart Insights",
+                  "AI-powered personalization",
+                ),
               ],
             ),
           ),

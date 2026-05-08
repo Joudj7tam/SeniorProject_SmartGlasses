@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:provider/provider.dart';
 import 'eye_health_profile_page.dart';
 
 import 'notifications_page.dart';
@@ -13,8 +12,6 @@ import 'login_page.dart';
 import 'settings_page.dart';
 import 'progress_page.dart';
 import 'tips_page.dart';
-import 'theme_provider.dart';
-import 'app_theme.dart';
 import 'pdf_report_service.dart';
 
 import 'dart:convert';
@@ -36,22 +33,27 @@ const Color _sheetText = Color(0xFF3E2E25);
 const Color _sheetMuted = Color(0xFF8F7D70);
 const Color _sheetBorder = Color(0xFFEADCCD);
 
+// For demo/testing purposes, using fixed device ID.
 const String kDeviceId = 'SMART_GLASSES_001';
 
+/// Background handler for FCM messages.
+///
+/// Notes:
+/// - Must call Firebase.initializeApp() here because this runs in a background isolate.
+/// - Keep logic lightweight; heavy work should be deferred or handled by backend.
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  // Optional: persist/log message data for debugging or analytics.
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Firebase once at app startup.
   await Firebase.initializeApp();
+
+  // Register background handler before runApp.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: const SmartGlassesApp(),
-    ),
-  );
+  runApp(const SmartGlassesApp());
 }
 
 class SmartGlassesApp extends StatelessWidget {
@@ -59,20 +61,42 @@ class SmartGlassesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Smart Glasses',
-      themeMode: themeProvider.themeMode,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      home: const LoginPage(),
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFFFFF7EE),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFFF9F1C),
+          primary: const Color(0xFFFF9F1C),
+          secondary: const Color(0xFF2EC4B6),
+        ),
+        useMaterial3: true,
+      ),
+
+      /* home: HomePage(
+  mainAccountId: 'test123',
+  firebaseUid: 'testUID',
+),*/
+      home: const LoginPage(), //############################
+      // home: const RegisterPage(), //############################
+
+      /* home: HealthFormPage(
+  mainAccountId: 'test123',
+  firebaseUid: 'testUID',
+  goHomeAfterSave: false,
+),*/
       routes: {'/login': (_) => const LoginPage()},
     );
   }
 }
 
+/// Home page which shows a quick overview and listens to notification events.
+///
+/// Maintainability note:
+/// - If this file grows, extract:
+///   1) Firebase messaging setup -> services/notification_service.dart
+///   2) Cards/widgets -> widgets/ folder
 class HomePage extends StatefulWidget {
   final String mainAccountId;
   final String firebaseUid;
@@ -89,7 +113,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   String? deviceId;
-  bool _profilesLoadedOnce = false;
+  bool _profilesLoadedOnce = false; // first-time loading indicator
   bool _isUpdatingHomeCharts = false;
   bool _isGeneratingReport = false;
 
@@ -97,6 +121,8 @@ class _HomePageState extends State<HomePage> {
 
   bool _powerOn = false;
   Timer? _deviceStateTimer;
+
+  // ================= Glasses Link =================
 
   String? _askedLinkForFormId;
 
@@ -141,6 +167,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  // Checks with backend if the active profile is linked to glasses and updates state accordingly.
   Future<bool> _isActiveProfileLinkedFromBackend() async {
     final formId = _activeProfileId;
     if (formId == null) return false;
@@ -148,8 +175,8 @@ class _HomePageState extends State<HomePage> {
     try {
       final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
         queryParameters: {
-          'user_id': widget.mainAccountId,
-          'form_id': formId,
+          'user_id': widget.mainAccountId, // main account MongoDB id
+          'form_id': formId, // eye health form MongoDB id
         },
       );
 
@@ -162,6 +189,7 @@ class _HomePageState extends State<HomePage> {
         final deviceId = (device?['deviceId'] ?? '').toString();
         final name = _activeProfileName;
 
+        // حدّث state من الباك
         _glassesLink.value = {
           'deviceId': deviceId.isEmpty ? null : deviceId,
           'user_id': widget.mainAccountId,
@@ -173,6 +201,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (res.statusCode == 404) {
+        // not linked
         return false;
       }
 
@@ -198,6 +227,7 @@ class _HomePageState extends State<HomePage> {
         final userId = (decoded['user_id'] ?? '').toString();
         final formId = (decoded['form_id'] ?? '').toString();
 
+        // جيبي اسم البروفايل من الليست باستخدام form_id
         String? linkedName;
         if (formId.isNotEmpty) {
           final match = _profiles.firstWhere(
@@ -218,6 +248,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (res.statusCode == 404) {
+        // الديفايس مو مربوط لأي حساب
         _glassesLink.value = {
           'deviceId': kDeviceId,
           'user_id': null,
@@ -232,6 +263,8 @@ class _HomePageState extends State<HomePage> {
       debugPrint('by-device error: $e');
     }
   }
+
+  // ================= Home Selected Charts =================
 
   ProgressChartType? _chartTypeFromString(String value) {
     switch (value) {
@@ -366,6 +399,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Loads sub-accounts (profiles) from backend.
   Future<void> _loadProfiles() async {
     try {
       final uri = Uri.parse(
@@ -386,6 +420,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _profiles = data;
         _mainFormId = mainFormId;
+        // Sort: main form first
         if (_mainFormId != null) {
           _profiles.sort((a, b) {
             final aIsMain = (a['id'] ?? '').toString() == _mainFormId;
@@ -413,7 +448,7 @@ class _HomePageState extends State<HomePage> {
 
       final linked = await _isActiveProfileLinkedFromBackend();
 
-      final activeFormId = _activeProfileId;
+      final activeFormId = _activeProfileId; // بعد setState
       if (activeFormId != null && _askedLinkForFormId != activeFormId) {
         _askedLinkForFormId = activeFormId;
 
@@ -421,6 +456,8 @@ class _HomePageState extends State<HomePage> {
           await _showLinkGlassesDialog();
         }
       }
+
+      // ===== Ask to link glasses ONCE when profiles load the first time =====
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -442,9 +479,11 @@ class _HomePageState extends State<HomePage> {
 
     if (formId == null) return;
 
+    // check from backend if the current active account is already linked
     final linked = await _isActiveProfileLinkedFromBackend();
     if (linked) return;
 
+    // avoiding asking to link if the currently active profile is already linked to the glasses
     if (_glassesLink.value['form_id'] == formId) return;
 
     final result = await showDialog<bool>(
@@ -476,12 +515,13 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     if (result != true) return;
 
+    // ✅ Confirm => assign في الباك
     try {
       final uri = Uri.parse('$backendBaseUrl/api/devices/assign');
       final body = jsonEncode({
         'deviceId': kDeviceId,
-        'user_id': widget.mainAccountId,
-        'form_id': formId,
+        'user_id': widget.mainAccountId, // main account mongo id
+        'form_id': formId, // active form id
       });
 
       final res = await http.post(
@@ -494,6 +534,7 @@ class _HomePageState extends State<HomePage> {
         throw 'Assign failed (code: ${res.statusCode}): ${res.body}';
       }
 
+      // ✅ بعد الـ assign، اعيدي قراءة الحالة من الباك لتثبيت UI
       await _refreshDeviceLinkByDeviceId();
     } catch (e) {
       ScaffoldMessenger.of(
@@ -502,6 +543,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ================= load Device State =================
   Future<void> _loadDeviceStateFromDb() async {
     final formId = _activeProfileId;
     if (formId == null) return;
@@ -539,22 +581,31 @@ class _HomePageState extends State<HomePage> {
 
   int _selectedIndex = 0;
   int _previousIndex = 0;
-  final double _demoDistanceCm = 55;
-  final double _demoBrightness = 0.65;
-  final double _demoDryness = 0.35;
+  // Demo values only. Replace later with live sensor stream/state.
+  final double _demoDistanceCm = 55; // مسافة تقريبية
+  final double _demoBrightness = 0.65; // من 0 إلى 1
+  final double _demoDryness = 0.35; // من 0 إلى 1
 
+  // للحالة حق قائمة الأكشنات العلوية
   bool _showQuickActions = false;
   bool _wifiOn = true;
+  bool _isDarkMode = false;
 
+  // ================= Smart-Light =================
+  // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
-  final double _smartLightIntensity = 0.95;
-  final Color _smartLightColor = const Color(0xFF06D6A0);
+  final double _smartLightIntensity = 0.95; // 0..1
+  final Color _smartLightColor = const Color(0xFF06D6A0); // example green
 
-  List<Map<String, dynamic>> _profiles = [];
+  // ================= Sub-Accounts  =================
+  // Profiles = Forms from backend
+  List<Map<String, dynamic>> _profiles =
+      []; // each item has: id, full_name, is_active
 
   String get _activeAccountName {
     if (_profiles.isEmpty) return '...';
 
+    // find active profile (is_active == true)
     final active = _profiles.firstWhere(
       (p) => p['is_active'] == true,
       orElse: () => _profiles[0],
@@ -563,11 +614,21 @@ class _HomePageState extends State<HomePage> {
     return (active['full_name'] ?? '...').toString();
   }
 
+  /// Initializes Firebase Cloud Messaging (permissions + token + event listeners).
+  ///
+  /// Maintainability note:
+  /// - Keep all FCM wiring here (or move to a dedicated service later).
+  /// - Ensure we handle all three app states:
+  ///   1) foreground (onMessage)
+  ///   2) background -> user taps (onMessageOpenedApp)
+  ///   3) terminated -> opened by notification (getInitialMessage)
   Future<void> _initFirebaseMessaging() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
+    // Request notification permissions (iOS + Android 13+ behavior).
     await messaging.requestPermission(alert: true, badge: true, sound: true);
 
+    // Print token for backend registration/testing.
     String? token = await messaging.getToken();
     debugPrint('FCM TOKEN: $token');
 
@@ -582,19 +643,22 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
+    // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      debugPrint('رسالة جديدة في foreground: ${message.notification?.title}');
+      debugPrint(' رسالة جديدة في foreground: ${message.notification?.title}');
     });
 
+    // App is in background and opened by user tapping notification.
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('📬 User tapped notification: ${message.notification?.title}');
-      _openNotifications();
+      _openNotifications(); // نودّيه مباشرة لصفحة الإشعارات
     });
 
+    // App was terminated and opened via notification tap.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       debugPrint(
-        'App opened from terminated state by notification: ${initialMessage.notification?.title}',
+        ' App opened from terminated state by notification: ${initialMessage.notification?.title}',
       );
 
       Future.microtask(() {
@@ -639,8 +703,8 @@ class _HomePageState extends State<HomePage> {
 
   Color _iconColor(int index) {
     return _selectedIndex == index
-        ? const Color(0xFF2EC4B6)
-        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45);
+        ? const Color(0xFF2EC4B6) // selected item
+        : Colors.black45;
   }
 
   String _greeting() {
@@ -771,8 +835,12 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// UI-only mode toggle. If you later implement real theming,
+  /// connect it to MaterialApp.themeMode.
   void _toggleMode() {
-    context.read<ThemeProvider>().toggle();
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
   }
 
   void _openProfileMenu() {
@@ -780,7 +848,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
+      barrierColor: Colors.black.withOpacity(0.35),
       builder: (ctx) {
         final sheetHeight = MediaQuery.of(ctx).size.height * 0.72;
 
@@ -799,7 +867,7 @@ class _HomePageState extends State<HomePage> {
                   width: 150,
                   height: 150,
                   decoration: BoxDecoration(
-                    color: _sheetMint.withValues(alpha: 0.10),
+                    color: _sheetMint.withOpacity(0.10),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -811,7 +879,7 @@ class _HomePageState extends State<HomePage> {
                   width: 145,
                   height: 145,
                   decoration: BoxDecoration(
-                    color: _sheetOrange.withValues(alpha: 0.12),
+                    color: _sheetOrange.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -826,7 +894,7 @@ class _HomePageState extends State<HomePage> {
                         width: 44,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: _sheetText.withValues(alpha: 0.35),
+                          color: _sheetText.withOpacity(0.35),
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -956,22 +1024,22 @@ class _HomePageState extends State<HomePage> {
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
                                         color: isActive
-                                            ? _sheetMintSoft.withValues(alpha: 0.82)
+                                            ? _sheetMintSoft.withOpacity(0.82)
                                             : _sheetCard,
                                         borderRadius: BorderRadius.circular(24),
                                         border: Border.all(
                                           color: isActive
-                                              ? _sheetMint.withValues(alpha: 0.45)
-                                              : Colors.white.withValues(alpha: 0.90),
+                                              ? _sheetMint.withOpacity(0.45)
+                                              : Colors.white.withOpacity(0.90),
                                           width: isActive ? 1.4 : 1,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
                                             color: isActive
-                                                ? _sheetMint.withValues(alpha: 0.18)
+                                                ? _sheetMint.withOpacity(0.18)
                                                 : const Color(
                                                     0xFFB88956,
-                                                  ).withValues(alpha: 0.10),
+                                                  ).withOpacity(0.10),
                                             blurRadius: 16,
                                             offset: const Offset(0, 8),
                                           ),
@@ -1004,8 +1072,11 @@ class _HomePageState extends State<HomePage> {
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: isActive
-                                                      ? _sheetMint.withValues(alpha: 0.20)
-                                                      : _sheetOrange.withValues(alpha: 0.14),
+                                                      ? _sheetMint.withOpacity(
+                                                          0.20,
+                                                        )
+                                                      : _sheetOrange
+                                                            .withOpacity(0.14),
                                                   blurRadius: 12,
                                                   offset: const Offset(0, 5),
                                                 ),
@@ -1057,8 +1128,14 @@ class _HomePageState extends State<HomePage> {
                                                           ),
                                                       decoration: BoxDecoration(
                                                         color: isActive
-                                                            ? _sheetMint.withValues(alpha: 0.16)
-                                                            : _sheetOrangeSoft.withValues(alpha: 0.75),
+                                                            ? _sheetMint
+                                                                  .withOpacity(
+                                                                    0.16,
+                                                                  )
+                                                            : _sheetOrangeSoft
+                                                                  .withOpacity(
+                                                                    0.75,
+                                                                  ),
                                                         borderRadius:
                                                             BorderRadius.circular(
                                                               999,
@@ -1070,14 +1147,18 @@ class _HomePageState extends State<HomePage> {
                                                         children: [
                                                           Icon(
                                                             isActive
-                                                                ? Icons.check_circle_outline
-                                                                : Icons.touch_app_outlined,
+                                                                ? Icons
+                                                                      .check_circle_outline
+                                                                : Icons
+                                                                      .touch_app_outlined,
                                                             size: 13,
                                                             color: isActive
                                                                 ? _sheetMint
                                                                 : _sheetOrange,
                                                           ),
-                                                          const SizedBox(width: 4),
+                                                          const SizedBox(
+                                                            width: 4,
+                                                          ),
                                                           Text(
                                                             isActive
                                                                 ? 'Active'
@@ -1085,7 +1166,8 @@ class _HomePageState extends State<HomePage> {
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               fontWeight:
-                                                                  FontWeight.w800,
+                                                                  FontWeight
+                                                                      .w800,
                                                               color: isActive
                                                                   ? _sheetMint
                                                                   : _sheetOrange,
@@ -1103,16 +1185,22 @@ class _HomePageState extends State<HomePage> {
                                                               vertical: 5,
                                                             ),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.white.withValues(alpha: 0.75),
+                                                          color: Colors.white
+                                                              .withOpacity(
+                                                                0.75,
+                                                              ),
                                                           borderRadius:
-                                                              BorderRadius.circular(999),
+                                                              BorderRadius.circular(
+                                                                999,
+                                                              ),
                                                         ),
                                                         child: const Text(
                                                           'Main',
                                                           style: TextStyle(
                                                             fontSize: 11,
                                                             color: _sheetMuted,
-                                                            fontWeight: FontWeight.w800,
+                                                            fontWeight:
+                                                                FontWeight.w800,
                                                           ),
                                                         ),
                                                       ),
@@ -1131,7 +1219,8 @@ class _HomePageState extends State<HomePage> {
                                                   width: 38,
                                                   height: 38,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.85),
+                                                    color: Colors.white
+                                                        .withOpacity(0.85),
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
                                                       color: _sheetBorder,
@@ -1147,7 +1236,8 @@ class _HomePageState extends State<HomePage> {
                                                     onPressed: () async {
                                                       try {
                                                         final formId =
-                                                            (_profiles[i]['id'] ?? '')
+                                                            (_profiles[i]['id'] ??
+                                                                    '')
                                                                 .toString();
 
                                                         final uri =
@@ -1156,14 +1246,18 @@ class _HomePageState extends State<HomePage> {
                                                             ).replace(
                                                               queryParameters: {
                                                                 'main_account_id':
-                                                                    widget.mainAccountId,
-                                                                'form_id': formId,
+                                                                    widget
+                                                                        .mainAccountId,
+                                                                'form_id':
+                                                                    formId,
                                                               },
                                                             );
 
-                                                        final res = await http.post(uri);
+                                                        final res = await http
+                                                            .post(uri);
 
-                                                        if (res.statusCode != 200) {
+                                                        if (res.statusCode !=
+                                                            200) {
                                                           throw 'Switch failed (code: ${res.statusCode})';
                                                         }
 
@@ -1178,7 +1272,9 @@ class _HomePageState extends State<HomePage> {
                                                           context,
                                                         ).showSnackBar(
                                                           SnackBar(
-                                                            content: Text(e.toString()),
+                                                            content: Text(
+                                                              e.toString(),
+                                                            ),
                                                           ),
                                                         );
                                                       }
@@ -1191,13 +1287,15 @@ class _HomePageState extends State<HomePage> {
                                                   width: 38,
                                                   height: 38,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.red.withValues(alpha: 0.07),
+                                                    color: Colors.red
+                                                        .withOpacity(0.07),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: IconButton(
                                                     padding: EdgeInsets.zero,
                                                     icon: const Icon(
-                                                      Icons.delete_outline_rounded,
+                                                      Icons
+                                                          .delete_outline_rounded,
                                                       color: Colors.redAccent,
                                                       size: 21,
                                                     ),
@@ -1229,11 +1327,15 @@ class _HomePageState extends State<HomePage> {
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: _sheetOrange,
                                     side: BorderSide(
-                                      color: _sheetOrange.withValues(alpha: 0.38),
+                                      color: _sheetOrange.withOpacity(0.38),
                                       width: 1.4,
                                     ),
-                                    backgroundColor: Colors.white.withValues(alpha: 0.45),
-                                    padding: const EdgeInsets.symmetric(vertical: 15),
+                                    backgroundColor: Colors.white.withOpacity(
+                                      0.45,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -1264,8 +1366,12 @@ class _HomePageState extends State<HomePage> {
                                   onPressed: () =>
                                       _confirmDeleteMainAccount(ctx),
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    backgroundColor: Colors.red.withValues(alpha: 0.045),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    backgroundColor: Colors.red.withOpacity(
+                                      0.045,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -1292,7 +1398,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
     Navigator.pop(bottomSheetContext);
 
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => HealthFormPage(
@@ -1304,7 +1410,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     _askedLinkForFormId = null;
-    await _loadProfiles();
+    await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
   }
 
   Future<void> _confirmDeleteSubAccount(
@@ -1357,6 +1463,7 @@ class _HomePageState extends State<HomePage> {
         'name': null,
       };
 
+      // reload profiles
       await _loadProfiles();
 
       if (bottomSheetContext.mounted) Navigator.pop(bottomSheetContext);
@@ -1407,6 +1514,7 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
+      // go back to register page after deleting main account
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const RegisterPage()),
@@ -1422,29 +1530,22 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFF8EFE5),
       extendBody: true,
       body: Stack(
         children: [
           Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: isDark
-                    ? [
-                        const Color(0xFF0D1B2A),
-                        const Color(0xFF1B2A3B),
-                        const Color(0xFF0D1B2A),
-                      ]
-                    : [
-                        const Color(0xFF7FD1C9),
-                        const Color(0xFFEAF4EC),
-                        const Color(0xFFFFD08A),
-                      ],
-                stops: const [0.0, 0.55, 1.0],
+                colors: [
+                  Color(0xFF7FD1C9),
+                  Color(0xFFEAF4EC),
+                  Color(0xFFFFD08A),
+                ],
+                stops: [0.0, 0.55, 1.0],
               ),
             ),
           ),
@@ -1452,17 +1553,17 @@ class _HomePageState extends State<HomePage> {
           Positioned(
             top: -90,
             left: -90,
-            child: _homeSoftCircle(260, isDark ? const Color(0xFF2EC4B6) : Colors.white, 0.08),
+            child: _homeSoftCircle(260, Colors.white, 0.18),
           ),
           Positioned(
             bottom: 120,
             right: -70,
-            child: _homeSoftCircle(220, const Color(0xFFFFBF69), isDark ? 0.10 : 0.22),
+            child: _homeSoftCircle(220, const Color(0xFFFFBF69), 0.22),
           ),
 
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
+              padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1475,10 +1576,10 @@ class _HomePageState extends State<HomePage> {
                           width: 66,
                           height: 66,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFCBF3F0).withValues(alpha: 0.85),
+                            color: const Color(0xFFCBF3F0).withOpacity(0.85),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.55),
+                              color: Colors.white.withOpacity(0.55),
                               width: 2,
                             ),
                           ),
@@ -1499,19 +1600,19 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Text(
                               _greeting(),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 15,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                color: Color(0xFF4D4540),
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _activeAccountName,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 23,
                                 fontWeight: FontWeight.w800,
-                                color: Theme.of(context).colorScheme.onSurface,
+                                color: Color(0xFF4D3732),
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -1573,10 +1674,15 @@ class _HomePageState extends State<HomePage> {
 
       bottomNavigationBar: SmartBottomNav(
         selectedIndex: _selectedIndex,
+
         onHomeTap: () => _onItemTapped(0),
+
         onSettingsTap: _openSettingsPage,
+
         onProgressTap: _openProgressPage,
+
         onAlertsTap: _openNotifications,
+
         onTipsTap: _openTipsPage,
       ),
     );
@@ -1587,21 +1693,23 @@ class _HomePageState extends State<HomePage> {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: opacity),
+        color: color.withOpacity(opacity),
         shape: BoxShape.circle,
       ),
     );
   }
 
+  /// Quick actions overlay (Edit / Wi-Fi / Mode).
+  /// Keep this UI separate from business logic; actions should call dedicated methods.
   Widget _buildQuickActionsOverlay() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Positioned.fill(
       child: Stack(
         children: [
           GestureDetector(
             onTap: _toggleQuickActions,
-            child: Container(color: Colors.black.withValues(alpha: 0.25)),
+            child: Container(color: Colors.black.withOpacity(0.25)),
           ),
+          // close button
           Positioned(
             top: 20,
             right: 20,
@@ -1609,11 +1717,12 @@ class _HomePageState extends State<HomePage> {
               heroTag: 'close_actions',
               mini: true,
               shape: const CircleBorder(),
-              backgroundColor: Theme.of(context).colorScheme.surface,
+              backgroundColor: Colors.white,
               onPressed: _toggleQuickActions,
-              child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
+              child: const Icon(Icons.close, color: Colors.black87),
             ),
           ),
+          // الدوائر الثلاثة
           Positioned(
             top: 80,
             right: 40,
@@ -1622,13 +1731,14 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Edit
                   Transform.translate(
                     offset: const Offset(-8, 0),
                     child: _QuickActionBubble(
                       icon: Icons.edit,
                       label: 'Edit',
                       onTap: () {
-                        _toggleQuickActions();
+                        _toggleQuickActions(); // يقفل القائمة
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const RegisterPage(),
@@ -1638,16 +1748,18 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Wi-Fi
                   _QuickActionBubble(
                     icon: _wifiOn ? Icons.wifi : Icons.wifi_off,
                     label: 'Wi-Fi',
                     onTap: _toggleWifi,
                   ),
                   const SizedBox(height: 12),
+                  // Mode
                   Transform.translate(
                     offset: const Offset(8, 0),
                     child: _QuickActionBubble(
-                      icon: isDark ? Icons.dark_mode : Icons.light_mode,
+                      icon: _isDarkMode ? Icons.dark_mode : Icons.light_mode,
                       label: 'Mode',
                       onTap: _toggleMode,
                     ),
@@ -1661,6 +1773,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Cards (UI only). When real sensor data arrives, drive them via state management.
+
+  // Graphics card
   Widget _buildSelectedChartsSection() {
     if (_homeSelectedCharts.isEmpty) {
       return _SensorCard(
@@ -1681,16 +1796,14 @@ class _HomePageState extends State<HomePage> {
                     fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 14),
-                Builder(
-                  builder: (context) => Text(
-                    'Go to Progress and select charts to show here.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                SizedBox(height: 14),
+                Text(
+                  'Go to Progress and select charts to show here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF4D4540),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -1766,12 +1879,12 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: const Color(0xFFEAF4F2), // لون أخضر فاتح ناعم
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFBFE3DF), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
+            color: const Color(0xFF2EC4B6).withOpacity(0.15),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -1779,11 +1892,12 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
+          // 🔹 أيقونة اللمبة
           Container(
             width: 70,
             height: 70,
-            decoration: const BoxDecoration(
-              color: Color(0xFF8FCAC3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8FCAC3),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1795,11 +1909,12 @@ class _HomePageState extends State<HomePage> {
 
           const SizedBox(width: 16),
 
+          // 🔹 النص
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
+              children: const [
+                Text(
                   'Eye Care Tip',
                   style: TextStyle(
                     fontSize: 18,
@@ -1807,13 +1922,13 @@ class _HomePageState extends State<HomePage> {
                     color: Color(0xFF6AAFA7),
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   'Follow the 20-20-20 rule: Every 20 minutes,\nlook at something 20 feet away for 20 seconds.',
                   style: TextStyle(
                     fontSize: 11.5,
                     height: 1.25,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+                    color: Colors.black87,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1824,7 +1939,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
 
           Image.asset(
-            'assets/images/phone_20.png',
+            'assets/images/phone_20.png', // 👈 عدل الاسم إذا مختلف
             width: 90,
             height: 90,
             fit: BoxFit.contain,
@@ -1884,6 +1999,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ================== Generate Report  ==================
   Widget _buildGenerateReportButton() {
     return Container(
       width: double.infinity,
@@ -1897,7 +2013,7 @@ class _HomePageState extends State<HomePage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2EC4B6).withValues(alpha: 0.25),
+            color: const Color(0xFF2EC4B6).withOpacity(0.15),
             blurRadius: 28,
             offset: const Offset(0, 16),
           ),
@@ -1916,9 +2032,9 @@ class _HomePageState extends State<HomePage> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.32),
+                    color: Colors.white.withOpacity(0.32),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+                    border: Border.all(color: Colors.white.withOpacity(0.45)),
                   ),
                   child: _isGeneratingReport
                       ? const SizedBox(
@@ -1971,6 +2087,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+//// Shared UI card for sensor/indicator previews.
 class _SensorCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1988,11 +2105,11 @@ class _SensorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: const Color(0xFFFFFAF4).withOpacity(0.93),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: Colors.black.withOpacity(0.18),
             blurRadius: 22,
             spreadRadius: -8,
             offset: const Offset(0, 14),
@@ -2004,19 +2121,19 @@ class _SensorCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Color(0xFF2D2926),
             ),
           ),
           if (subtitle.isNotEmpty) ...[
             const SizedBox(height: 5),
             Text(
               subtitle,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                color: Color(0xFF8F8880),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -2029,6 +2146,7 @@ class _SensorCard extends StatelessWidget {
   }
 }
 
+/// Small circular button with icon + label used in quick actions overlay.
 class _QuickActionBubble extends StatelessWidget {
   final IconData icon;
   final String label;

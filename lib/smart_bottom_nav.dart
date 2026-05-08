@@ -19,19 +19,19 @@ class SmartBottomNav extends StatelessWidget {
     required this.onTipsTap,
   });
 
-  Color _iconColor(BuildContext context, int index) {
+  Color _iconColor(int index) {
     return selectedIndex == index
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+        ? const Color(0xFF2EC4B6)
+        : const Color(0xFF8A8580);
   }
 
-  TextStyle _labelStyle(BuildContext context, int index) {
+  TextStyle _labelStyle(int index) {
     final selected = selectedIndex == index;
     return TextStyle(
       fontSize: 12,
       height: 1,
       fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-      color: _iconColor(context, index),
+      color: _iconColor(index),
     );
   }
 
@@ -61,7 +61,7 @@ class SmartBottomNav extends StatelessWidget {
       shape: const CircularNotchedRectangle(),
       notchMargin: 7,
       elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
+      color: Colors.white.withOpacity(0.96),
       child: SizedBox(
         height: 78,
         child: Row(
@@ -72,13 +72,11 @@ class SmartBottomNav extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _navItem(
-                    context: context,
                     index: 0,
                     icon: Icons.home_outlined,
                     label: 'Home',
                   ),
                   _navItem(
-                    context: context,
                     index: 1,
                     icon: Icons.settings_outlined,
                     label: 'Settings',
@@ -89,12 +87,16 @@ class SmartBottomNav extends StatelessWidget {
 
             Expanded(
               flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 45),
-                child: Text(
-                  'Progress',
-                  style: _labelStyle(context, 2),
-                  textAlign: TextAlign.center,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _handleTap(2),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 45),
+                  child: Text(
+                    'Progress',
+                    style: _labelStyle(2),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
             ),
@@ -105,13 +107,11 @@ class SmartBottomNav extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _navItem(
-                    context: context,
                     index: 3,
                     icon: Icons.notifications_none_rounded,
                     label: 'Alerts',
                   ),
                   _navItem(
-                    context: context,
                     index: 4,
                     icon: Icons.lightbulb_outline_rounded,
                     label: 'Tips',
@@ -126,7 +126,6 @@ class SmartBottomNav extends StatelessWidget {
   }
 
   Widget _navItem({
-    required BuildContext context,
     required int index,
     required IconData icon,
     required String label,
@@ -141,7 +140,7 @@ class SmartBottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
+              ? const Color(0xFFCBF3F0).withOpacity(0.45)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),
@@ -150,11 +149,11 @@ class SmartBottomNav extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: _iconColor(context, index),
+              color: _iconColor(index),
               size: selected ? 28 : 25,
             ),
             const SizedBox(height: 4),
-            Text(label, style: _labelStyle(context, index)),
+            Text(label, style: _labelStyle(index)),
           ],
         ),
       ),
@@ -175,7 +174,7 @@ class SmartProgressFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Transform.translate(
-      offset: const Offset(0, 12),
+      offset: const Offset(0, 12), 
       child: Container(
         width: 72,
         height: 72,
@@ -195,13 +194,13 @@ class SmartProgressFab extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2EC4B6).withValues(alpha: 0.28),
+              color: const Color(0xFF2EC4B6).withOpacity(0.28),
               blurRadius: 22,
               spreadRadius: 1,
               offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: const Color(0xFFFFBF69).withValues(alpha: 0.14),
+              color: const Color(0xFFFFBF69).withOpacity(0.14),
               blurRadius: 26,
               spreadRadius: 3,
               offset: const Offset(0, 12),
