@@ -1,6 +1,9 @@
+/// TipsPage:
+/// Displays eye care tips, latest news, and protection guidance.
+/// Includes sections for daily tips, news carousel, and feature highlights.
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http; 
+import 'package:http/http.dart' as http;
 import 'smart_bottom_nav.dart';
 import 'dart:async';
 
@@ -21,127 +24,160 @@ class TipsPage extends StatelessWidget {
     required this.formId,
   });
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-  extendBody: true,
-  backgroundColor: Colors.transparent,
-  body: Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.center,
-        colors: Theme.of(context).brightness == Brightness.dark
-            ? [Color(0xFF1A2E2C), Color(0xFF1A1A1A), Color(0xFF121212)]
-            : [Color(0xFF8DCAC3), Color(0xFFEAF6F4), Color(0xFFFFF8F0)],
-        stops: [0.0, 0.50, 1.5],
-      ),
-    ),
-    child: SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          children: const [
-            SizedBox(height: 18),
-            HeaderSection(),
-            SizedBox(height: 18),
-            SearchBar(),
-            SizedBox(height: 28),
-            DailyTipCard(),
-            SizedBox(height: 24),
-            LatestNewsSection(),
-            SizedBox(height: 24),
-            ProtectionSection(),
-            SizedBox(height: 24),
-            AboutSection(),
-            SizedBox(height: 100),
-          ],
+  void _openProgress(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+          userId: mainAccountId,
+          firebaseUid: firebaseUid,
+          formId: formId,
+          onBackRequested: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TipsPage(
+                  mainAccountId: mainAccountId,
+                  firebaseUid: firebaseUid,
+                  formId: formId,
+                ),
+              ),
+            );
+          },
         ),
       ),
-    ),
-  ),
-  bottomNavigationBar: SmartBottomNav(
-  selectedIndex: 4,
-  onItemTap: (index) {
-    if (index == 4) return;
+    );
+  }
 
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomePage(
-            mainAccountId: mainAccountId,
-            firebaseUid: firebaseUid,
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: 4,
+        onTap: () => _openProgress(context),
+      ),
+
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.center,
+            colors: isDark
+                ? [
+                    const Color(0xFF1A2E2C),
+                    const Color(0xFF1A1A1A),
+                    const Color(0xFF121212),
+                  ]
+                : [
+                    const Color(0xFF8DCAC3),
+                    const Color(0xFFEAF6F4),
+                    const Color(0xFFFFF8F0),
+                  ],
+            stops: const [0.0, 0.50, 1.5],
           ),
         ),
-      );
-    }
-
-    if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SettingsPage(
-            mainAccountId: mainAccountId,
-            smartLightEnabled: true,
-            smartLightIntensity: 0.95,
-            smartLightColor: const Color(0xFF06D6A0),
-            onSmartLightToggle: (_) {},
-            glassesLink: ValueNotifier({
-              'user_id': null,
-              'form_id': null,
-              'name': null,
-              'deviceId': null,
-            }),
-            onRequestLink: () {},
-            activeFormId: formId,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 18),
+                const HeaderSection(),
+                const SizedBox(height: 18),
+                const TipsSearchBar(),
+                const SizedBox(height: 28),
+                const DailyTipCard(),
+                const SizedBox(height: 24),
+                const LatestNewsSection(),
+                const SizedBox(height: 24),
+                const ProtectionSection(),
+                const SizedBox(height: 24),
+                const AboutSection(),
+                const SizedBox(height: 150),
+              ],
+            ),
           ),
         ),
-      );
-    }
+      ),
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: 4,
 
-    if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProgressPage(
-            selectedForHome: {},
-            onToggleForHome: (_) {},
-            userId: mainAccountId,
-            formId: formId,
-          ),
-        ),
-      );
-    }
+        onHomeTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomePage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
+              ),
+            ),
+          );
+        },
 
-    if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => NotificationsPage(
-            userId: mainAccountId,
-            formId: formId,
-          ),
-        ),
-      );
-    }
-  },
-),
-);
+        onSettingsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SettingsPage(
+                mainAccountId: mainAccountId,
+                firebaseUid: firebaseUid,
+                smartLightEnabled: true,
+                smartLightIntensity: 0.95,
+                smartLightColor: const Color(0xFF06D6A0),
+                onSmartLightToggle: (_) {},
+                glassesLink: ValueNotifier({
+                  'user_id': null,
+                  'form_id': null,
+                  'name': null,
+                  'deviceId': null,
+                }),
+                onRequestLink: () {},
+                activeFormId: formId,
+              ),
+            ),
+          );
+        },
+
+        onProgressTap: () => _openProgress(context),
+
+        onAlertsTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NotificationsPage(
+                userId: mainAccountId,
+                firebaseUid: firebaseUid,
+                formId: formId,
+              ),
+            ),
+          );
+        },
+
+        onTipsTap: () {
+          // Already on Tips page
+        },
+      ),
+    );
+  }
 }
-}
-BoxDecoration cardStyle(
-  Color color, {
-  Color? borderColor,
-}) {
+
+// Shared card style used across the page
+BoxDecoration cardStyle(Color color, {Color? borderColor}) {
   return BoxDecoration(
     color: color,
     borderRadius: BorderRadius.circular(24),
     border: Border.all(
-      color: borderColor ?? const Color(0xFFf4efea), // default
+      color: borderColor ?? const Color(0xFFf4efea),
       width: 1.5,
     ),
   );
 }
+
+/// Header section: shows page title and quick description
 class HeaderSection extends StatelessWidget {
   const HeaderSection({super.key});
 
@@ -149,42 +185,74 @@ class HeaderSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            height: 54,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  "Tips & News",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 21,
+                        color: cs.onSurface,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "Learn, protect, and improve your eye health",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: cs.onSurface.withValues(alpha: 0.54),
+                Center(
+                  child: Text(
+                    "Tips & News",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: cs.onSurface,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.notifications_none, size: 28, color: cs.onSurface),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              "Learn, protect, and improve your eye health",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurface.withValues(alpha: 0.54),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class SearchBar extends StatelessWidget {
-  const SearchBar({super.key});
+/// Search bar: allows users to search tips, news, and content
+class TipsSearchBar extends StatelessWidget {
+  const TipsSearchBar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +263,10 @@ class SearchBar extends StatelessWidget {
         child: TextField(
           decoration: InputDecoration(
             hintText: "Search tips, news, and more...",
-            hintStyle: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+            hintStyle: TextStyle(
+              fontSize: 15,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
             prefixIcon: const Icon(Icons.search),
             filled: true,
             fillColor: Theme.of(context).cardColor,
@@ -210,6 +281,7 @@ class SearchBar extends StatelessWidget {
   }
 }
 
+/// Daily tip card: displays a quick eye-care tip for users
 class DailyTipCard extends StatelessWidget {
   const DailyTipCard({super.key});
 
@@ -268,7 +340,9 @@ class DailyTipCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         "Every 20 minutes, look at something 20 feet away for 20 seconds.",
-                        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75)),
+                        style: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.75),
+                        ),
                       ),
                     ],
                   ),
@@ -287,6 +361,7 @@ class DailyTipCard extends StatelessWidget {
   }
 }
 
+/// Latest news section: fetches and displays eye health news with auto-sliding carousel
 class LatestNewsSection extends StatefulWidget {
   const LatestNewsSection({super.key});
 
@@ -408,7 +483,10 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                       decoration: BoxDecoration(
                         color: cs.surface,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFF2EC4B6).withValues(alpha: 0.15), width: 1.5),
+                        border: Border.all(
+                          color: const Color(0xFF2EC4B6).withValues(alpha: 0.15),
+                          width: 1.5,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -477,7 +555,7 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
                     decoration: BoxDecoration(
                       color: currentIndex == index
                           ? const Color(0xFF2EC4B6)
-                          : cs.onSurface.withValues(alpha: 0.2),
+                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -497,6 +575,8 @@ class _LatestNewsSectionState extends State<LatestNewsSection> {
     super.dispose();
   }
 }
+
+/// Protection section: shows simple actions to protect eye health
 class ProtectionSection extends StatelessWidget {
   const ProtectionSection({super.key});
 
@@ -529,8 +609,7 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.airline_seat_recline_extra,
                     title: "Take Regular Breaks",
-                    description:
-                        "Rest your eyes every 20 minutes to reduce strain.",
+                    description: "Rest your eyes every 20 minutes to reduce strain.",
                     iconColor: Color(0xFFf4bb76),
                   ),
                 ),
@@ -542,8 +621,7 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.water_drop,
                     title: "Stay Hydrated",
-                    description:
-                        "Drink enough water to keep your eyes moist.",
+                    description: "Drink enough water to keep your eyes moist.",
                     iconColor: Color(0xFF6bada0),
                   ),
                 ),
@@ -555,8 +633,7 @@ class ProtectionSection extends StatelessWidget {
                   child: ProtectCard(
                     icon: Icons.lightbulb,
                     title: "Good Lighting",
-                    description:
-                        "Use natural or soft lighting to reduce fatigue.",
+                    description: "Use natural or soft lighting to reduce fatigue.",
                     iconColor: Color(0xFF1d4774),
                   ),
                 ),
@@ -569,6 +646,7 @@ class ProtectionSection extends StatelessWidget {
   }
 }
 
+/// Reusable card: displays an icon, title, and short description
 class ProtectCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -604,11 +682,7 @@ class ProtectCard extends StatelessWidget {
           CircleAvatar(
             radius: 28,
             backgroundColor: iconColor,
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 26,
-            ),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
 
           const SizedBox(height: 12),
@@ -644,6 +718,7 @@ class ProtectCard extends StatelessWidget {
   }
 }
 
+/// About section: explains app features and benefits
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
 

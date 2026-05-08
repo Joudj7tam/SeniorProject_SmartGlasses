@@ -4,10 +4,38 @@ import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-// Add this import at the top of settings_page.dart
 import 'package:provider/provider.dart';
 import 'theme_provider.dart';
+
+import 'smart_bottom_nav.dart';
+import 'main.dart';
+import 'progress_page.dart';
+import 'notifications_page.dart';
+import 'tips_page.dart';
+
+import 'success_popup.dart';
+
 const String backendBaseUrl = 'http://10.0.2.2:8080';
+
+const Color _settingsBgTop = Color(0xFF98DED7);
+const Color _settingsBgMid = Color(0xFFF8F5EF);
+const Color _settingsBgBottom = Color(0xFFF2D7AE);
+
+const Color _settingsCard = Color(0xFFFFFCF8);
+const Color _settingsSoftWhite = Color(0xFFFDFDFD);
+const Color _settingsBorder = Color(0xFFECE3D6);
+
+const Color _settingsText = Color(0xFF3E2E25);
+const Color _settingsMuted = Color(0xFF8F7D70);
+
+const Color _settingsOrange = Color(0xFFFFA62B);
+const Color _settingsOrangeSoft = Color(0xFFFFF0DC);
+
+const Color _settingsMint = Color(0xFF2EC4B6);
+const Color _settingsMintSoft = Color(0xFFE4F8F5);
+
+const Color _settingsBlue = Color(0xFF5C95FF);
+const Color _settingsBlueSoft = Color(0xFFEAF1FF);
 
 class _DeviceItem {
   final String id;
@@ -18,14 +46,13 @@ class _DeviceItem {
 
 class SettingsPage extends StatefulWidget {
   final bool smartLightEnabled;
-  final double smartLightIntensity; // 0..1
+  final double smartLightIntensity;
   final Color smartLightColor;
   final String? activeFormId;
   final ValueNotifier<Map<String, String?>> glassesLink;
   final VoidCallback onRequestLink;
   final String mainAccountId;
-
-  /// يرجّع قيمة السويتش للهوم (عشان  الربط بعدين بالباك/الـESP)
+  final String firebaseUid;
   final ValueChanged<bool>? onSmartLightToggle;
 
   const SettingsPage({
@@ -38,6 +65,7 @@ class SettingsPage extends StatefulWidget {
     required this.onRequestLink,
     required this.activeFormId,
     required this.mainAccountId,
+    required this.firebaseUid,
   });
 
   @override
@@ -46,79 +74,172 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   Widget _buildDarkModeSection() {
-  final themeProvider = context.read<ThemeProvider>();
-  final isDark = context.watch<ThemeProvider>().isDark;
+    final themeProvider = context.read<ThemeProvider>();
+    final isDark = context.watch<ThemeProvider>().isDark;
 
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(18),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF2C2C3E)
-                : const Color(0xFFEEEEFF),
-            borderRadius: BorderRadius.circular(14),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _softCardDecoration(),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF2C2C3E)
+                  : const Color(0xFFEEEEFF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              color: isDark
+                  ? const Color(0xFF9B8FFF)
+                  : const Color(0xFFFF9F1C),
+            ),
           ),
-          child: Icon(
-            isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-            color: isDark
-                ? const Color(0xFF9B8FFF)
-                : const Color(0xFFFF9F1C),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dark Mode',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dark Mode',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                isDark ? 'Dark theme is on' : 'Light theme is on',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                const SizedBox(height: 2),
+                Text(
+                  isDark ? 'Dark theme is on' : 'Light theme is on',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Switch(
-          value: isDark,
-          activeThumbColor: const Color(0xFF9B8FFF),
-          onChanged: (_) => themeProvider.toggle(),
-        ),
-      ],
-    ),
-  );
-}
+          Switch(
+            value: isDark,
+            activeThumbColor: const Color(0xFF9B8FFF),
+            onChanged: (_) => themeProvider.toggle(),
+          ),
+        ],
+      ),
+    );
+  }
 
   late bool _smartLightEnabled;
   bool _isLoadingDevices = false;
   bool _powerOn = false;
   bool _isPowerLoading = false;
+
+  String? get _safeFormId {
+    final formId = widget.activeFormId;
+    if (formId == null || formId.isEmpty) return null;
+    return formId;
+  }
+
+  void _showNoActiveProfileMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No active profile found')),
+    );
+  }
+
+  void _goHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomePage(
+          mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+        ),
+      ),
+    );
+  }
+
+  void _goSettings() {
+    // Already on Settings page
+  }
+
+  void _goProgress() {
+    final formId = _safeFormId;
+    if (formId == null) {
+      _showNoActiveProfileMessage();
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+          userId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+          onBackRequested: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SettingsPage(
+                  mainAccountId: widget.mainAccountId,
+                  firebaseUid: widget.firebaseUid,
+                  smartLightEnabled: _smartLightEnabled,
+                  smartLightIntensity: widget.smartLightIntensity,
+                  smartLightColor: widget.smartLightColor,
+                  onSmartLightToggle: widget.onSmartLightToggle,
+                  glassesLink: widget.glassesLink,
+                  onRequestLink: widget.onRequestLink,
+                  activeFormId: widget.activeFormId,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _goAlerts() {
+    final formId = _safeFormId;
+    if (formId == null) {
+      _showNoActiveProfileMessage();
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(
+          userId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+        ),
+      ),
+    );
+  }
+
+  void _goTips() {
+    final formId = _safeFormId;
+    if (formId == null) {
+      _showNoActiveProfileMessage();
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipsPage(
+          mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+        ),
+      ),
+    );
+  }
 
   List<_DeviceItem> _devices = [
     const _DeviceItem(id: 'SMART_GLASSES_001', name: 'My Smart Glasses'),
@@ -133,6 +254,25 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (_) {
       return null;
     }
+  }
+
+  BoxDecoration _softCardDecoration({
+    Color color = _settingsCard,
+    Gradient? gradient,
+  }) {
+    return BoxDecoration(
+      color: gradient == null ? color : null,
+      gradient: gradient,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFFBE9360).withValues(alpha: 0.12),
+          blurRadius: 18,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    );
   }
 
   @override
@@ -157,12 +297,16 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
+          backgroundColor: _settingsCard,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
           ),
           title: const Text(
             'Add New Device',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: _settingsText,
+            ),
           ),
           content: TextField(
             controller: _deviceNameController,
@@ -188,7 +332,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF9F1C),
+                backgroundColor: _settingsOrange,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -221,14 +365,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (!mounted) return;
                   Navigator.pop(ctx);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Device added successfully')),
-                  );
+                  await showSuccessPopup(context, 'Device added successfully');
                 } catch (e) {
                   if (!mounted) return;
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(e.toString())));
                 }
               },
               child: const Text('Add Device'),
@@ -245,7 +386,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (!mounted) return;
 
-      //go back to login page and delete the stack
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -575,9 +715,7 @@ class _SettingsPageState extends State<SettingsPage> {
     });
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Device unlinked successfully')),
-    );
+    await showSuccessPopup(context, 'Device unlinked successfully');
   }
 
   Future<void> _deleteDevice(String deviceId) async {
@@ -619,9 +757,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Device deleted successfully')),
-    );
+    await showSuccessPopup(context, 'Device deleted successfully');
   }
 
   Widget _buildGlassesLinkSection() {
@@ -634,9 +770,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
         String? linkedDeviceName;
         try {
-          linkedDeviceName = _devices
-              .firstWhere((d) => d.id == linkedDeviceId)
-              .name;
+          linkedDeviceName = _devices.firstWhere((d) => d.id == linkedDeviceId).name;
         } catch (_) {
           linkedDeviceName = null;
         }
@@ -652,54 +786,45 @@ class _SettingsPageState extends State<SettingsPage> {
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          decoration: _softCardDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE7F0FF),
-                      borderRadius: BorderRadius.circular(16),
+                      color: _settingsBlueSoft,
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: const Icon(
-                      Icons.visibility_outlined,
-                      color: Color(0xFF4D96FF),
+                      Icons.remove_red_eye_outlined,
+                      color: _settingsBlue,
+                      size: 26,
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Devices',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: _settingsText,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           'Add, name, and choose the device you want to link.',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
-                            height: 1.3,
+                            fontSize: 12.5,
+                            color: _settingsMuted,
+                            height: 1.35,
                           ),
                         ),
                       ],
@@ -714,16 +839,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withValues(alpha: 0.07)
-                      : const Color(0xFFFFF7EE),
+                  color: const Color(0xFFFFF8F0),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.link_rounded,
-                      color: Color(0xFF4D96FF),
+                      color: _settingsBlue,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -732,10 +855,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         subtitleText,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87),
-                          fontWeight: FontWeight.w500,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: _settingsText,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -747,18 +870,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withValues(alpha: 0.07)
-                      : const Color(0xFFFFF7EE),
+                  color: const Color(0xFFFFF8F0),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.power_settings_new_rounded,
-                      color: Color(0xFFFF9F1C),
+                      color: _settingsOrange,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -766,22 +887,22 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Device Power',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: _settingsText,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             isDeviceLinked
                                 ? 'Control ${linkedDeviceName ?? 'linked device'}'
                                 : 'No linked device to control',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                              color: _settingsMuted,
                             ),
                           ),
                         ],
@@ -789,6 +910,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     Switch(
                       value: _powerOn,
+                      activeColor: _settingsOrange,
                       onChanged: (!isDeviceLinked || _isPowerLoading)
                           ? null
                           : (value) async {
@@ -801,12 +923,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
               const SizedBox(height: 18),
 
-              Text(
+              const Text(
                 'Choose Device',
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: _settingsText,
                 ),
               ),
               const SizedBox(height: 10),
@@ -814,18 +936,19 @@ class _SettingsPageState extends State<SettingsPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withValues(alpha: 0.07)
-                      : const Color(0xFFFFF7EE),
+                  color: const Color(0xFFFFF8F0),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06)),
+                  border: Border.all(color: _settingsBorder),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedDeviceId,
                     isExpanded: true,
                     borderRadius: BorderRadius.circular(18),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: _settingsMuted,
+                    ),
                     selectedItemBuilder: (context) {
                       return _devices.map((device) {
                         return Align(
@@ -835,7 +958,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              color: _settingsText,
                             ),
                           ),
                         );
@@ -852,7 +976,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
+                                  color: _settingsText,
                                 ),
                               ),
                             ),
@@ -862,8 +987,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 final ok = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
+                                    backgroundColor: _settingsCard,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(22),
                                     ),
                                     title: const Text('Delete Device'),
                                     content: Text(
@@ -871,13 +997,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
+                                        onPressed: () => Navigator.pop(ctx, false),
                                         child: const Text('Cancel'),
                                       ),
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
+                                        onPressed: () => Navigator.pop(ctx, true),
                                         child: const Text(
                                           'Delete',
                                           style: TextStyle(
@@ -891,7 +1015,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 );
 
                                 if (ok == true) {
-                                  Navigator.pop(context); // يقفل dropdown
+                                  Navigator.pop(context);
                                   try {
                                     await _deleteDevice(device.id);
                                   } catch (e) {
@@ -935,13 +1059,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(
                     'Add New Device',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF2EC4B6),
-                    side: const BorderSide(color: Color(0xFFCBF3F0)),
-                    backgroundColor: const Color(0xFFF7FFFE),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: _settingsMint,
+                    side: const BorderSide(color: Color(0xFFBEEDE8)),
+                    backgroundColor: _settingsMintSoft.withValues(alpha: 0.50),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),
@@ -977,7 +1101,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF9F1C),
+                        backgroundColor: _settingsOrange,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -987,7 +1111,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       child: const Text(
                         'Link Selected Device',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -999,8 +1123,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               final ok = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
+                                  backgroundColor: _settingsCard,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius: BorderRadius.circular(22),
                                   ),
                                   title: const Text('Unlink Device'),
                                   content: Text(
@@ -1008,8 +1133,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, false),
+                                      onPressed: () => Navigator.pop(ctx, false),
                                       child: const Text('Cancel'),
                                     ),
                                     TextButton(
@@ -1045,6 +1169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               ? Colors.red.withValues(alpha: 0.25)
                               : Colors.grey.withValues(alpha: 0.2),
                         ),
+                        backgroundColor: Colors.white.withValues(alpha: 0.55),
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
@@ -1054,7 +1179,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         isDeviceLinked
                             ? 'Unlink: ${linkedDeviceName ?? 'Device'}'
                             : 'Unlink',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1074,31 +1199,41 @@ class _SettingsPageState extends State<SettingsPage> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: _settingsCard,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
           ),
           title: const Text(
             'Confirm Logout',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: _settingsText,
+            ),
           ),
-          content: const Text('Are you sure you want to log out?'),
+          content: const Text(
+            'Are you sure you want to log out?',
+            style: TextStyle(color: _settingsMuted),
+          ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close dialog
+                Navigator.pop(context);
               },
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: _settingsMuted),
+              ),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context); // Close dialog
+                Navigator.pop(context);
                 await _logout();
               },
               child: const Text(
                 'Log Out',
                 style: TextStyle(
                   color: Colors.red,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -1108,131 +1243,259 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        centerTitle: false,
-        title: Text(
-          'Settings',
-          style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
+  Widget _buildLogoutButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.75),
+          width: 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFBE9360).withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildGlassesLinkSection(),
-                      const SizedBox(height: 16),
-                      _buildDarkModeSection(),
-                      const SizedBox(height: 16),
-                      _buildSmartLightSection(),
-                      const SizedBox(height: 16),
-                    ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: _showLogoutDialog,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Colors.redAccent,
+                    size: 19,
                   ),
                 ),
-              ),
-
-              // ===== Log out bottom center =====
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: _showLogoutDialog,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: const Text(
-                    'Log Out',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Log Out',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ================= Smart-Light Section =================
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      extendBody: true,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: 1,
+        onTap: _goProgress,
+      ),
+
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: 1,
+        onHomeTap: _goHome,
+        onSettingsTap: _goSettings,
+        onProgressTap: _goProgress,
+        onAlertsTap: _goAlerts,
+        onTipsTap: _goTips,
+      ),
+
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? [
+                    const Color(0xFF0D1B2A),
+                    const Color(0xFF1B2A3B),
+                    const Color(0xFF0D1B2A),
+                  ]
+                : [
+                    _settingsBgTop,
+                    _settingsBgMid,
+                    _settingsBgBottom,
+                  ],
+            stops: const [0.0, 0.55, 1.0],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -70,
+              left: -50,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 40,
+              right: -40,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE6B8).withValues(alpha: 0.28),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 54,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(22),
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.28),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 21,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: Text(
+                              'Settings',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).padding.bottom + 135,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildGlassesLinkSection(),
+                            const SizedBox(height: 16),
+                            _buildDarkModeSection(),
+                            const SizedBox(height: 16),
+                            _buildSmartLightSection(),
+                            const SizedBox(height: 16),
+                            _buildLogoutButton(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSmartLightSection() {
     return Column(
       children: [
-        // Header card with switch
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha:0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+          decoration: _softCardDecoration(),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBF3F0),
-                  borderRadius: BorderRadius.circular(14),
+                  color: _settingsMintSoft,
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.lightbulb_outline,
-                  color: Color(0xFF2EC4B6),
+                  color: _settingsMint,
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Smart-Light',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: _settingsText,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       'Enable or disable ambient smart lighting.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
-                      ),
+                      style: TextStyle(fontSize: 12.5, color: _settingsMuted),
                     ),
                   ],
                 ),
               ),
               Switch(
                 value: _smartLightEnabled,
+                activeColor: _settingsMint,
                 onChanged: (v) async {
                   setState(() => _smartLightEnabled = v);
 
-                  // رجّع القيمة للهوم (عشان تنربط بعدين بالباك)
                   widget.onSmartLightToggle?.call(v);
                   if (widget.activeFormId != null) {
                     try {
@@ -1274,43 +1537,32 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+      decoration: _softCardDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            widget.smartLightColor.withValues(alpha:0.20),
-            const Color(0xFFFFFFFF),
+            widget.smartLightColor.withValues(alpha: 0.18),
+            _settingsSoftWhite,
           ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha:0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: Colors.black.withValues(alpha:0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // preview row
           Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: widget.smartLightColor.withValues(alpha:0.95),
+                  color: widget.smartLightColor.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.black.withValues(alpha:0.08)),
                 ),
                 child: Icon(
                   Icons.wb_sunny_rounded,
                   color: widget.smartLightIntensity < 0.35
-                      ? Theme.of(context).colorScheme.onSurface
+                      ? Colors.black87
                       : Colors.white,
                 ),
               ),
@@ -1319,41 +1571,55 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Light Controls',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w800,
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: _settingsText,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Intensity: $intensityPercent%',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                        color: _settingsMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              Text(
-                widget.smartLightColor.value
-                    .toRadixString(16)
-                    .toUpperCase()
-                    .padLeft(8, '0'),
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.70),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  widget.smartLightColor.value
+                      .toRadixString(16)
+                      .toUpperCase()
+                      .padLeft(8, '0'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: _settingsMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
-          // Intensity display (read-only)
           const Text(
             'Brightness',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: _settingsText,
+            ),
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -1361,20 +1627,28 @@ class _SettingsPageState extends State<SettingsPage> {
             child: LinearProgressIndicator(
               value: widget.smartLightIntensity.clamp(0.0, 1.0),
               minHeight: 10,
-              backgroundColor: Colors.black.withValues(alpha:0.06),
+              backgroundColor: Colors.black.withValues(alpha: 0.06),
+              valueColor: AlwaysStoppedAnimation<Color>(widget.smartLightColor),
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Color display (read-only palette)
           const Text(
             'Color',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: _settingsText,
+            ),
           ),
           const SizedBox(height: 10),
 
-          Wrap(spacing: 10, runSpacing: 10, children: _buildReadOnlyPalette()),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: _buildReadOnlyPalette(),
+          ),
         ],
       ),
     );
@@ -1402,12 +1676,14 @@ class _SettingsPageState extends State<SettingsPage> {
           color: c,
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+            color: selected
+                ? Theme.of(context).colorScheme.onSurface
+                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
             width: selected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: selected ? 10 : 6,
               offset: const Offset(0, 4),
             ),

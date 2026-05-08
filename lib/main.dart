@@ -15,25 +15,31 @@ import 'progress_page.dart';
 import 'tips_page.dart';
 import 'theme_provider.dart';
 import 'app_theme.dart';
+import 'pdf_report_service.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:async';
 
+import 'success_popup.dart';
+
 const String backendBaseUrl = 'http://10.0.2.2:8080';
 
-// For demo/testing purposes, using fixed device ID.
+const Color _sheetCream = Color(0xFFFFF7EE);
+const Color _sheetCard = Color(0xFFFFFCF8);
+const Color _sheetMint = Color(0xFF2EC4B6);
+const Color _sheetMintSoft = Color(0xFFDDF7F4);
+const Color _sheetOrange = Color(0xFFFF9F1C);
+const Color _sheetOrangeSoft = Color(0xFFFFE9C8);
+const Color _sheetText = Color(0xFF3E2E25);
+const Color _sheetMuted = Color(0xFF8F7D70);
+const Color _sheetBorder = Color(0xFFEADCCD);
+
 const String kDeviceId = 'SMART_GLASSES_001';
 
-/// Background handler for FCM messages.
-///
-/// Notes:
-/// - Must call Firebase.initializeApp() here because this runs in a background isolate.
-/// - Keep logic lightweight; heavy work should be deferred or handled by backend.
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // Optional: persist/log message data for debugging or analytics.
 }
 
 void main() async {
@@ -59,22 +65,14 @@ class SmartGlassesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Smart Glasses',
       themeMode: themeProvider.themeMode,
-
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-
       home: const LoginPage(),
       routes: {'/login': (_) => const LoginPage()},
     );
   }
 }
 
-/// Home page which shows a quick overview and listens to notification events.
-///
-/// Maintainability note:
-/// - If this file grows, extract:
-///   1) Firebase messaging setup -> services/notification_service.dart
-///   2) Cards/widgets -> widgets/ folder
 class HomePage extends StatefulWidget {
   final String mainAccountId;
   final String firebaseUid;
@@ -91,15 +89,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _mainFormId;
   String? deviceId;
-  bool _profilesLoadedOnce = false; // first-time loading indicator
+  bool _profilesLoadedOnce = false;
   bool _isUpdatingHomeCharts = false;
+  bool _isGeneratingReport = false;
 
   final Set<ProgressChartType> _homeSelectedCharts = {};
 
   bool _powerOn = false;
   Timer? _deviceStateTimer;
-
-  // ================= Glasses Link =================
 
   String? _askedLinkForFormId;
 
@@ -144,7 +141,6 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // Checks with backend if the active profile is linked to glasses and updates state accordingly.
   Future<bool> _isActiveProfileLinkedFromBackend() async {
     final formId = _activeProfileId;
     if (formId == null) return false;
@@ -152,8 +148,8 @@ class _HomePageState extends State<HomePage> {
     try {
       final uri = Uri.parse('$backendBaseUrl/api/devices/by-user-form').replace(
         queryParameters: {
-          'user_id': widget.mainAccountId, // main account MongoDB id
-          'form_id': formId, // eye health form MongoDB id
+          'user_id': widget.mainAccountId,
+          'form_id': formId,
         },
       );
 
@@ -166,7 +162,6 @@ class _HomePageState extends State<HomePage> {
         final deviceId = (device?['deviceId'] ?? '').toString();
         final name = _activeProfileName;
 
-        // حدّث state من الباك
         _glassesLink.value = {
           'deviceId': deviceId.isEmpty ? null : deviceId,
           'user_id': widget.mainAccountId,
@@ -178,7 +173,6 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (res.statusCode == 404) {
-        // not linked
         return false;
       }
 
@@ -204,7 +198,6 @@ class _HomePageState extends State<HomePage> {
         final userId = (decoded['user_id'] ?? '').toString();
         final formId = (decoded['form_id'] ?? '').toString();
 
-        // جيبي اسم البروفايل من الليست باستخدام form_id
         String? linkedName;
         if (formId.isNotEmpty) {
           final match = _profiles.firstWhere(
@@ -225,7 +218,6 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (res.statusCode == 404) {
-        // الديفايس مو مربوط لأي حساب
         _glassesLink.value = {
           'deviceId': kDeviceId,
           'user_id': null,
@@ -240,8 +232,6 @@ class _HomePageState extends State<HomePage> {
       debugPrint('by-device error: $e');
     }
   }
-
-  // ================= Home Selected Charts =================
 
   ProgressChartType? _chartTypeFromString(String value) {
     switch (value) {
@@ -350,15 +340,11 @@ class _HomePageState extends State<HomePage> {
     try {
       await _updateHomeSelectedChartsInBackend();
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _homeSelectedCharts.contains(chart)
-                ? 'Added to Home'
-                : 'Removed from Home',
-          ),
-        ),
+      await showSuccessPopup(
+        context,
+        _homeSelectedCharts.contains(chart)
+            ? 'Added to Home'
+            : 'Removed from Home',
       );
     } catch (e) {
       if (!mounted) return;
@@ -380,7 +366,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Loads sub-accounts (profiles) from backend.
   Future<void> _loadProfiles() async {
     try {
       final uri = Uri.parse(
@@ -401,7 +386,6 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _profiles = data;
         _mainFormId = mainFormId;
-        // Sort: main form first
         if (_mainFormId != null) {
           _profiles.sort((a, b) {
             final aIsMain = (a['id'] ?? '').toString() == _mainFormId;
@@ -429,7 +413,7 @@ class _HomePageState extends State<HomePage> {
 
       final linked = await _isActiveProfileLinkedFromBackend();
 
-      final activeFormId = _activeProfileId; // بعد setState
+      final activeFormId = _activeProfileId;
       if (activeFormId != null && _askedLinkForFormId != activeFormId) {
         _askedLinkForFormId = activeFormId;
 
@@ -437,8 +421,6 @@ class _HomePageState extends State<HomePage> {
           await _showLinkGlassesDialog();
         }
       }
-
-      // ===== Ask to link glasses ONCE when profiles load the first time =====
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -460,11 +442,9 @@ class _HomePageState extends State<HomePage> {
 
     if (formId == null) return;
 
-    // check from backend if the current active account is already linked
     final linked = await _isActiveProfileLinkedFromBackend();
     if (linked) return;
 
-    // avoiding asking to link if the currently active profile is already linked to the glasses
     if (_glassesLink.value['form_id'] == formId) return;
 
     final result = await showDialog<bool>(
@@ -496,13 +476,12 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     if (result != true) return;
 
-    // ✅ Confirm => assign في الباك
     try {
       final uri = Uri.parse('$backendBaseUrl/api/devices/assign');
       final body = jsonEncode({
         'deviceId': kDeviceId,
-        'user_id': widget.mainAccountId, // main account mongo id
-        'form_id': formId, // active form id
+        'user_id': widget.mainAccountId,
+        'form_id': formId,
       });
 
       final res = await http.post(
@@ -515,7 +494,6 @@ class _HomePageState extends State<HomePage> {
         throw 'Assign failed (code: ${res.statusCode}): ${res.body}';
       }
 
-      // ✅ بعد الـ assign، اعيدي قراءة الحالة من الباك لتثبيت UI
       await _refreshDeviceLinkByDeviceId();
     } catch (e) {
       ScaffoldMessenger.of(
@@ -524,7 +502,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ================= load Device State =================
   Future<void> _loadDeviceStateFromDb() async {
     final formId = _activeProfileId;
     if (formId == null) return;
@@ -561,31 +538,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   int _selectedIndex = 0;
-  // Demo values only. Replace later with live sensor stream/state.
-  final double _demoDistanceCm = 55; // مسافة تقريبية
-  final double _demoBrightness = 0.65; // من 0 إلى 1
-  final double _demoDryness = 0.35; // من 0 إلى 1
+  int _previousIndex = 0;
+  final double _demoDistanceCm = 55;
+  final double _demoBrightness = 0.65;
+  final double _demoDryness = 0.35;
 
-  // للحالة حق قائمة الأكشنات العلوية
   bool _showQuickActions = false;
   bool _wifiOn = true;
-  bool _isDarkMode = false;
 
-  // ================= Smart-Light =================
-  // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
-  final double _smartLightIntensity = 0.95; // 0..1
-  final Color _smartLightColor = const Color(0xFF06D6A0); // example green
+  final double _smartLightIntensity = 0.95;
+  final Color _smartLightColor = const Color(0xFF06D6A0);
 
-  // ================= Sub-Accounts  =================
-  // Profiles = Forms from backend
-  List<Map<String, dynamic>> _profiles =
-      []; // each item has: id, full_name, is_active
+  List<Map<String, dynamic>> _profiles = [];
 
   String get _activeAccountName {
     if (_profiles.isEmpty) return '...';
 
-    // find active profile (is_active == true)
     final active = _profiles.firstWhere(
       (p) => p['is_active'] == true,
       orElse: () => _profiles[0],
@@ -594,21 +563,11 @@ class _HomePageState extends State<HomePage> {
     return (active['full_name'] ?? '...').toString();
   }
 
-  /// Initializes Firebase Cloud Messaging (permissions + token + event listeners).
-  ///
-  /// Maintainability note:
-  /// - Keep all FCM wiring here (or move to a dedicated service later).
-  /// - Ensure we handle all three app states:
-  ///   1) foreground (onMessage)
-  ///   2) background -> user taps (onMessageOpenedApp)
-  ///   3) terminated -> opened by notification (getInitialMessage)
   Future<void> _initFirebaseMessaging() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    // Request notification permissions (iOS + Android 13+ behavior).
     await messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    // Print token for backend registration/testing.
     String? token = await messaging.getToken();
     debugPrint('FCM TOKEN: $token');
 
@@ -623,22 +582,19 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
-    // App is open (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      debugPrint(' رسالة جديدة في foreground: ${message.notification?.title}');
+      debugPrint('رسالة جديدة في foreground: ${message.notification?.title}');
     });
 
-    // App is in background and opened by user tapping notification.
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('📬 User tapped notification: ${message.notification?.title}');
-      _openNotifications(); // نودّيه مباشرة لصفحة الإشعارات
+      _openNotifications();
     });
 
-    // App was terminated and opened via notification tap.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       debugPrint(
-        ' App opened from terminated state by notification: ${initialMessage.notification?.title}',
+        'App opened from terminated state by notification: ${initialMessage.notification?.title}',
       );
 
       Future.microtask(() {
@@ -668,7 +624,16 @@ class _HomePageState extends State<HomePage> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
+      if (index != _selectedIndex) {
+        _previousIndex = _selectedIndex;
+        _selectedIndex = index;
+      }
+    });
+  }
+
+  void _goBackFromProgress() {
+    setState(() {
+      _selectedIndex = _previousIndex;
     });
   }
 
@@ -693,13 +658,42 @@ class _HomePageState extends State<HomePage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            NotificationsPage(userId: widget.mainAccountId, formId: formId),
+        builder: (_) => NotificationsPage(
+          userId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+        ),
       ),
     );
   }
 
-  void _openProfileInfoPage() {
+  Future<void> _openProgressPage() async {
+    final formId = _activeProfileId;
+
+    if (formId == null || formId.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No active profile found')));
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProgressPage(
+          userId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+          onBackRequested: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+
+    await _loadHomeSelectedCharts();
+  }
+
+  void _openTipsPage() {
     final formId = _activeProfileId;
 
     if (formId == null || formId.isEmpty) {
@@ -711,7 +705,7 @@ class _HomePageState extends State<HomePage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => EyeHealthProfilePage(
+        builder: (_) => TipsPage(
           mainAccountId: widget.mainAccountId,
           firebaseUid: widget.firebaseUid,
           formId: formId,
@@ -720,11 +714,37 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _openProfileInfoPage() async {
+    final formId = _activeProfileId;
+
+    if (formId == null || formId.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No active profile found')));
+      return;
+    }
+
+    final updated = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EyeHealthProfilePage(
+          mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+          formId: formId,
+        ),
+      ),
+    );
+    if (updated == true) {
+      await _loadProfiles();
+    }
+  }
+
   void _openSettingsPage() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SettingsPage(
           mainAccountId: widget.mainAccountId,
+          firebaseUid: widget.firebaseUid,
+
           smartLightEnabled: _smartLightEnabled,
           smartLightIntensity: _smartLightIntensity,
           smartLightColor: _smartLightColor,
@@ -751,152 +771,517 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// UI-only mode toggle. If you later implement real theming,
-  /// connect it to MaterialApp.themeMode.
   void _toggleMode() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
+    context.read<ThemeProvider>().toggle();
   }
 
-  ////////////##########
   void _openProfileMenu() {
     showModalBottomSheet(
       context: context,
-      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        final sheetHeight = MediaQuery.of(ctx).size.height * 0.72;
+
+        return Container(
+          height: sheetHeight,
+          decoration: const BoxDecoration(
+            color: _sheetCream,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+          ),
+          child: Stack(
             children: [
-              const Text(
-                'Profiles',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-
-              // List accounts
-              ...List.generate(_profiles.length, (i) {
-                final name = (_profiles[i]['full_name'] ?? '').toString();
-                final isActive = _profiles[i]['is_active'] == true;
-                final formId = (_profiles[i]['id'] ?? '').toString();
-                final isMain = (_mainFormId != null && formId == _mainFormId);
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFCBF3F0),
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(color: Color(0xFF2EC4B6)),
-                    ),
+              Positioned(
+                top: -55,
+                right: -35,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: _sheetMint.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
                   ),
-                  title: Text(name),
-                  subtitle: isActive ? const Text('Active') : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                ),
+              ),
+              Positioned(
+                bottom: -45,
+                left: -35,
+                child: Container(
+                  width: 145,
+                  height: 145,
+                  decoration: BoxDecoration(
+                    color: _sheetOrange.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                  child: Column(
                     children: [
-                      if (!isActive)
-                        IconButton(
-                          icon: const Icon(Icons.swap_horiz),
-                          onPressed: () async {
-                            try {
-                              final formId = (_profiles[i]['id'] ?? '')
-                                  .toString();
+                      Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: _sheetText.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
 
-                              final uri =
-                                  Uri.parse(
-                                    '$backendBaseUrl/api/eye-health-form/switch',
-                                  ).replace(
-                                    queryParameters: {
-                                      'main_account_id': widget.mainAccountId,
-                                      'form_id': formId,
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: _sheetMintSoft,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: const Icon(
+                              Icons.manage_accounts_outlined,
+                              color: _sheetMint,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Profiles',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: _sheetText,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Switch between your eye-health profiles.',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: _sheetMuted,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              if (_profiles.isEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: _sheetCard,
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(color: _sheetBorder),
+                                  ),
+                                  child: const Text(
+                                    'No profiles available',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: _sheetMuted,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+
+                              ...List.generate(_profiles.length, (i) {
+                                final name = (_profiles[i]['full_name'] ?? '')
+                                    .toString();
+                                final isActive =
+                                    _profiles[i]['is_active'] == true;
+                                final formId = (_profiles[i]['id'] ?? '')
+                                    .toString();
+                                final isMain =
+                                    (_mainFormId != null &&
+                                    formId == _mainFormId);
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(24),
+                                    onTap: () async {
+                                      try {
+                                        final formId =
+                                            (_profiles[i]['id'] ?? '')
+                                                .toString();
+
+                                        final uri =
+                                            Uri.parse(
+                                              '$backendBaseUrl/api/eye-health-form/switch',
+                                            ).replace(
+                                              queryParameters: {
+                                                'main_account_id':
+                                                    widget.mainAccountId,
+                                                'form_id': formId,
+                                              },
+                                            );
+
+                                        final res = await http.post(uri);
+
+                                        if (res.statusCode != 200) {
+                                          throw 'Switch failed (code: ${res.statusCode})';
+                                        }
+
+                                        await _loadProfiles();
+                                        if (ctx.mounted) Navigator.pop(ctx);
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text(e.toString())),
+                                        );
+                                      }
                                     },
-                                  );
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: isActive
+                                            ? _sheetMintSoft.withValues(alpha: 0.82)
+                                            : _sheetCard,
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: isActive
+                                              ? _sheetMint.withValues(alpha: 0.45)
+                                              : Colors.white.withValues(alpha: 0.90),
+                                          width: isActive ? 1.4 : 1,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: isActive
+                                                ? _sheetMint.withValues(alpha: 0.18)
+                                                : const Color(
+                                                    0xFFB88956,
+                                                  ).withValues(alpha: 0.10),
+                                            blurRadius: 16,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 54,
+                                            height: 54,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: isActive
+                                                    ? const [
+                                                        Color(0xFFBDF3EE),
+                                                        Color(0xFFEFFFFC),
+                                                      ]
+                                                    : const [
+                                                        Color(0xFFFFE7C2),
+                                                        Color(0xFFFFF8EF),
+                                                      ],
+                                              ),
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 3,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: isActive
+                                                      ? _sheetMint.withValues(alpha: 0.20)
+                                                      : _sheetOrange.withValues(alpha: 0.14),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 5),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                name.isNotEmpty
+                                                    ? name[0].toUpperCase()
+                                                    : '?',
+                                                style: TextStyle(
+                                                  color: isActive
+                                                      ? _sheetMint
+                                                      : _sheetOrange,
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 13),
 
-                              final res = await http.post(uri);
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  name.isEmpty
+                                                      ? 'Unnamed profile'
+                                                      : name,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: _sheetText,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 5),
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 9,
+                                                            vertical: 5,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: isActive
+                                                            ? _sheetMint.withValues(alpha: 0.16)
+                                                            : _sheetOrangeSoft.withValues(alpha: 0.75),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              999,
+                                                            ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            isActive
+                                                                ? Icons.check_circle_outline
+                                                                : Icons.touch_app_outlined,
+                                                            size: 13,
+                                                            color: isActive
+                                                                ? _sheetMint
+                                                                : _sheetOrange,
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            isActive
+                                                                ? 'Active'
+                                                                : 'Tap to switch',
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              fontWeight:
+                                                                  FontWeight.w800,
+                                                              color: isActive
+                                                                  ? _sheetMint
+                                                                  : _sheetOrange,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    if (isMain) ...[
+                                                      const SizedBox(width: 7),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 5,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white.withValues(alpha: 0.75),
+                                                          borderRadius:
+                                                              BorderRadius.circular(999),
+                                                        ),
+                                                        child: const Text(
+                                                          'Main',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: _sheetMuted,
+                                                            fontWeight: FontWeight.w800,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
 
-                              if (res.statusCode != 200) {
-                                throw 'Switch failed (code: ${res.statusCode})';
-                              }
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (!isActive)
+                                                Container(
+                                                  width: 38,
+                                                  height: 38,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withValues(alpha: 0.85),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: _sheetBorder,
+                                                    ),
+                                                  ),
+                                                  child: IconButton(
+                                                    padding: EdgeInsets.zero,
+                                                    icon: const Icon(
+                                                      Icons.swap_horiz_rounded,
+                                                      color: _sheetText,
+                                                      size: 22,
+                                                    ),
+                                                    onPressed: () async {
+                                                      try {
+                                                        final formId =
+                                                            (_profiles[i]['id'] ?? '')
+                                                                .toString();
 
-                              await _loadProfiles(); // refresh to update is_active
-                              if (ctx.mounted) Navigator.pop(ctx);
+                                                        final uri =
+                                                            Uri.parse(
+                                                              '$backendBaseUrl/api/eye-health-form/switch',
+                                                            ).replace(
+                                                              queryParameters: {
+                                                                'main_account_id':
+                                                                    widget.mainAccountId,
+                                                                'form_id': formId,
+                                                              },
+                                                            );
 
-                              if (!mounted) return;
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString())),
-                              );
-                            }
-                          },
+                                                        final res = await http.post(uri);
+
+                                                        if (res.statusCode != 200) {
+                                                          throw 'Switch failed (code: ${res.statusCode})';
+                                                        }
+
+                                                        await _loadProfiles();
+                                                        if (ctx.mounted) {
+                                                          Navigator.pop(ctx);
+                                                        }
+
+                                                        if (!mounted) return;
+                                                      } catch (e) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(e.toString()),
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              if (!isMain) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  width: 38,
+                                                  height: 38,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red.withValues(alpha: 0.07),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: IconButton(
+                                                    padding: EdgeInsets.zero,
+                                                    icon: const Icon(
+                                                      Icons.delete_outline_rounded,
+                                                      color: Colors.redAccent,
+                                                      size: 21,
+                                                    ),
+                                                    onPressed: () =>
+                                                        _confirmDeleteSubAccount(
+                                                          ctx,
+                                                          i,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+
+                              const SizedBox(height: 4),
+
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Add Sub-Account'),
+                                  onPressed: () => _createSubAccount(ctx),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _sheetOrange,
+                                    side: BorderSide(
+                                      color: _sheetOrange.withValues(alpha: 0.38),
+                                      width: 1.4,
+                                    ),
+                                    backgroundColor: Colors.white.withValues(alpha: 0.45),
+                                    padding: const EdgeInsets.symmetric(vertical: 15),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              SizedBox(
+                                width: double.infinity,
+                                child: TextButton.icon(
+                                  icon: const Icon(
+                                    Icons.delete_forever_rounded,
+                                    color: Colors.redAccent,
+                                  ),
+                                  label: const Text(
+                                    'Delete Main Account',
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  onPressed: () =>
+                                      _confirmDeleteMainAccount(ctx),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    backgroundColor: Colors.red.withValues(alpha: 0.045),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+                            ],
+                          ),
                         ),
-                      if (!isMain) // prevent deleting main from here
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _confirmDeleteSubAccount(ctx, i),
-                        ),
+                      ),
                     ],
                   ),
-                  onTap: () async {
-                    try {
-                      final formId = (_profiles[i]['id'] ?? '').toString();
-
-                      final uri =
-                          Uri.parse(
-                            '$backendBaseUrl/api/eye-health-form/switch',
-                          ).replace(
-                            queryParameters: {
-                              'main_account_id': widget.mainAccountId,
-                              'form_id': formId,
-                            },
-                          );
-
-                      final res = await http.post(uri);
-
-                      if (res.statusCode != 200) {
-                        throw 'Switch failed (code: ${res.statusCode})';
-                      }
-
-                      await _loadProfiles(); // Refresh to update the active profile
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
-                    }
-                  },
-                );
-              }),
-
-              const SizedBox(height: 6),
-
-              // Add sub-account
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Sub-Account'),
-                  onPressed: () => _createSubAccount(ctx),
                 ),
               ),
-
-              const SizedBox(height: 6),
-
-              // Delete main account (FR9) - UI only
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  label: const Text(
-                    'Delete Main Account',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onPressed: () => _confirmDeleteMainAccount(ctx),
-                ),
-              ),
-
-              const SizedBox(height: 10),
             ],
           ),
         );
@@ -907,7 +1292,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _createSubAccount(BuildContext bottomSheetContext) async {
     Navigator.pop(bottomSheetContext);
 
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => HealthFormPage(
@@ -919,7 +1304,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     _askedLinkForFormId = null;
-    await _loadProfiles(); // the new form is now active, so refresh profiles to update UI
+    await _loadProfiles();
   }
 
   Future<void> _confirmDeleteSubAccount(
@@ -972,7 +1357,6 @@ class _HomePageState extends State<HomePage> {
         'name': null,
       };
 
-      // reload profiles
       await _loadProfiles();
 
       if (bottomSheetContext.mounted) Navigator.pop(bottomSheetContext);
@@ -1023,7 +1407,6 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
-      // go back to register page after deleting main account
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const RegisterPage()),
@@ -1043,227 +1426,159 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
-      body: _selectedIndex == 2
-          ? ProgressPage(
-              selectedForHome: _homeSelectedCharts,
-              onToggleForHome: _toggleChartForHome,
-              userId: widget.mainAccountId,
-              formId: _activeProfileId ?? '',
-            )
-          : Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: isDark
-                          ? [
-                              const Color(0xFF0D1B2A),
-                              const Color(0xFF1B2A3B),
-                              const Color(0xFF0D1B2A),
-                            ]
-                          : [
-                              const Color(0xFF7FD1C9),
-                              const Color(0xFFEAF4EC),
-                              const Color(0xFFFFD08A),
-                            ],
-                      stops: const [0.0, 0.55, 1.0],
-                    ),
-                  ),
-                ),
-
-                Positioned(
-                  top: -90,
-                  left: -90,
-                  child: _homeSoftCircle(260, isDark ? const Color(0xFF2EC4B6) : Colors.white, 0.08),
-                ),
-                Positioned(
-                  bottom: 120,
-                  right: -70,
-                  child: _homeSoftCircle(220, const Color(0xFFFFBF69), isDark ? 0.10 : 0.22),
-                ),
-
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            InkWell(
-                              borderRadius: BorderRadius.circular(999),
-                              onTap: _openProfileInfoPage,
-                              child: Container(
-                                width: 66,
-                                height: 66,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFCBF3F0).withValues(alpha: 0.85),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.55),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 34,
-                                  color: Color(0xFF2EC4B6),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 18),
-
-                            InkWell(
-                              onTap: _openProfileMenu,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _greeting(),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    _activeAccountName,
-                                    style: TextStyle(
-                                      fontSize: 23,
-                                      fontWeight: FontWeight.w800,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const Spacer(),
-
-                            IconButton(
-                              onPressed: _openNotifications,
-                              icon: const Icon(Icons.notifications_rounded),
-                              color: Colors.white,
-                              iconSize: 27,
-                            ),
-
-                            IconButton(
-                              onPressed: _toggleQuickActions,
-                              icon: const Icon(Icons.add_circle_rounded),
-                              color: Colors.white,
-                              iconSize: 30,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 58),
-
-                        Expanded(
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            child: Column(
-                              children: [
-                                _buildSelectedChartsSection(),
-                                const SizedBox(height: 12),
-
-                                _buildDailyTipCard(),
-                                const SizedBox(height: 12),
-
-                                _buildGenerateReportButton(),
-                                const SizedBox(height: 90),
-                              ],
-                            ),
-                          ),
-                        ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        const Color(0xFF0D1B2A),
+                        const Color(0xFF1B2A3B),
+                        const Color(0xFF0D1B2A),
+                      ]
+                    : [
+                        const Color(0xFF7FD1C9),
+                        const Color(0xFFEAF4EC),
+                        const Color(0xFFFFD08A),
                       ],
-                    ),
-                  ),
-                ),
-
-                if (_showQuickActions) _buildQuickActionsOverlay(),
-              ],
-            ),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        width: 78,
-        height: 78,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE9FFFC), Color(0xFFBFF3EE)],
-          ),
-          border: Border.all(color: Colors.white, width: 8),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2EC4B6).withValues(alpha: 0.32),
-              blurRadius: 28,
-              spreadRadius: 2,
-              offset: const Offset(0, 12),
-            ),
-            BoxShadow(
-              color: const Color(0xFFFFBF69).withValues(alpha: 0.18),
-              blurRadius: 35,
-              spreadRadius: 5,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _onItemTapped(2),
-            child: Center(
-              child: Icon(
-                Icons.trending_up_rounded,
-                color: _selectedIndex == 2
-                    ? const Color(0xFF2EC4B6)
-                    : const Color(0xFF7C746E),
-                size: 39,
+                stops: const [0.0, 0.55, 1.0],
               ),
             ),
           ),
-        ),
+
+          Positioned(
+            top: -90,
+            left: -90,
+            child: _homeSoftCircle(260, isDark ? const Color(0xFF2EC4B6) : Colors.white, 0.08),
+          ),
+          Positioned(
+            bottom: 120,
+            right: -70,
+            child: _homeSoftCircle(220, const Color(0xFFFFBF69), isDark ? 0.10 : 0.22),
+          ),
+
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(26, 18, 26, 95),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: _openProfileInfoPage,
+                        child: Container(
+                          width: 66,
+                          height: 66,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBF3F0).withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            size: 34,
+                            color: Color(0xFF2EC4B6),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 18),
+
+                      InkWell(
+                        onTap: _openProfileMenu,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _greeting(),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _activeAccountName,
+                              style: TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      IconButton(
+                        onPressed: _openNotifications,
+                        icon: const Icon(Icons.notifications_rounded),
+                        color: Colors.white,
+                        iconSize: 27,
+                      ),
+
+                      IconButton(
+                        onPressed: _toggleQuickActions,
+                        icon: const Icon(Icons.add_circle_rounded),
+                        color: Colors.white,
+                        iconSize: 30,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 58),
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        children: [
+                          _buildSelectedChartsSection(),
+                          const SizedBox(height: 12),
+
+                          _buildDailyTipCard(),
+                          const SizedBox(height: 12),
+
+                          _buildGenerateReportButton(),
+                          const SizedBox(height: 90),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (_showQuickActions) _buildQuickActionsOverlay(),
+        ],
       ),
 
-    bottomNavigationBar: SmartBottomNav(
-    selectedIndex: _selectedIndex,
-    onItemTap: (index) {
-    if (index == 1) {
-      _openSettingsPage();
-      return;
-    }
-
-    if (index == 3) {
-      _openNotifications();
-      return;
-    }
-
-    if (index == 4) {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => TipsPage(
-        mainAccountId: widget.mainAccountId,
-        firebaseUid: widget.firebaseUid,
-        formId: _activeProfileId ?? '',
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SmartProgressFab(
+        selectedIndex: _selectedIndex,
+        onTap: _openProgressPage,
       ),
-    ),
-  );
-  return;
-}
 
-    _onItemTapped(index);
-  },
-    ),
+      bottomNavigationBar: SmartBottomNav(
+        selectedIndex: _selectedIndex,
+        onHomeTap: () => _onItemTapped(0),
+        onSettingsTap: _openSettingsPage,
+        onProgressTap: _openProgressPage,
+        onAlertsTap: _openNotifications,
+        onTipsTap: _openTipsPage,
+      ),
     );
   }
 
@@ -1278,9 +1593,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Quick actions overlay (Edit / Wi-Fi / Mode).
-  /// Keep this UI separate from business logic; actions should call dedicated methods.
   Widget _buildQuickActionsOverlay() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Positioned.fill(
       child: Stack(
         children: [
@@ -1288,7 +1602,6 @@ class _HomePageState extends State<HomePage> {
             onTap: _toggleQuickActions,
             child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
-          // close button
           Positioned(
             top: 20,
             right: 20,
@@ -1301,7 +1614,6 @@ class _HomePageState extends State<HomePage> {
               child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
-          // الدوائر الثلاثة
           Positioned(
             top: 80,
             right: 40,
@@ -1310,14 +1622,13 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Edit
                   Transform.translate(
                     offset: const Offset(-8, 0),
                     child: _QuickActionBubble(
                       icon: Icons.edit,
                       label: 'Edit',
                       onTap: () {
-                        _toggleQuickActions(); // يقفل القائمة
+                        _toggleQuickActions();
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const RegisterPage(),
@@ -1327,18 +1638,16 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Wi-Fi
                   _QuickActionBubble(
                     icon: _wifiOn ? Icons.wifi : Icons.wifi_off,
                     label: 'Wi-Fi',
                     onTap: _toggleWifi,
                   ),
                   const SizedBox(height: 12),
-                  // Mode
                   Transform.translate(
                     offset: const Offset(8, 0),
                     child: _QuickActionBubble(
-                      icon: _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                      icon: isDark ? Icons.dark_mode : Icons.light_mode,
                       label: 'Mode',
                       onTap: _toggleMode,
                     ),
@@ -1352,9 +1661,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Cards (UI only). When real sensor data arrives, drive them via state management.
-
-  // Graphics card
   Widget _buildSelectedChartsSection() {
     if (_homeSelectedCharts.isEmpty) {
       return _SensorCard(
@@ -1375,7 +1681,7 @@ class _HomePageState extends State<HomePage> {
                     fit: BoxFit.contain,
                   ),
                 ),
-                SizedBox(height: 14),
+                const SizedBox(height: 14),
                 Builder(
                   builder: (context) => Text(
                     'Go to Progress and select charts to show here.',
@@ -1401,7 +1707,7 @@ class _HomePageState extends State<HomePage> {
           child: _SensorCard(
             title: _chartTitle(type),
             subtitle: 'Selected from Progress page.',
-            child: SizedBox(height: 260, child: _chartWidget(type)),
+            child: SizedBox(height: 380, child: _chartWidget(type)),
           ),
         );
       }).toList(),
@@ -1528,7 +1834,56 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================== Generate Report  ==================
+  String _formatDateForApi(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<void> _generatePdfReport() async {
+    final formId = _activeProfileId;
+
+    if (formId == null || formId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active profile selected')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isGeneratingReport = true;
+    });
+
+    try {
+      final savedPath = await PdfReportService.generateAndSaveReport(
+        userId: widget.mainAccountId,
+        firebaseUid: widget.firebaseUid,
+        formId: formId,
+        selectedDate: _formatDateForApi(DateTime.now()),
+        rangeType: 'day',
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF report saved: $savedPath')));
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to generate report: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingReport = false;
+        });
+      }
+    }
+  }
+
   Widget _buildGenerateReportButton() {
     return Container(
       width: double.infinity,
@@ -1552,13 +1907,7 @@ class _HomePageState extends State<HomePage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Generate Report (UI only for now)'),
-              ),
-            );
-          },
+          onTap: _isGeneratingReport ? null : _generatePdfReport,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -1571,27 +1920,38 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
                   ),
-                  child: const Icon(
-                    Icons.auto_graph_rounded,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+                  child: _isGeneratingReport
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.auto_graph_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Generate a Report',
-                        style: TextStyle(
+                        _isGeneratingReport
+                            ? 'Generating Report...'
+                            : 'Generate a Report',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Text(
+                      const SizedBox(height: 4),
+                      const Text(
                         'Create a summary based on your latest readings & profile.',
                         style: TextStyle(
                           color: Colors.white,
@@ -1611,7 +1971,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-//// Shared UI card for sensor/indicator previews.
 class _SensorCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1670,7 +2029,6 @@ class _SensorCard extends StatelessWidget {
   }
 }
 
-/// Small circular button with icon + label used in quick actions overlay.
 class _QuickActionBubble extends StatelessWidget {
   final IconData icon;
   final String label;

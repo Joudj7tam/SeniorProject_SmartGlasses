@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 
 class SmartBottomNav extends StatelessWidget {
   final int selectedIndex;
-  final ValueChanged<int> onItemTap;
+
+  final VoidCallback onHomeTap;
+  final VoidCallback onSettingsTap;
+  final VoidCallback onProgressTap;
+  final VoidCallback onAlertsTap;
+  final VoidCallback onTipsTap;
 
   const SmartBottomNav({
     super.key,
     required this.selectedIndex,
-    required this.onItemTap,
+    required this.onHomeTap,
+    required this.onSettingsTap,
+    required this.onProgressTap,
+    required this.onAlertsTap,
+    required this.onTipsTap,
   });
 
   Color _iconColor(BuildContext context, int index) {
@@ -26,11 +35,31 @@ class SmartBottomNav extends StatelessWidget {
     );
   }
 
+  void _handleTap(int index) {
+    switch (index) {
+      case 0:
+        onHomeTap();
+        break;
+      case 1:
+        onSettingsTap();
+        break;
+      case 2:
+        onProgressTap();
+        break;
+      case 3:
+        onAlertsTap();
+        break;
+      case 4:
+        onTipsTap();
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
-      notchMargin: 10,
+      notchMargin: 7,
       elevation: 0,
       color: Theme.of(context).colorScheme.surface,
       child: SizedBox(
@@ -106,7 +135,7 @@ class SmartBottomNav extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () => onItemTap(index),
+      onTap: () => _handleTap(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -127,6 +156,74 @@ class SmartBottomNav extends StatelessWidget {
             const SizedBox(height: 4),
             Text(label, style: _labelStyle(context, index)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class SmartProgressFab extends StatelessWidget {
+  final int selectedIndex;
+  final VoidCallback onTap;
+
+  const SmartProgressFab({
+    super.key,
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(0, 12),
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFE9FFFC),
+              Color(0xFFBFF3EE),
+            ],
+          ),
+          border: Border.all(
+            color: Colors.white,
+            width: 6,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2EC4B6).withValues(alpha: 0.28),
+              blurRadius: 22,
+              spreadRadius: 1,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: const Color(0xFFFFBF69).withValues(alpha: 0.14),
+              blurRadius: 26,
+              spreadRadius: 3,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: Center(
+              child: Icon(
+                Icons.trending_up_rounded,
+                color: selectedIndex == 2
+                    ? const Color(0xFF2EC4B6)
+                    : const Color(0xFF7C746E),
+                size: 34,
+              ),
+            ),
+          ),
         ),
       ),
     );
