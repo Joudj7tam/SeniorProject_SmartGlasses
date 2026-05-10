@@ -102,6 +102,14 @@ class _ProgressPageState extends State<ProgressPage> {
 
   final Set<ProgressChartType> _selectedForHome = {};
   bool _isUpdatingHomeCharts = false;
+  String? _inlineToast;
+
+  void _showInlineToast(String message) {
+    setState(() => _inlineToast = message);
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _inlineToast = null);
+    });
+  }
 
   String _chartTypeToString(ProgressChartType type) {
     switch (type) {
@@ -214,14 +222,8 @@ class _ProgressPageState extends State<ProgressPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _selectedForHome.contains(chart)
-                ? 'Added to Home'
-                : 'Removed from Home',
-          ),
-        ),
+      _showInlineToast(
+        _selectedForHome.contains(chart) ? 'Added to Home' : 'Removed from Home',
       );
     } catch (e) {
       if (!mounted) return;
@@ -232,9 +234,7 @@ class _ProgressPageState extends State<ProgressPage> {
           ..addAll(previousCharts);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update home charts: $e')),
-      );
+      _showInlineToast('Failed to update home charts');
     } finally {
       if (!mounted) return;
 
@@ -795,6 +795,31 @@ class _ProgressPageState extends State<ProgressPage> {
                     ),
                   ),
                 ),
+
+                if (_inlineToast != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _textPrimary.withValues(alpha: 0.82),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _inlineToast!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 14),
 
