@@ -581,10 +581,6 @@ class _HomePageState extends State<HomePage> {
   final double _demoBrightness = 0.65; // من 0 إلى 1
   final double _demoDryness = 0.35; // من 0 إلى 1
 
-  // للحالة حق قائمة الأكشنات العلوية
-  bool _showQuickActions = false;
-  bool _wifiOn = true;
-
   // ================= Smart-Light =================
   // Smart-Light values (still stored هنا عشان نعرضها هناك)
   bool _smartLightEnabled = true;
@@ -817,18 +813,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _toggleQuickActions() {
-    setState(() {
-      _showQuickActions = !_showQuickActions;
-    });
-  }
-
-  void _toggleWifi() {
-    setState(() {
-      _wifiOn = !_wifiOn;
-    });
-  }
-
   void _openProfileMenu() {
     showModalBottomSheet(
       context: context,
@@ -950,7 +934,9 @@ class _HomePageState extends State<HomePage> {
                                     color: isDark ? kDarkCardElev : _sheetCard,
                                     borderRadius: BorderRadius.circular(22),
                                     border: Border.all(
-                                      color: isDark ? kDarkBorder : _sheetBorder,
+                                      color: isDark
+                                          ? kDarkBorder
+                                          : _sheetBorder,
                                     ),
                                   ),
                                   child: Text(
@@ -964,10 +950,15 @@ class _HomePageState extends State<HomePage> {
                                 ),
 
                               ...List.generate(_profiles.length, (i) {
-                                final name = (_profiles[i]['full_name'] ?? '').toString();
-                                final isActive = _profiles[i]['is_active'] == true;
-                                final formId = (_profiles[i]['id'] ?? '').toString();
-                                final isMain = (_mainFormId != null && formId == _mainFormId);
+                                final name = (_profiles[i]['full_name'] ?? '')
+                                    .toString();
+                                final isActive =
+                                    _profiles[i]['is_active'] == true;
+                                final formId = (_profiles[i]['id'] ?? '')
+                                    .toString();
+                                final isMain =
+                                    (_mainFormId != null &&
+                                    formId == _mainFormId);
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
@@ -975,13 +966,19 @@ class _HomePageState extends State<HomePage> {
                                     borderRadius: BorderRadius.circular(24),
                                     onTap: () async {
                                       try {
-                                        final formId = (_profiles[i]['id'] ?? '').toString();
-                                        final uri = Uri.parse(
-                                          '$backendBaseUrl/api/eye-health-form/switch',
-                                        ).replace(queryParameters: {
-                                          'main_account_id': widget.mainAccountId,
-                                          'form_id': formId,
-                                        });
+                                        final formId =
+                                            (_profiles[i]['id'] ?? '')
+                                                .toString();
+                                        final uri =
+                                            Uri.parse(
+                                              '$backendBaseUrl/api/eye-health-form/switch',
+                                            ).replace(
+                                              queryParameters: {
+                                                'main_account_id':
+                                                    widget.mainAccountId,
+                                                'form_id': formId,
+                                              },
+                                            );
                                         final res = await http.post(uri);
                                         if (res.statusCode != 200) {
                                           throw 'Switch failed (code: ${res.statusCode})';
@@ -989,31 +986,49 @@ class _HomePageState extends State<HomePage> {
                                         await _loadProfiles();
                                         if (ctx.mounted) Navigator.pop(ctx);
                                       } catch (e) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text(e.toString())),
                                         );
                                       }
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 180),
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
                                         color: isActive
-                                            ? (isDark ? kDarkAccentSoft : _sheetMintSoft.withOpacity(0.82))
-                                            : (isDark ? kDarkCardElev : _sheetCard),
+                                            ? (isDark
+                                                  ? kDarkAccentSoft
+                                                  : _sheetMintSoft.withOpacity(
+                                                      0.82,
+                                                    ))
+                                            : (isDark
+                                                  ? kDarkCardElev
+                                                  : _sheetCard),
                                         borderRadius: BorderRadius.circular(24),
                                         border: Border.all(
                                           color: isActive
                                               ? _sheetMint.withOpacity(0.45)
-                                              : (isDark ? kDarkBorder : Colors.white.withOpacity(0.90)),
+                                              : (isDark
+                                                    ? kDarkBorder
+                                                    : Colors.white.withOpacity(
+                                                        0.90,
+                                                      )),
                                           width: isActive ? 1.4 : 1,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
                                             color: isActive
-                                                ? _sheetMint.withOpacity(isDark ? 0.12 : 0.18)
-                                                : Colors.black.withOpacity(isDark ? 0.20 : 0.06),
+                                                ? _sheetMint.withOpacity(
+                                                    isDark ? 0.12 : 0.18,
+                                                  )
+                                                : Colors.black.withOpacity(
+                                                    isDark ? 0.20 : 0.06,
+                                                  ),
                                             blurRadius: 16,
                                             offset: const Offset(0, 8),
                                           ),
@@ -1031,21 +1046,38 @@ class _HomePageState extends State<HomePage> {
                                                 end: Alignment.bottomRight,
                                                 colors: isActive
                                                     ? (isDark
-                                                        ? const [Color(0xFF0D2A38), Color(0xFF1A3D50)]
-                                                        : const [Color(0xFFBDF3EE), Color(0xFFEFFFFC)])
+                                                          ? const [
+                                                              Color(0xFF0D2A38),
+                                                              Color(0xFF1A3D50),
+                                                            ]
+                                                          : const [
+                                                              Color(0xFFBDF3EE),
+                                                              Color(0xFFEFFFFC),
+                                                            ])
                                                     : (isDark
-                                                        ? const [Color(0xFF2A1F0E), Color(0xFF1E1A0E)]
-                                                        : const [Color(0xFFFFE7C2), Color(0xFFFFF8EF)]),
+                                                          ? const [
+                                                              Color(0xFF2A1F0E),
+                                                              Color(0xFF1E1A0E),
+                                                            ]
+                                                          : const [
+                                                              Color(0xFFFFE7C2),
+                                                              Color(0xFFFFF8EF),
+                                                            ]),
                                               ),
                                               border: Border.all(
-                                                color: isDark ? kDarkBorder : Colors.white,
+                                                color: isDark
+                                                    ? kDarkBorder
+                                                    : Colors.white,
                                                 width: 3,
                                               ),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: isActive
-                                                      ? _sheetMint.withOpacity(0.20)
-                                                      : _sheetOrange.withOpacity(0.14),
+                                                      ? _sheetMint.withOpacity(
+                                                          0.20,
+                                                        )
+                                                      : _sheetOrange
+                                                            .withOpacity(0.14),
                                                   blurRadius: 12,
                                                   offset: const Offset(0, 5),
                                                 ),
@@ -1053,9 +1085,13 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                             child: Center(
                                               child: Text(
-                                                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                                name.isNotEmpty
+                                                    ? name[0].toUpperCase()
+                                                    : '?',
                                                 style: TextStyle(
-                                                  color: isActive ? _sheetMint : _sheetOrange,
+                                                  color: isActive
+                                                      ? _sheetMint
+                                                      : _sheetOrange,
                                                   fontSize: 20,
                                                   fontWeight: FontWeight.w900,
                                                 ),
@@ -1066,44 +1102,80 @@ class _HomePageState extends State<HomePage> {
 
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  name.isEmpty ? 'Unnamed profile' : name,
+                                                  name.isEmpty
+                                                      ? 'Unnamed profile'
+                                                      : name,
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w800,
-                                                    color: isDark ? kDarkText : _sheetText,
+                                                    color: isDark
+                                                        ? kDarkText
+                                                        : _sheetText,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 5),
                                                 Row(
                                                   children: [
                                                     Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 9,
+                                                            vertical: 5,
+                                                          ),
                                                       decoration: BoxDecoration(
                                                         color: isActive
-                                                            ? _sheetMint.withOpacity(0.16)
-                                                            : (isDark ? kDarkOrangeSoft : _sheetOrangeSoft.withOpacity(0.75)),
-                                                        borderRadius: BorderRadius.circular(999),
+                                                            ? _sheetMint
+                                                                  .withOpacity(
+                                                                    0.16,
+                                                                  )
+                                                            : (isDark
+                                                                  ? kDarkOrangeSoft
+                                                                  : _sheetOrangeSoft
+                                                                        .withOpacity(
+                                                                          0.75,
+                                                                        )),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              999,
+                                                            ),
                                                       ),
                                                       child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
                                                         children: [
                                                           Icon(
-                                                            isActive ? Icons.check_circle_outline : Icons.touch_app_outlined,
+                                                            isActive
+                                                                ? Icons
+                                                                      .check_circle_outline
+                                                                : Icons
+                                                                      .touch_app_outlined,
                                                             size: 13,
-                                                            color: isActive ? _sheetMint : _sheetOrange,
+                                                            color: isActive
+                                                                ? _sheetMint
+                                                                : _sheetOrange,
                                                           ),
-                                                          const SizedBox(width: 4),
+                                                          const SizedBox(
+                                                            width: 4,
+                                                          ),
                                                           Text(
-                                                            isActive ? 'Active' : 'Tap to switch',
+                                                            isActive
+                                                                ? 'Active'
+                                                                : 'Tap to switch',
                                                             style: TextStyle(
                                                               fontSize: 11,
-                                                              fontWeight: FontWeight.w800,
-                                                              color: isActive ? _sheetMint : _sheetOrange,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color: isActive
+                                                                  ? _sheetMint
+                                                                  : _sheetOrange,
                                                             ),
                                                           ),
                                                         ],
@@ -1112,16 +1184,30 @@ class _HomePageState extends State<HomePage> {
                                                     if (isMain) ...[
                                                       const SizedBox(width: 7),
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 5,
+                                                            ),
                                                         decoration: BoxDecoration(
-                                                          color: isDark ? kDarkCard : Colors.white.withOpacity(0.75),
-                                                          borderRadius: BorderRadius.circular(999),
+                                                          color: isDark
+                                                              ? kDarkCard
+                                                              : Colors.white
+                                                                    .withOpacity(
+                                                                      0.75,
+                                                                    ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                999,
+                                                              ),
                                                         ),
                                                         child: Text(
                                                           'Main',
                                                           style: TextStyle(
                                                             fontSize: 11,
-                                                            color: isDark ? kDarkMuted : _sheetMuted,
+                                                            color: isDark
+                                                                ? kDarkMuted
+                                                                : _sheetMuted,
                                                             fontWeight:
                                                                 FontWeight.w800,
                                                           ),
@@ -1144,17 +1230,24 @@ class _HomePageState extends State<HomePage> {
                                                   decoration: BoxDecoration(
                                                     color: isDark
                                                         ? kDarkCardElev
-                                                        : Colors.white.withOpacity(0.85),
+                                                        : Colors.white
+                                                              .withOpacity(
+                                                                0.85,
+                                                              ),
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
-                                                      color: isDark ? kDarkBorder : _sheetBorder,
+                                                      color: isDark
+                                                          ? kDarkBorder
+                                                          : _sheetBorder,
                                                     ),
                                                   ),
                                                   child: IconButton(
                                                     padding: EdgeInsets.zero,
                                                     icon: Icon(
                                                       Icons.swap_horiz_rounded,
-                                                      color: isDark ? kDarkText : _sheetText,
+                                                      color: isDark
+                                                          ? kDarkText
+                                                          : _sheetText,
                                                       size: 22,
                                                     ),
                                                     onPressed: () async {
@@ -1257,7 +1350,9 @@ class _HomePageState extends State<HomePage> {
                                     backgroundColor: isDark
                                         ? kDarkOrangeSoft
                                         : Colors.white.withOpacity(0.45),
-                                    padding: const EdgeInsets.symmetric(vertical: 15),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -1288,8 +1383,12 @@ class _HomePageState extends State<HomePage> {
                                   onPressed: () =>
                                       _confirmDeleteMainAccount(ctx),
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    backgroundColor: Colors.red.withOpacity(isDark ? 0.12 : 0.045),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    backgroundColor: Colors.red.withOpacity(
+                                      isDark ? 0.12 : 0.045,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -1528,33 +1627,95 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 18),
 
                       InkWell(
+                        borderRadius: BorderRadius.circular(18),
                         onTap: _openProfileMenu,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _greeting(),
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: isDark
-                                    ? kDarkMuted
-                                    : const Color(0xFF4D4540),
-                                fontWeight: FontWeight.w400,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 4,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _greeting(),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: isDark
+                                      ? kDarkMuted
+                                      : const Color(0xFF4D4540),
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _activeAccountName,
-                              style: TextStyle(
-                                fontSize: 23,
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? kDarkText
-                                    : const Color(0xFF4D3732),
-                                letterSpacing: 0.5,
+
+                              const SizedBox(height: 6),
+
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 185,
+                                    ),
+                                    child: Text(
+                                      _activeAccountName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 23,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark
+                                            ? kDarkText
+                                            : const Color(0xFF4D3732),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 8),
+
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? kDarkAccentSoft
+                                          : Colors.white.withOpacity(0.35),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? kDarkBorder
+                                            : Colors.white.withOpacity(0.55),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.swap_horiz_rounded,
+                                          size: 15,
+                                          color: isDark
+                                              ? kDarkText
+                                              : const Color(0xFF3E2E25),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 16,
+                                          color: isDark
+                                              ? kDarkText
+                                              : const Color(0xFF3E2E25),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 
@@ -1565,13 +1726,6 @@ class _HomePageState extends State<HomePage> {
                         icon: const Icon(Icons.notifications_rounded),
                         color: isDark ? kDarkText : Colors.white,
                         iconSize: 27,
-                      ),
-
-                      IconButton(
-                        onPressed: _toggleQuickActions,
-                        icon: const Icon(Icons.add_circle_rounded),
-                        color: isDark ? kDarkText : Colors.white,
-                        iconSize: 30,
                       ),
                     ],
                   ),
@@ -1599,8 +1753,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-
-          if (_showQuickActions) _buildQuickActionsOverlay(),
         ],
       ),
 
@@ -1633,70 +1785,6 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: color.withOpacity(opacity),
         shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  /// Quick actions overlay (Edit / Wi-Fi / Mode).
-  /// Keep this UI separate from business logic; actions should call dedicated methods.
-  Widget _buildQuickActionsOverlay() {
-    return Positioned.fill(
-      child: Stack(
-        children: [
-          GestureDetector(
-            onTap: _toggleQuickActions,
-            child: Container(color: Colors.black.withOpacity(0.25)),
-          ),
-          // close button
-          Positioned(
-            top: 20,
-            right: 20,
-            child: FloatingActionButton(
-              heroTag: 'close_actions',
-              mini: true,
-              shape: const CircleBorder(),
-              backgroundColor: Colors.white,
-              onPressed: _toggleQuickActions,
-              child: const Icon(Icons.close, color: Colors.black87),
-            ),
-          ),
-          // الدوائر الثلاثة
-          Positioned(
-            top: 80,
-            right: 40,
-            child: Material(
-              color: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Edit
-                  Transform.translate(
-                    offset: const Offset(-8, 0),
-                    child: _QuickActionBubble(
-                      icon: Icons.edit,
-                      label: 'Edit',
-                      onTap: () {
-                        _toggleQuickActions(); // يقفل القائمة
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Wi-Fi
-                  _QuickActionBubble(
-                    icon: _wifiOn ? Icons.wifi : Icons.wifi_off,
-                    label: 'Wi-Fi',
-                    onTap: _toggleWifi,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1745,10 +1833,53 @@ class _HomePageState extends State<HomePage> {
       children: _homeSelectedCharts.map((type) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: _SensorCard(
-            title: _chartTitle(type),
-            subtitle: 'Selected from Progress page.',
-            child: SizedBox(height: 380, child: _chartWidget(type)),
+          child: Stack(
+            children: [
+              _SensorCard(
+                title: _chartTitle(type),
+                subtitle: 'Selected from Progress page.',
+                showHeader: false,
+                child: SizedBox(height: 380, child: _chartWidget(type)),
+              ),
+
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: _isUpdatingHomeCharts
+                        ? null
+                        : () => _toggleChartForHome(type),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.92),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFEADCCD),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 19,
+                        color: Color(0xFF8A7667),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       }).toList(),
@@ -2023,11 +2154,13 @@ class _SensorCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
+  final bool showHeader;
 
   const _SensorCard({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.showHeader = true,
   });
 
   @override
@@ -2038,13 +2171,9 @@ class _SensorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       decoration: BoxDecoration(
-        color: isDark
-            ? kDarkCard
-            : const Color(0xFFFFFAF4).withOpacity(0.93),
+        color: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.93),
         borderRadius: BorderRadius.circular(18),
-        border: isDark
-            ? Border.all(color: kDarkBorder, width: 1)
-            : null,
+        border: isDark ? Border.all(color: kDarkBorder, width: 1) : null,
         boxShadow: [
           BoxShadow(
             color: isDark
@@ -2059,67 +2188,29 @@ class _SensorCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: isDark ? kDarkText : const Color(0xFF2D2926),
-            ),
-          ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 5),
+          if (showHeader) ...[
             Text(
-              subtitle,
+              title,
               style: TextStyle(
-                fontSize: 12,
-                color: isDark ? kDarkMuted : const Color(0xFF8F8880),
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: isDark ? kDarkText : const Color(0xFF2D2926),
               ),
             ),
+            if (subtitle.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? kDarkMuted : const Color(0xFF8F8880),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
           ],
-          const SizedBox(height: 10),
           child,
-        ],
-      ),
-    );
-  }
-}
-
-/// Small circular button with icon + label used in quick actions overlay.
-class _QuickActionBubble extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionBubble({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(40),
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFBF69),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: const Color(0xFF2EC4B6)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Colors.white),
-          ),
         ],
       ),
     );

@@ -937,7 +937,9 @@ class _ProgressPageState extends State<ProgressPage> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
-                ? (isDark ? kDarkAccent.withOpacity(0.45) : const Color(0xFFB8E7E1))
+                ? (isDark
+                      ? kDarkAccent.withOpacity(0.45)
+                      : const Color(0xFFB8E7E1))
                 : (isDark ? kDarkBorder : _softBorder),
           ),
           boxShadow: selected
@@ -1031,12 +1033,14 @@ class _EmptyChartState extends StatelessWidget {
   final String title;
   final String message;
   final Color accentColor;
+  final String? sectionLabel;
 
   const _EmptyChartState({
     required this.icon,
     required this.title,
     required this.message,
     required this.accentColor,
+    this.sectionLabel,
   });
 
   @override
@@ -1065,6 +1069,32 @@ class _EmptyChartState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (sectionLabel != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: accentColor.withOpacity(0.28)),
+                  ),
+                  child: Text(
+                    sectionLabel!,
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
+
             Opacity(
               opacity: 0.38,
               child: Image.asset(
@@ -1190,11 +1220,19 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final titleColor = isDark ? kDarkText : const Color(0xFF5B4636);
         final axisColor = isDark ? kDarkMuted : const Color(0xFF8A7667);
-        final gridH = isDark ? const Color(0xFF1E3D5A) : const Color(0xFFE7DBCF);
-        final gridV = isDark ? const Color(0xFF162E42) : const Color(0xFFEEE3D8);
+        final gridH = isDark
+            ? const Color(0xFF1E3D5A)
+            : const Color(0xFFE7DBCF);
+        final gridV = isDark
+            ? const Color(0xFF162E42)
+            : const Color(0xFFEEE3D8);
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(color: isDark ? kDarkAccent : _mint));
+          return Center(
+            child: CircularProgressIndicator(
+              color: isDark ? kDarkAccent : _mint,
+            ),
+          );
         }
 
         if (snapshot.hasError) {
@@ -1211,9 +1249,11 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
 
         if (data.isEmpty) {
           return const _EmptyChartState(
+            sectionLabel: 'Blink by Time',
             icon: Icons.show_chart_rounded,
             title: 'No blink data yet',
-            message: 'Blink rate data will appear here once readings are available for the selected day.',
+            message:
+                'Blink rate data will appear here once readings are available for the selected day.',
             accentColor: _mint,
           );
         }
@@ -1225,7 +1265,11 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
           children: [
             Text(
               'Blink Rate by Time',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: titleColor),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: titleColor,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1244,20 +1288,36 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
                       show: true,
                       drawVerticalLine: true,
                       horizontalInterval: maxY <= 10 ? 2 : (maxY / 5),
-                      getDrawingHorizontalLine: (_) => FlLine(color: gridH, strokeWidth: 1, dashArray: [6, 4]),
-                      getDrawingVerticalLine: (_) => FlLine(color: gridV, strokeWidth: 1, dashArray: [4, 4]),
+                      getDrawingHorizontalLine: (_) => FlLine(
+                        color: gridH,
+                        strokeWidth: 1,
+                        dashArray: [6, 4],
+                      ),
+                      getDrawingVerticalLine: (_) => FlLine(
+                        color: gridV,
+                        strokeWidth: 1,
+                        dashArray: [4, 4],
+                      ),
                     ),
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
                       leftTitles: AxisTitles(
                         axisNameWidget: Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Text(
                             'Blinks/min',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: titleColor),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                              color: titleColor,
+                            ),
                           ),
                         ),
                         axisNameSize: 28,
@@ -1267,7 +1327,11 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
                           interval: 2,
                           getTitlesWidget: (value, meta) => Text(
                             value.toInt().toString(),
-                            style: TextStyle(fontSize: 9, color: axisColor, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: axisColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -1277,13 +1341,18 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
                           reservedSize: 46,
                           getTitlesWidget: (value, meta) {
                             final i = value.toInt();
-                            if (i < 0 || i >= data.length) return const SizedBox();
+                            if (i < 0 || i >= data.length)
+                              return const SizedBox();
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
                                 data[i].label,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 8.5, color: axisColor, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  color: axisColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             );
                           },
@@ -1299,7 +1368,9 @@ class _BlinkByTimeBarChartState extends State<BlinkByTimeBarChart> {
                             toY: item.value,
                             color: _statusColor(item.value),
                             width: 18,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(8),
+                            ),
                           ),
                         ],
                       );
@@ -1428,16 +1499,28 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final titleColor = isDark ? kDarkText : const Color(0xFF5B4636);
         final axisColor = isDark ? kDarkMuted : const Color(0xFF8A7667);
-        final gridH = isDark ? const Color(0xFF1E3D5A) : const Color(0xFFE7DBCF);
-        final gridV = isDark ? const Color(0xFF162E42) : const Color(0xFFEEE3D8);
+        final gridH = isDark
+            ? const Color(0xFF1E3D5A)
+            : const Color(0xFFE7DBCF);
+        final gridV = isDark
+            ? const Color(0xFF162E42)
+            : const Color(0xFFEEE3D8);
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(color: isDark ? kDarkAccent : _mint));
+          return Center(
+            child: CircularProgressIndicator(
+              color: isDark ? kDarkAccent : _mint,
+            ),
+          );
         }
 
         if (snapshot.hasError) {
           return const Center(
-            child: Text('Failed to load alerts data', style: TextStyle(color: Colors.red), textAlign: TextAlign.center),
+            child: Text(
+              'Failed to load alerts data',
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
           );
         }
 
@@ -1445,9 +1528,11 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
 
         if (alerts.isEmpty) {
           return const _EmptyChartState(
+            sectionLabel: 'Alerts',
             icon: Icons.notifications_none_rounded,
             title: 'No alerts yet',
-            message: 'No alerts were recorded for the selected time range. Your alert summary will appear here once data is available.',
+            message:
+                'No alerts were recorded for the selected time range. Your alert summary will appear here once data is available.',
             accentColor: _orange,
           );
         }
@@ -1459,7 +1544,11 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
           children: [
             Text(
               'Alerts by Type',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: titleColor),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: titleColor,
+              ),
             ),
             const SizedBox(height: 14),
             Expanded(
@@ -1472,13 +1561,25 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                       show: true,
                       drawVerticalLine: true,
                       horizontalInterval: maxY <= 5 ? 1 : (maxY / 5),
-                      getDrawingHorizontalLine: (_) => FlLine(color: gridH, strokeWidth: 1, dashArray: [6, 4]),
-                      getDrawingVerticalLine: (_) => FlLine(color: gridV, strokeWidth: 1, dashArray: [4, 4]),
+                      getDrawingHorizontalLine: (_) => FlLine(
+                        color: gridH,
+                        strokeWidth: 1,
+                        dashArray: [6, 4],
+                      ),
+                      getDrawingVerticalLine: (_) => FlLine(
+                        color: gridV,
+                        strokeWidth: 1,
+                        dashArray: [4, 4],
+                      ),
                     ),
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
@@ -1488,7 +1589,11 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                             if (value % 1 != 0) return const SizedBox();
                             return Text(
                               value.toInt().toString(),
-                              style: TextStyle(fontSize: 10, color: axisColor, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: axisColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             );
                           },
                         ),
@@ -1498,7 +1603,11 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             'Alert Type',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: titleColor),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: titleColor,
+                            ),
                           ),
                         ),
                         axisNameSize: 24,
@@ -1507,8 +1616,12 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                           reservedSize: 44,
                           getTitlesWidget: (value, meta) {
                             final i = value.toInt();
-                            if (i < 0 || i >= alerts.length) return const SizedBox();
-                            final displayLabel = alerts[i].label.replaceAll('_', '\n');
+                            if (i < 0 || i >= alerts.length)
+                              return const SizedBox();
+                            final displayLabel = alerts[i].label.replaceAll(
+                              '_',
+                              '\n',
+                            );
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: SizedBox(
@@ -1518,7 +1631,12 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 8.5, height: 1.1, color: axisColor, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    height: 1.1,
+                                    color: axisColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             );
@@ -1534,7 +1652,9 @@ class _AlertsBarChartState extends State<AlertsBarChart> {
                             toY: alerts[i].value,
                             color: const Color(0xFF2EC4B6),
                             width: 18,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(8),
+                            ),
                           ),
                         ],
                       );
@@ -1703,10 +1823,11 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
 
         if (data.isEmpty) {
           return const _EmptyChartState(
-            icon: Icons.light_mode_outlined,
+            sectionLabel: 'Blue Light',
+            icon: Icons.remove_red_eye_outlined,
             title: 'No blue light data yet',
             message:
-                'Blue light exposure points will appear here when readings are available for the selected range.',
+                'Blue light data will appear here once readings are available for the selected time range.',
             accentColor: _mint,
           );
         }
@@ -1714,8 +1835,12 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final titleColor = isDark ? kDarkText : const Color(0xFF5B4636);
         final axisColor = isDark ? kDarkMuted : const Color(0xFF8A7667);
-        final gridH = isDark ? const Color(0xFF1E3D5A) : const Color(0xFFE7DBCF);
-        final gridV = isDark ? const Color(0xFF162E42) : const Color(0xFFEEE3D8);
+        final gridH = isDark
+            ? const Color(0xFF1E3D5A)
+            : const Color(0xFFE7DBCF);
+        final gridV = isDark
+            ? const Color(0xFF162E42)
+            : const Color(0xFFEEE3D8);
 
         final spots = _buildScatterSpots(data);
         final maxX = _maxX(data);
@@ -1726,7 +1851,11 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
           children: [
             Text(
               'Blue Light Exposure',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: titleColor),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: titleColor,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1747,20 +1876,36 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
                       show: true,
                       drawVerticalLine: true,
                       horizontalInterval: maxY > 1 ? (maxY / 5) : 0.2,
-                      getDrawingHorizontalLine: (_) => FlLine(color: gridH, strokeWidth: 1, dashArray: [6, 4]),
-                      getDrawingVerticalLine: (_) => FlLine(color: gridV, strokeWidth: 1, dashArray: [4, 4]),
+                      getDrawingHorizontalLine: (_) => FlLine(
+                        color: gridH,
+                        strokeWidth: 1,
+                        dashArray: [6, 4],
+                      ),
+                      getDrawingVerticalLine: (_) => FlLine(
+                        color: gridV,
+                        strokeWidth: 1,
+                        dashArray: [4, 4],
+                      ),
                     ),
                     borderData: FlBorderData(show: false),
                     scatterSpots: spots,
                     titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
                       leftTitles: AxisTitles(
                         axisNameWidget: Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Text(
                             'Blue Ratio',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: titleColor),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: titleColor,
+                            ),
                           ),
                         ),
                         axisNameSize: 22,
@@ -1770,7 +1915,11 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
                           interval: maxY > 1 ? (maxY / 5) : 0.2,
                           getTitlesWidget: (value, meta) => Text(
                             value.toStringAsFixed(2),
-                            style: TextStyle(fontSize: 10, color: axisColor, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: axisColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -1779,7 +1928,11 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             'Lux',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: titleColor),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: titleColor,
+                            ),
                           ),
                         ),
                         axisNameSize: 24,
@@ -1789,7 +1942,11 @@ class _BlueLightScatterChartState extends State<BlueLightScatterChart> {
                           interval: maxX > 100 ? (maxX / 5) : 20,
                           getTitlesWidget: (value, meta) => Text(
                             value.toStringAsFixed(0),
-                            style: TextStyle(fontSize: 10, color: axisColor, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: axisColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

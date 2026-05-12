@@ -679,257 +679,736 @@ Widget build(BuildContext context) {
 }
 
   Widget _buildEditBody() {
-    return Form(
-      key: _editFormKey,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-        children: [
-          _EditModeBanner(isSaving: _isSaving),
-          const SizedBox(height: 16),
+  return Form(
+    key: _editFormKey,
+    child: ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 34),
+      children: [
+        _editHeroCard(),
+        const SizedBox(height: 22),
 
-          _SectionTitle(title: 'Account Information'),
-          const SizedBox(height: 10),
-
-          TextFormField(
-            controller: _fullNameController,
-            decoration: const InputDecoration(
-              labelText: 'Full Name',
-              border: OutlineInputBorder(),
+        _editSectionCard(
+          icon: Icons.person_outline_rounded,
+          title: 'Account Information',
+          children: [
+            _editRoundedTextField(
+              controller: _fullNameController,
+              hint: 'Full Name',
+              icon: Icons.badge_outlined,
+              validator: (v) => _requiredText(v, 'Full name is required'),
             ),
-            validator: (v) => _requiredText(v, 'Full name is required'),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-          TextFormField(
-            controller: _emailController,
-            readOnly: true,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.lock_outline),
-              helperText: 'Email cannot be edited here',
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Phone',
-              border: OutlineInputBorder(),
-            ),
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Personal Information'),
-          const SizedBox(height: 10),
-
-          InkWell(
-            onTap: _pickDob,
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Date of Birth',
-                border: OutlineInputBorder(),
-              ),
-              child: Text(
-                _editDob == null ? 'Select date' : _fmtDate(_editDob!),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          _DropdownBox(
-            label: 'Gender',
-            value: _editGender,
-            hint: 'Select gender',
-            items: const ['Male', 'Female'],
-            onChanged: (v) => setState(() => _editGender = v),
-          ),
-
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Smart Light'),
-            subtitle: const Text(
-              'Enable or disable smart light recommendations',
-            ),
-            value: _smartLightEnabled,
-            onChanged: (v) => setState(() => _smartLightEnabled = v),
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Previous Eye Conditions'),
-          const SizedBox(height: 10),
-          _chipRow(
-            children: [
-              _boolChip('Myopia', _myopia, (v) => setState(() => _myopia = v)),
-              _boolChip(
-                'Hyperopia',
-                _hyperopia,
-                (v) => setState(() => _hyperopia = v),
-              ),
-              _boolChip(
-                'Astigmatism',
-                _astigmatism,
-                (v) => setState(() => _astigmatism = v),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Chronic Diseases'),
-          const SizedBox(height: 10),
-          _chipRow(
-            children: [
-              _boolChip(
-                'Diabetes',
-                _diabetes,
-                (v) => setState(() => _diabetes = v),
-              ),
-              _boolChip(
-                'Hypertension',
-                _hypertension,
-                (v) => setState(() => _hypertension = v),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Glasses / Contact Lenses'),
-          const SizedBox(height: 10),
-          _DropdownBox(
-            label: 'Do you use glasses or contact lenses?',
-            value: _visionAid,
-            hint: 'Select one',
-            items: const ['Glasses', 'Contact Lenses', 'None'],
-            onChanged: (v) => setState(() => _visionAid = v),
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'History of Eye Surgeries'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Have you had eye surgery?'),
-            value: _hadSurgery,
-            onChanged: (v) {
-              setState(() {
-                _hadSurgery = v;
-                if (!v) _surgeryDetailsController.clear();
-              });
-            },
-          ),
-
-          if (_hadSurgery) ...[
-            TextFormField(
-              controller: _surgeryDetailsController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Surgery details',
-                border: OutlineInputBorder(),
-              ),
+            _editRoundedTextField(
+              controller: _emailController,
+              hint: 'Email',
+              icon: Icons.lock_outline,
+              enabled: false,
             ),
             const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: Text(
+                'Email cannot be edited here',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: _profileMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            _editRoundedTextField(
+              controller: _phoneController,
+              hint: 'Phone',
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+            ),
           ],
+        ),
 
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Daily Habits & Lifestyle'),
-          const SizedBox(height: 10),
+        _editSectionCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Personal Information',
+          children: [
+            InkWell(
+              onTap: _isSaving ? null : _pickDob,
+              borderRadius: BorderRadius.circular(22),
+              child: InputDecorator(
+                decoration: _editRoundedDecoration(
+                  label: 'Date of Birth',
+                  icon: Icons.calendar_month_outlined,
+                ),
+                child: Text(
+                  _editDob == null ? 'Select date' : _fmtDate(_editDob!),
+                  style: const TextStyle(
+                    color: Color(0xFF8F8880),
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
 
-          _sliderCard(
-            title: 'Screen time (hours/day)',
-            valueLabel: '${_screenTimeHours.round()} h',
-            min: 0,
-            max: 16,
-            value: _screenTimeHours,
-            onChanged: (v) => setState(() => _screenTimeHours = v),
+            _editDropdownField(
+              label: 'Gender',
+              value: _editGender,
+              hint: 'Select gender',
+              icon: Icons.wc_rounded,
+              items: const ['Male', 'Female'],
+              onChanged: _isSaving ? (_) {} : (v) => setState(() => _editGender = v),
+            ),
+            const SizedBox(height: 14),
+
+            _editSwitchCard(
+              title: 'Smart Light',
+              subtitle: 'Enable or disable smart light recommendations',
+              icon: Icons.lightbulb_outline_rounded,
+              value: _smartLightEnabled,
+              onChanged: _isSaving
+                  ? (_) {}
+                  : (v) => setState(() => _smartLightEnabled = v),
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.remove_red_eye_outlined,
+          title: 'Previous Eye Conditions',
+          children: [
+            _chipRow(
+              children: [
+                _editBoolChip('Myopia', _myopia, (v) => setState(() => _myopia = v)),
+                _editBoolChip('Hyperopia', _hyperopia, (v) => setState(() => _hyperopia = v)),
+                _editBoolChip('Astigmatism', _astigmatism, (v) => setState(() => _astigmatism = v)),
+              ],
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.health_and_safety_outlined,
+          title: 'Chronic Diseases',
+          children: [
+            _chipRow(
+              children: [
+                _editBoolChip('Diabetes', _diabetes, (v) => setState(() => _diabetes = v)),
+                _editBoolChip('Hypertension', _hypertension, (v) => setState(() => _hypertension = v)),
+              ],
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.visibility_outlined,
+          title: 'Glasses / Contact Lenses',
+          children: [
+            _editDropdownField(
+              label: 'Do you use glasses or contact lenses?',
+              value: _visionAid,
+              hint: 'Select one',
+              icon: Icons.remove_red_eye_outlined,
+              items: const ['Glasses', 'Contact Lenses', 'None'],
+              onChanged: _isSaving ? (_) {} : (v) => setState(() => _visionAid = v),
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.medical_services_outlined,
+          title: 'History of Eye Surgeries',
+          children: [
+            _editSwitchCard(
+              title: 'Have you had eye surgery?',
+              subtitle: 'Turn this on if you have previous eye surgery history.',
+              icon: Icons.healing_outlined,
+              value: _hadSurgery,
+              onChanged: _isSaving
+                  ? (_) {}
+                  : (v) {
+                      setState(() {
+                        _hadSurgery = v;
+                        if (!v) _surgeryDetailsController.clear();
+                      });
+                    },
+            ),
+            const SizedBox(height: 14),
+
+            _editRoundedTextField(
+              controller: _surgeryDetailsController,
+              hint: 'Surgery Details',
+              icon: Icons.edit_note_rounded,
+              enabled: _hadSurgery && !_isSaving,
+              maxLines: 2,
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.light_mode_outlined,
+          title: 'Daily Habits & Lifestyle',
+          children: [
+            _editSliderCard(
+              title: 'Screen time',
+              subtitle: 'hours/day',
+              valueLabel: '${_screenTimeHours.round()} h',
+              min: 0,
+              max: 16,
+              value: _screenTimeHours,
+              onChanged: _isSaving
+                  ? (_) {}
+                  : (v) => setState(() => _screenTimeHours = v),
+            ),
+            const SizedBox(height: 14),
+
+            _editDropdownField(
+              label: 'Lighting',
+              value: _lighting,
+              hint: 'Select lighting',
+              icon: Icons.lightbulb_outline_rounded,
+              items: const ['Bright', 'Normal', 'Dim'],
+              onChanged: _isSaving ? (_) {} : (v) => setState(() => _lighting = v),
+            ),
+            const SizedBox(height: 14),
+
+            _editSliderCard(
+              title: 'Sleep',
+              subtitle: 'hours/night',
+              valueLabel: '${_sleepHours.toStringAsFixed(0)} h',
+              min: 0,
+              max: 12,
+              value: _sleepHours,
+              onChanged: _isSaving
+                  ? (_) {}
+                  : (v) => setState(() => _sleepHours = v),
+            ),
+            const SizedBox(height: 14),
+
+            _editDropdownField(
+              label: 'Diet',
+              value: _diet,
+              hint: 'Select diet',
+              icon: Icons.restaurant_outlined,
+              items: const ['Healthy', 'Average', 'Unhealthy'],
+              onChanged: _isSaving ? (_) {} : (v) => setState(() => _diet = v),
+            ),
+          ],
+        ),
+
+        _editSectionCard(
+          icon: Icons.warning_amber_rounded,
+          title: 'Current Eye Symptoms',
+          children: [
+            _chipRow(
+              children: [
+                _editBoolChip('Dryness', _symDryness, (v) => setState(() => _symDryness = v)),
+                _editBoolChip('Redness', _symRedness, (v) => setState(() => _symRedness = v)),
+                _editBoolChip('Itching', _symItching, (v) => setState(() => _symItching = v)),
+                _editBoolChip('Tearing', _symTearing, (v) => setState(() => _symTearing = v)),
+                _editBoolChip('Eye strain', _symEyeStrain, (v) => setState(() => _symEyeStrain = v)),
+                _editBoolChip('Blurred vision', _symBlurredVision, (v) => setState(() => _symBlurredVision = v)),
+              ],
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        SizedBox(
+          height: 60,
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isSaving ? null : _saveChanges,
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFFEFAA4B),
+              disabledBackgroundColor: const Color(0xFFEFAA4B).withOpacity(0.55),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.2,
+                    ),
+                  )
+                : const Text(
+                    'Save Changes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
           ),
+        ),
+      ],
+    ),
+  );
+}
 
-          const SizedBox(height: 12),
-          _DropdownBox(
-            label: 'Lighting',
-            value: _lighting,
-            hint: 'Select lighting',
-            items: const ['Bright', 'Normal', 'Dim'],
-            onChanged: (v) => setState(() => _lighting = v),
+Widget _editHeroCard() {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(30),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? const [kDarkCard, kDarkCardElev]
+            : const [
+                Color(0xFF2E9EA0),
+                Color(0xFF43B8B8),
+              ],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF2E9EA0).withOpacity(isDark ? 0.08 : 0.25),
+          blurRadius: 22,
+          offset: const Offset(0, 12),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.22),
+            shape: BoxShape.circle,
           ),
-
-          const SizedBox(height: 12),
-          _sliderCard(
-            title: 'Sleep (hours/night)',
-            valueLabel: '${_sleepHours.toStringAsFixed(0)} h',
-            min: 0,
-            max: 12,
-            value: _sleepHours,
-            onChanged: (v) => setState(() => _sleepHours = v),
+          child: const Icon(
+            Icons.edit_note_rounded,
+            color: Colors.white,
+            size: 30,
           ),
-
-          const SizedBox(height: 12),
-          _DropdownBox(
-            label: 'Diet',
-            value: _diet,
-            hint: 'Select diet',
-            items: const ['Healthy', 'Average', 'Unhealthy'],
-            onChanged: (v) => setState(() => _diet = v),
-          ),
-
-          const SizedBox(height: 18),
-          _SectionTitle(title: 'Current Eye Symptoms'),
-          const SizedBox(height: 10),
-          _chipRow(
+        ),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _boolChip(
-                'Dryness',
-                _symDryness,
-                (v) => setState(() => _symDryness = v),
+              Text(
+                'Update your eye profile',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              _boolChip(
-                'Redness',
-                _symRedness,
-                (v) => setState(() => _symRedness = v),
-              ),
-              _boolChip(
-                'Itching',
-                _symItching,
-                (v) => setState(() => _symItching = v),
-              ),
-              _boolChip(
-                'Tearing',
-                _symTearing,
-                (v) => setState(() => _symTearing = v),
-              ),
-              _boolChip(
-                'Eye strain',
-                _symEyeStrain,
-                (v) => setState(() => _symEyeStrain = v),
-              ),
-              _boolChip(
-                'Blurred vision',
-                _symBlurredVision,
-                (v) => setState(() => _symBlurredVision = v),
+              SizedBox(height: 5),
+              Text(
+                'Keep your information accurate to improve personalized monitoring.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12.5,
+                  height: 1.3,
+                ),
               ),
             ],
           ),
+        ),
+      ],
+    ),
+  );
+}
 
-          const SizedBox(height: 22),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _isSaving ? null : _saveChanges,
-              icon: _isSaving
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
-            ),
-          ),
-        ],
+Widget _editSectionCard({
+  required IconData icon,
+  required String title,
+  required List<Widget> children,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 18),
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: isDark ? kDarkCard : Colors.white.withOpacity(0.62),
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(
+        color: isDark ? kDarkBorder : Colors.white.withOpacity(0.75),
+        width: 1.2,
       ),
-    );
-  }
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(isDark ? 0.25 : 0.045),
+          blurRadius: 18,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? kDarkOrangeSoft
+                    : const Color(0xFFEFAA4B).withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFFEFAA4B),
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? kDarkText : Colors.black,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ...children,
+      ],
+    ),
+  );
+}
+
+InputDecoration _editRoundedDecoration({String? label, IconData? icon}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final iconColor = isDark ? kDarkMuted : const Color(0xFF9B9690);
+
+  return InputDecoration(
+    labelText: label,
+    floatingLabelBehavior:
+        label == null ? FloatingLabelBehavior.never : FloatingLabelBehavior.auto,
+    labelStyle: TextStyle(
+      color: isDark ? kDarkMuted : const Color(0xFF9B9690),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    ),
+    prefixIcon: icon == null ? null : Icon(icon, color: iconColor, size: 21),
+    filled: true,
+    fillColor: isDark
+        ? kDarkCardElev
+        : const Color(0xFFFFFAF4).withOpacity(0.88),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: BorderSide(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Color(0xFF2E9EA0), width: 1.4),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: BorderSide(
+        color: isDark ? kDarkBorder.withOpacity(0.5) : const Color(0xFFE8E0D7),
+        width: 1,
+      ),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
+    ),
+  );
+}
+
+Widget _editRoundedTextField({
+  required TextEditingController controller,
+  required String hint,
+  IconData? icon,
+  String? Function(String?)? validator,
+  bool enabled = true,
+  int maxLines = 1,
+  TextInputType? keyboardType,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return TextFormField(
+    controller: controller,
+    validator: validator,
+    enabled: enabled,
+    maxLines: maxLines,
+    keyboardType: keyboardType,
+    cursorColor: const Color(0xFF2E9EA0),
+    style: TextStyle(
+      color: enabled
+          ? (isDark ? kDarkText : Colors.black)
+          : (isDark ? kDarkMuted : const Color(0xFFB8B0A8)),
+      fontSize: 15.5,
+      fontWeight: FontWeight.w600,
+    ),
+    decoration: _editRoundedDecoration(icon: icon).copyWith(
+      hintText: hint,
+      hintStyle: TextStyle(
+        color: isDark ? kDarkMuted : const Color(0xFFAAA39B),
+        fontSize: 15.5,
+        fontWeight: FontWeight.w500,
+      ),
+      fillColor: isDark
+          ? (enabled ? kDarkCardElev : kDarkCard)
+          : (enabled
+              ? const Color(0xFFFFFAF4).withOpacity(0.88)
+              : const Color(0xFFFFFAF4).withOpacity(0.48)),
+    ),
+  );
+}
+
+Widget _editDropdownField({
+  required String label,
+  required String? value,
+  required String hint,
+  required List<String> items,
+  required ValueChanged<String?> onChanged,
+  IconData? icon,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return InputDecorator(
+    decoration: _editRoundedDecoration(label: label, icon: icon),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: items.contains(value) ? value : null,
+        hint: Text(
+          hint,
+          style: TextStyle(
+            color: isDark ? kDarkMuted : const Color(0xFFAAA39B),
+            fontSize: 15.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        icon: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: isDark ? kDarkMuted : const Color(0xFF9B9690),
+          size: 24,
+        ),
+        isExpanded: true,
+        dropdownColor: isDark ? kDarkCard : const Color(0xFFFFFAF4),
+        borderRadius: BorderRadius.circular(20),
+        style: TextStyle(
+          color: isDark ? kDarkText : Colors.black,
+          fontSize: 15.5,
+          fontWeight: FontWeight.w600,
+        ),
+        items: items
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(item),
+              ),
+            )
+            .toList(),
+        onChanged: _isSaving ? null : onChanged,
+      ),
+    ),
+  );
+}
+
+Widget _editSwitchCard({
+  required String title,
+  required String subtitle,
+  required IconData icon,
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          icon,
+          color: isDark ? kDarkMuted : const Color(0xFF9B9690),
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: isDark ? kDarkText : Colors.black,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: isDark ? kDarkMuted : const Color(0xFF8F8880),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Transform.scale(
+          scale: 0.86,
+          child: Switch(
+            value: value,
+            activeThumbColor: Colors.white,
+            activeTrackColor: const Color(0xFFEFAA4B),
+            inactiveThumbColor: isDark ? kDarkMuted : const Color(0xFF8C8176),
+            inactiveTrackColor: isDark ? kDarkBorder : const Color(0xFFF0E4D8),
+            onChanged: _isSaving ? null : onChanged,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _editBoolChip(String label, bool value, ValueChanged<bool> onChanged) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return FilterChip(
+    label: Text(
+      value ? '✓ $label' : label,
+      style: TextStyle(
+        color: value
+            ? (isDark ? kDarkText : Colors.black)
+            : (isDark ? kDarkMuted : const Color(0xFF3C3630)),
+        fontSize: 14.5,
+        fontWeight: value ? FontWeight.w800 : FontWeight.w600,
+      ),
+    ),
+    selected: value,
+    showCheckmark: false,
+    onSelected: _isSaving ? null : onChanged,
+    backgroundColor:
+        isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
+    selectedColor: isDark ? kDarkOrangeSoft : const Color(0xFFF5CE94),
+    side: BorderSide(
+      color: value
+          ? const Color(0xFFEFAA4B)
+          : (isDark ? kDarkBorder : const Color(0xFFE4DDD4)),
+      width: value ? 1.2 : 1,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    elevation: 0,
+    pressElevation: 0,
+  );
+}
+
+Widget _editSliderCard({
+  required String title,
+  required String subtitle,
+  required String valueLabel,
+  required double min,
+  required double max,
+  required double value,
+  required ValueChanged<double> onChanged,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return Container(
+    padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+    decoration: BoxDecoration(
+      color: isDark ? kDarkCard : const Color(0xFFFFFAF4).withOpacity(0.88),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(
+        color: isDark ? kDarkBorder : const Color(0xFFE4DDD4),
+        width: 1,
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: isDark ? kDarkText : Colors.black,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFAA4B).withOpacity(0.16),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                valueLabel,
+                style: const TextStyle(
+                  color: Color(0xFFEFAA4B),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: isDark ? kDarkMuted : const Color(0xFF8F8880),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: (max - min).round(),
+          label: valueLabel,
+          activeColor: const Color(0xFFEFAA4B),
+          inactiveColor: isDark ? kDarkBorder : const Color(0xFFF0E4D8),
+          onChanged: _isSaving ? null : onChanged,
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _chipRow({required List<Widget> children}) {
     return Wrap(spacing: 10, runSpacing: 10, children: children);
