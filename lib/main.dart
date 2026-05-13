@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'eye_health_profile_page.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'notifications_page.dart';
 import 'smart_bottom_nav.dart';
 
@@ -116,6 +116,117 @@ class _HomePageState extends State<HomePage> {
 
   bool _powerOn = false;
   Timer? _deviceStateTimer;
+
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
+      //go back to login page and delete the stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+    }
+  }
+
+  Widget _buildProfileMenuButton() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return PopupMenuButton<String>(
+      color: isDark ? kDarkCard : const Color(0xFFFFFCF8),
+      elevation: 10,
+      offset: const Offset(0, 42),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      onSelected: (value) {
+        switch (value) {
+          case 'profile':
+            _openProfileInfoPage();
+            break;
+          case 'settings':
+            _openSettingsPage();
+            break;
+          case 'logout':
+            _logout();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'profile',
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_outline_rounded,
+                color: isDark ? kDarkText : const Color(0xFF5B4636),
+                size: 21,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Profile',
+                style: TextStyle(
+                  color: isDark ? kDarkText : const Color(0xFF5B4636),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'settings',
+          child: Row(
+            children: [
+              Icon(
+                Icons.settings_outlined,
+                color: isDark ? kDarkText : const Color(0xFF5B4636),
+                size: 21,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Settings',
+                style: TextStyle(
+                  color: isDark ? kDarkText : const Color(0xFF5B4636),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, color: Colors.redAccent, size: 21),
+              SizedBox(width: 10),
+              Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.all(6.0),
+        child: Icon(
+          Icons.person_rounded,
+          color: isDark ? kDarkText : Colors.white,
+          size: 27,
+        ),
+      ),
+    );
+  }
 
   // ================= Glasses Link =================
 
@@ -1726,7 +1837,14 @@ class _HomePageState extends State<HomePage> {
                         icon: const Icon(Icons.notifications_rounded),
                         color: isDark ? kDarkText : Colors.white,
                         iconSize: 27,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 34,
+                          minHeight: 40,
+                        ),
                       ),
+
+                      _buildProfileMenuButton(),
                     ],
                   ),
 
